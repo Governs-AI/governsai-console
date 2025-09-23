@@ -1,0 +1,25 @@
+{
+  "name": "@governs-ai/db",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "rm -rf dist && tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r generated dist/",
+    "dev": "tsc --watch",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "prisma": "5.22.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

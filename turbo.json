@@ -1,0 +1,33 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "generate": {
+      "outputs": ["packages/db/generated/**", "node_modules/.prisma/**"]
+    },
+    "build": {
+      "dependsOn": ["^build", "generate"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "dist/**", "!.next/cache/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@governs-ai/layout#build": {
+      "outputs": []
+    },
+    "@governs-ai/db#generate": {
+      "outputs": ["packages/db/generated/**", "node_modules/.prisma/**"]
+    },
+    "@governs-ai/billing#build": {
+      "dependsOn": [],
+      "outputs": []
+    }
+  }
+}

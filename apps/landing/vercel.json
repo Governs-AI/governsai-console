@@ -1,0 +1,19 @@
+{
+  "buildCommand": "cd ../.. && pnpm install && pnpm run generate && pnpm --filter @governs-ai/db run build && pnpm --filter @governs-ai/billing run build && cd apps/landing && pnpm run build",
+  "devCommand": "pnpm run dev",
+  "installCommand": "pnpm install",
+  "rewrites": [
+    {
+      "source": "/docs/:path*",
+      "destination": "${DOCS_APP_URL}/docs/:path*"
+    },
+    {
+      "source": "/platform/:path*",
+      "destination": "${PLATFORM_APP_URL}/platform/:path*"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "${PLATFORM_APP_URL}/app/:path*"
+    }
+  ]
+}

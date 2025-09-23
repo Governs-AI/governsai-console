@@ -1,0 +1,195 @@
+{
+  "personalInfo": {
+    "name": "Shaishav Pindadi",
+    "position": "Fullstack Blockchain Developer",
+    "email": "shaivpidadi@gmail.com",
+    "phone": "+1-603-296-7499",
+    "location": "Manchester, NH, USA",
+    "linkedin": "https://www.linkedin.com/in/shaivpidadi/"
+  },
+  "profileSummary": "Dynamic Fullstack Engineer with over 4 years of experience specializing in ReactJS, NextJs, NodeJs, and blockchain technologies. Proven expertise in developing scalable, high-availability web and blockchain applications, with a strong foundation in microservices architecture and cloud technologies. Passionate about leveraging modern web technologies to drive innovation in fintech and Web3 domains.",
+  "technicalSkills": {
+    "languages": [
+      "JavaScript",
+      "TypeScript",
+      "HTML5",
+      "CSS3",
+      "Java",
+      "Solidity",
+      "Golang"
+    ],
+    "frameworks": [
+      "React.js",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "Spring Boot",
+      "Redux"
+    ],
+    "tools": [
+      "Docker",
+      "Jenkins",
+      "Git",
+      "Bitbucket",
+      "JIRA",
+      "Trello",
+      "Basecamp",
+      "Truffle",
+      "Geth",
+      "Hardhat"
+    ],
+    "databases": ["MongoDB", "PostgreSQL", "DynamoDB"],
+    "other": [
+      "AWS",
+      "Google Cloud",
+      "Microsoft Azure",
+      "Blockchain",
+      "Ethereum",
+      "Polygon",
+      "BSC",
+      "DEFI",
+      "NFT",
+      "IPFS",
+      "GraphQL",
+      "Web3.js"
+    ]
+  },
+  "experience": [
+    {
+      "company": "Chaincode Consulting LLP",
+      "position": "FullStack Blockchain Developer",
+      "duration": "October 2021 - September 2022",
+      "achievements": [
+        "Led the design and implementation of a blockchain-based NFT marketplace, enhancing digital asset management and transaction speeds by 25%.",
+        "Engineered microservices with Spring Boot, improving system efficiency by 40%.",
+        "Integrated AWS CloudWatch and EC2 for robust application monitoring, reducing downtime by 30%.",
+        "Spearheaded the deployment of CI/CD pipelines using Jenkins, enhancing code quality through automated testing."
+      ],
+      "rolesAndResponsibilities": [
+        "Developed and maintained full-stack web and blockchain applications ensuring high quality and timely delivery.",
+        "Utilized end-to-end architecture to develop front-end UI using JavaScript (JS), React, and integrating cryptocurrency and blockchain protocols such as web3 and GraphQL.",
+        "Led a 15-person team, driving strategic insights for 2 product teams and contributing to revenue growth and blockchain advancements.",
+        "Managed end-to-end development lifecycle, from design to deployment, ensuring compliance with best practices."
+      ]
+    },
+    {
+      "company": "Solulab Inc",
+      "position": "React Developer",
+      "duration": "June 2019 - October 2021",
+      "achievements": [
+        "Provided technical leadership in developing React applications, ensuring high performance and responsiveness.",
+        "Optimized project architecture to enhance scalability and maintainability of React applications.",
+        "Developed Java-based web applications incorporating Spring MVC, achieving a 98% pass rate on first-run tests.",
+        "Employed AWS services for deployment, achieving high availability and resilience."
+      ],
+      "rolesAndResponsibilities": [
+        "Collaborated with team members to architect and develop high-quality web applications.",
+        "Took ownership of technical development, design, and delivery, implementing RESTful APIs for seamless integration.",
+        "Promoted to Frontend Lead, facilitating direct client interactions for requirement gathering and overall development.",
+        "Led frontend development projects, improving user engagement through intuitive and user-friendly interfaces."
+      ]
+    },
+    {
+      "company": "Alite Projects",
+      "position": "Fullstack Developer Intern",
+      "duration": "August 2018 - May 2019",
+      "achievements": [
+        "Contributed to the development of web applications using Angular and React, adopting agile methodologies.",
+        "Implemented RESTful web services for dynamic data retrieval, improving application responsiveness.",
+        "Gained foundational experience in web technologies, focusing on creating responsive user interfaces.",
+        "Participated in live coding sessions, contributing to general programming challenges."
+      ],
+      "rolesAndResponsibilities": [
+        "Assisted in building web applications with a focus on using TypeScript, React, and Node.js.",
+        "Collaborated closely with the team to support projects during all phases of delivery.",
+        "Engaged in unit testing, integration, and deployment of software products, ensuring high-quality releases.",
+        "Monitored website performance and rectified front-end-related issues, communicating technical issues effectively."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Devolution World - Multiverse Blockchain NFT Game",
+      "summary": "A groundbreaking blockchain-based game leveraging NFTs for in-game assets, offering a transparent and fair asset distribution system.",
+      "technologies": [
+        "Chainlink VRF",
+        "Ethereum",
+        "Smart Contracts",
+        "Node.js"
+      ],
+      "rolesAndResponsibilities": [
+        "Implemented Chainlink VRF for fair and transparent in-game asset distribution.",
+        "Developed smart contracts for NFT-based characters and items, resulting in over 100,000 unique assets.",
+        "Played a pivotal role in the decentralized infrastructure design, leading to a significant increase in user engagement.",
+        "Engineered a scalable backend supporting a peak concurrency of over 10,000 players."
+      ]
+    },
+    {
+      "name": "Agreed - SAAS Based Application",
+      "summary": "A collaborative SAAS platform designed to enhance decision-making and creativity within teams, securing million-dollar funding for development.",
+      "technologies": ["React.js", "Node.js", "GraphQL", "PostgreSQL"],
+      "rolesAndResponsibilities": [
+        "Drove frontend and backend integration, implementing complex features that fostered significant funding.",
+        "Coordinated with multidisciplinary teams for high-quality code delivery and backend service alignment.",
+        "Engaged in extensive testing and debugging, maintaining high software quality and reliability.",
+        "Led API lifecycle from creation to deployment, ensuring robust and scalable service architecture."
+      ]
+    },
+    {
+      "name": "KEC - Blockhour Digitalization",
+      "summary": "A comprehensive digital ecosystem including a web-based application and PWA to enhance productivity and decision-making during block hour activities.",
+      "technologies": [
+        "Node.js",
+        "React.js",
+        "ExpressJS",
+        "MSSQL",
+        "RabbitMQ",
+        "NextJs"
+      ],
+      "rolesAndResponsibilities": [
+        "Engineered client and server-side components for a digital ecosystem, developing a PWA for mobile optimization.",
+        "Directed API development and integration, employing MSSQL and RabbitMQ for efficient data management.",
+        "Collaborated with backend teams to implement response strategies, improving system-wide communication.",
+        "Contributed to substantial productivity gains by leveraging digital initiatives throughout the value chain."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Master of Information Technology",
+      "field": "Information Technology",
+      "institution": "Southern New Hampshire University",
+      "startYear": "2022",
+      "endYear": "2024"
+    },
+    {
+      "degree": "Bachelor of Engineering",
+      "field": "Information Technology",
+      "institution": "K.J. Institute of Engineering & Technology",
+      "startYear": "2015",
+      "endYear": "2019"
+    }
+  ],
+  "additionalSections": {
+    "volunteering": [],
+    "publications": [],
+    "certifications": [
+      {
+        "name": "AWS Certified Solutions Architect",
+        "issuedBy": "Amazon Web Services",
+        "date": "2023"
+      }
+    ],
+    "languages": [
+      {
+        "name": "English",
+        "proficiency": "Fluent"
+      }
+    ],
+    "hobbies": [
+      "Exploring Web3 and blockchain technologies",
+      "Participating in coding challenges",
+      "Contributing to open-source projects"
+    ]
+  }
+}

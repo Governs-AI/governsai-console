@@ -1,0 +1,113 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "./generated"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  apiKeys       APIKey[]
+  usageRecords  UsageRecord[]
+  budgets       Budget[]
+  auditLogs     AuditLog[]
+}
+
+// API Key Management
+model APIKey {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  userId       String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime?
+  
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageRecords UsageRecord[]
+  
+  @@index([key])
+  @@index([userId])
+}
+
+// AI Provider Configuration
+model AIProvider {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  baseUrl   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  usageRecords UsageRecord[]
+}
+
+// Usage Tracking
+model UsageRecord {
+  id            String   @id @default(cuid())
+  userId        String
+  apiKeyId      String?
+  providerId    String
+  model         String
+  promptTokens  Int
+  completionTokens Int
+  totalTokens   Int
+  cost          Float
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey     APIKey?    @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  provider   AIProvider @relation(fields: [providerId], references: [id])
+  
+  @@index([userId, createdAt])
+  @@index([providerId, createdAt])
+}
+
+// Budget Management
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  amount     Float
+  usedAmount Float    @default(0)
+  period     String   // daily, weekly, monthly, yearly
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// Audit Logging
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // create, update, delete, api_call, etc.
+  resource  String   // user, api_key, budget, etc.
+  details   Json?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}

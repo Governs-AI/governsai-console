@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../.. && pnpm install && pnpm run generate && pnpm --filter @governs-ai/db run build && pnpm --filter @governs-ai/billing run build && cd apps/platform && pnpm run build",
+  "devCommand": "pnpm run dev",
+  "installCommand": "cd ../.. && pnpm install"
+}

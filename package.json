@@ -1,0 +1,42 @@
+{
+  "name": "governs-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Governance OS - Secure control plane for AI interactions",
+  "scripts": {
+    "clean": "find . -name 'node_modules' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'dist' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'generated' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name '.next' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name '.turbo' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'build' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'out' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name '.vercel' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name 'coverage' -type d -exec rm -rf {} + 2>/dev/null || true && find . -name '*.tsbuildinfo' -type f -exec rm -f {} + 2>/dev/null || true",
+    "build": "turbo run build",
+    "postbuild": "pnpm --filter @governs-ai/db run build",
+    "dev:all": "turbo run dev",
+    "dev:docs": "turbo run dev --filter=@governs-ai/docs",
+    "dev:landing": "turbo run dev --filter=@governs-ai/landing",
+    "dev:platform": "turbo run dev --filter=@governs-ai/platform",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "generate": "pnpm --filter @governs-ai/db run generate",
+    "postinstall": "pnpm run generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.11.0"
+  },
+  "devDependencies": {
+    "@prisma/nextjs-monorepo-workaround-plugin": "^6.11.1",
+    "prettier": "^3.6.0",
+    "prisma": "^5.11.0",
+    "turbo": "^2.5.4",
+    "typescript": "5.8.2"
+  },
+  "overrides": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184"
+}

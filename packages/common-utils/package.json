@@ -1,0 +1,21 @@
+{
+  "name": "@governs-ai/common-utils",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@governs-ai/typescript-config": "workspace:*",
+    "@governs-ai/eslint-config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "next": "^14.0.0"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@governs-ai/platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GovernsAI Main Platform Application",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev -p 3002",
+    "lint": "next lint",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@governs-ai/common-utils": "workspace:*",
+    "@governs-ai/db": "workspace:*",
+    "@governs-ai/layout": "workspace:*",
+    "@governs-ai/ui": "workspace:*",
+    "@prisma/client": "^5.22.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "next": "15.4.7",
+    "next-auth": "^5.0.0-beta.29",
+    "next-themes": "^0.2.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5"
+  }
+}
