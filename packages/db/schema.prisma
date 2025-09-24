@@ -111,3 +111,25 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([action, createdAt])
 }
+
+// Decision Logging (Event Ingest)
+model Decision {
+  id               String   @id @default(cuid())
+  orgId            String   @map("org_id")
+  direction        String   // precheck, postcheck
+  decision         String   // allow, transform, deny
+  tool             String?
+  scope            String?
+  detectorSummary  Json     @default("{}") @map("detector_summary")
+  payloadHash      String   @map("payload_hash")
+  latencyMs        Int?     @map("latency_ms")
+  correlationId    String?  @map("correlation_id")
+  tags             Json     @default("[]")
+  ts               DateTime @default(now())
+  
+  @@index([orgId, ts(sort: Desc)])
+  @@index([decision])
+  @@index([direction])
+  @@index([tool])
+  @@index([correlationId])
+}

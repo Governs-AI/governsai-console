@@ -22,67 +22,49 @@ This package is automatically installed as a dependency in all GovernsAI project
 ### Importing Utilities
 ```typescript
 import { 
-  getAppLink, 
-  getQuickActionLinks, 
-  getLinkAttributes,
+  getPlatformUrl,
+  getDocsUrl,
+  getLandingUrl,
+  getAuthUrl,
   navigationUrls 
 } from '@governs-ai/common-utils';
 ```
 
 ### Navigation Functions
 ```typescript
-// Get app-specific links
-const dashboardLink = getAppLink('dashboard');
-const resumeLink = getAppLink('resumeStudio');
+// Get application URLs
+const platformUrl = getPlatformUrl();
+const docsUrl = getDocsUrl();
+const landingUrl = getLandingUrl();
 
-// Get quick action links for dashboard
-const quickActions = getQuickActionLinks();
-
-// Get link attributes for external links
-const attributes = getLinkAttributes('external');
-```
-
-### Navigation URLs
-```typescript
 // Access predefined navigation URLs
 const authUrl = navigationUrls.auth.signin;
-const dashboardUrl = navigationUrls.dashboard.home;
-const resumeUrl = navigationUrls.resumeStudio.create;
+const dashboardUrl = navigationUrls.platform.dashboard;
+const policiesUrl = navigationUrls.platform.policies;
 ```
 
 ## 🔧 Core Functions
 
-### `getAppLink(key: string)`
-Returns application-specific navigation links based on the provided key.
+### `getPlatformUrl()`
+Returns the platform application URL from environment variables.
 
-**Supported Keys:**
-- `dashboard` - Main dashboard
-- `usage` - Usage tracking
-- `budgets` - Budget management
-- `policies` - Policy management
-- `analytics` - Analytics dashboard
-- `compliance` - Compliance reporting
+### `getDocsUrl()`
+Returns the documentation application URL from environment variables.
 
-### `getQuickActionLinks()`
-Returns quick action links for the AI governance dashboard interface.
+### `getLandingUrl()`
+Returns the landing page application URL from environment variables.
 
-### `getLinkAttributes(category: string)`
-Returns appropriate attributes for different link categories (internal, external, tool).
+### `getAuthUrl()`
+Returns the authentication service URL from environment variables.
 
 ## 📋 Constants
 
 ### `navigationUrls`
 Predefined navigation URLs for all applications:
-- Authentication routes
-- Dashboard routes
-- Usage tracking routes
-- Policy management routes
-
-### `APP_CONFIG`
-Application configuration constants:
-- App name and description
-- Version information
-- Keywords and metadata
+- Platform routes (dashboard, usage, budgets, policies, audit, apiKeys)
+- Documentation routes (getting started, API reference, guides)
+- Landing page routes (pricing, contact, about)
+- Authentication routes (signin, signup, signout)
 
 ## 🚀 Scripts
 
@@ -101,7 +83,7 @@ pnpm run lint
 
 - `@governs-ai/ui` - Shared UI components
 - `@governs-ai/layout` - Layout components
-- `@governs-ai/billing` - Billing utilities
+- `@governs-ai/db` - Database utilities
 
 ## 📝 Contributing
 

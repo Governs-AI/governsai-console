@@ -30,6 +30,7 @@ export * from './generated/index.js';
 
 // Database queries
 export * from './queries/user';
+export * from './queries/decisions';
 
 export default prisma;
 export type { PrismaClient } from "./generated/index.js";

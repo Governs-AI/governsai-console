@@ -164,9 +164,6 @@ importers:
 
   apps/platform:
     dependencies:
-      '@governs-ai/billing':
-        specifier: workspace:*
-        version: link:../../packages/billing
       '@governs-ai/common-utils':
         specifier: workspace:*
         version: link:../../packages/common-utils
