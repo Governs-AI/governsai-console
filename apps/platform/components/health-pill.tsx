@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@governs-ai/ui';
+import { Badge } from '@governs-ai/ui';
 import { Activity, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 interface HealthStatus {

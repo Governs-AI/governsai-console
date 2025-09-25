@@ -1,6 +1,24 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { 
+  PageHeader, 
+  Button, 
+  Input, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle,
+  DataTable,
+  DataTableHeader,
+  DataTableBody,
+  DataTableRow,
+  DataTableHead,
+  DataTableCell,
+  EmptyState,
+  Skeleton,
+  SkeletonRow
+} from "@governs-ai/ui";
 
 interface APIKey {
   id: string;
@@ -90,51 +108,51 @@ export default function KeysClient() {
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-2 text-gray-600">Loading API keys...</p>
+      <div className="space-y-6">
+        <div className="h-8 bg-muted rounded animate-pulse" />
+        <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">API Keys</h1>
-          <p className="text-gray-600">
-            Manage your API keys for accessing GovernsAI services
-          </p>
-        </div>
-        <button 
-          onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Create Key
-        </button>
-      </div>
+      <PageHeader
+        title="API Keys"
+        subtitle="Manage your API keys for accessing GovernsAI services"
+        actions={
+          <Button onClick={() => setShowCreateForm(true)}>
+            Create Key
+          </Button>
+        }
+      />
 
       {/* Create Key Form */}
       {showCreateForm && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-4">Create New API Key</h3>
-          <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New API Key</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium mb-2">
                 Label
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="e.g., Production API Key"
                 value={newKey.label}
                 onChange={(e) => setNewKey({ ...newKey, label: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2">
                 Scopes
               </label>
               <div className="space-y-2">
@@ -158,135 +176,127 @@ export default function KeysClient() {
               </div>
             </div>
             
-            <div className="flex space-x-2">
-              <button 
+            <div className="flex gap-2">
+              <Button 
                 onClick={handleCreateKey}
                 disabled={!newKey.label || newKey.scopes.length === 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
               >
                 Create Key
-              </button>
-              <button 
+              </Button>
+              <Button 
+                variant="outline"
                 onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Created Key Display */}
       {createdKey && (
-        <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-lg">
-          <h3 className="text-lg font-semibold text-yellow-800 mb-4">API Key Created</h3>
-          <div className="bg-white p-4 rounded border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Key Value</span>
-              <button 
-                onClick={() => navigator.clipboard.writeText(createdKey.keyValue || '')}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-              >
-                Copy
-              </button>
+        <Card className="border-warning bg-warning/5">
+          <CardHeader>
+            <CardTitle className="text-warning">API Key Created</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-background p-4 rounded border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Key Value</span>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(createdKey.keyValue || '')}
+                >
+                  Copy
+                </Button>
+              </div>
+              <p className="font-mono text-sm bg-muted p-2 rounded break-all">
+                {createdKey.keyValue}
+              </p>
             </div>
-            <p className="font-mono text-sm bg-gray-100 p-2 rounded break-all">
-              {createdKey.keyValue}
+            <p className="text-sm text-warning">
+              ⚠️ This is the only time you'll see the full key value. Make sure to copy it now.
             </p>
-          </div>
-          <p className="text-sm text-yellow-700 mt-2">
-            ⚠️ This is the only time you'll see the full key value. Make sure to copy it now.
-          </p>
-          <button 
-            onClick={() => setCreatedKey(null)}
-            className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-          >
-            I've Saved the Key
-          </button>
-        </div>
+            <Button 
+              onClick={() => setCreatedKey(null)}
+              className="bg-warning hover:bg-warning/90"
+            >
+              I've Saved the Key
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Keys Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Your API Keys</h2>
-        </div>
-        
-        {keys.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No API keys found. Create your first key to get started.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Label
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Scopes
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Issued
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Used
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {keys.map((key) => (
-                  <tr key={key.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {key.label}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {key.scopes.map((scope) => (
-                          <span key={scope} className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                            {scope}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(key.issuedAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatLastUsed(key.lastUsed)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        key.isActive 
-                          ? 'text-green-800 bg-green-100' 
-                          : 'text-gray-800 bg-gray-100'
-                      }`}>
-                        {key.isActive ? 'Active' : 'Inactive'}
+      {keys.length === 0 ? (
+        <EmptyState
+          title="No API keys found"
+          desc="Create your first key to get started with the GovernsAI API."
+          action={
+            <Button onClick={() => setShowCreateForm(true)}>
+              Create First Key
+            </Button>
+          }
+        />
+      ) : (
+        <DataTable>
+          <DataTableHeader>
+            <DataTableRow>
+              <DataTableHead>Label</DataTableHead>
+              <DataTableHead>Scopes</DataTableHead>
+              <DataTableHead>Issued</DataTableHead>
+              <DataTableHead>Last Used</DataTableHead>
+              <DataTableHead>Status</DataTableHead>
+              <DataTableHead>Actions</DataTableHead>
+            </DataTableRow>
+          </DataTableHeader>
+          <DataTableBody>
+            {keys.map((key) => (
+              <DataTableRow key={key.id}>
+                <DataTableCell className="font-medium">
+                  {key.label}
+                </DataTableCell>
+                <DataTableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {key.scopes.map((scope) => (
+                      <span key={scope} className="inline-flex px-2 py-1 text-xs font-medium bg-muted text-muted-foreground rounded">
+                        {scope}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button 
-                        onClick={() => handleDeleteKey(key.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                    ))}
+                  </div>
+                </DataTableCell>
+                <DataTableCell className="text-sm text-muted-foreground">
+                  {formatDate(key.issuedAt)}
+                </DataTableCell>
+                <DataTableCell className="text-sm text-muted-foreground">
+                  {formatLastUsed(key.lastUsed)}
+                </DataTableCell>
+                <DataTableCell>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    key.isActive 
+                      ? 'text-success bg-success/10' 
+                      : 'text-muted-foreground bg-muted'
+                  }`}>
+                    {key.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </DataTableCell>
+                <DataTableCell>
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteKey(key.id)}
+                    className="text-danger hover:text-danger"
+                  >
+                    Delete
+                  </Button>
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
+      )}
     </div>
   );
 }

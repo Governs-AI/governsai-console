@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@governs-ai/ui"
+import { Card, CardContent, CardHeader, CardTitle } from "@governs-ai/ui"
 import { Home, Search } from "lucide-react"
 import Link from "next/link"
 

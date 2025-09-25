@@ -6,6 +6,7 @@ module.exports = {
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
+    "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
   prefix: "",
@@ -131,6 +132,9 @@ module.exports = {
         80: "80",
         90: "90",
         100: "100",
+      },
+      transitionTimingFunction: {
+        pleasant: "cubic-bezier(0.2, 0.6, 0.2, 1)",
       },
     },
   },

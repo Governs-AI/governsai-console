@@ -1,4 +1,4 @@
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { LoadingSpinner } from "@governs-ai/ui"
 
 export default function Loading() {
   return (

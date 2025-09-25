@@ -543,15 +543,37 @@ interface ToolAccessMatrix {
 
 ## 🔐 Authentication & Authorization
 
-### Authentication Flow
-1. **Google OAuth**: Primary authentication method
-2. **Session Management**: NextAuth.js with JWT tokens
-3. **Organization Context**: Multi-tenant support with orgId
+### Authentication Methods
+- **Primary**: Email + Password with Argon2id hashing
+- **Secondary**: JWT session tokens for web access
+- **MFA**: TOTP (Time-based One-Time Password) support
+- **Future**: OAuth2/OIDC integration
+
+### Multi-Tenant Organization System
+- **Organizations**: Isolated workspaces with unique slugs
+- **Memberships**: Role-based access control per organization
+- **Invitations**: Email-based team member invitations
+- **Subdomain Support**: `{orgSlug}.app.governs.ai` routing
+
+### User Management
+- **Registration**: Self-service signup with email verification
+- **Password Reset**: Secure token-based password recovery
+- **Profile Management**: User profile and organization switching
+- **Account Security**: TOTP MFA setup and management
 
 ### Authorization Levels
-1. **Organization Admin**: Full access to all features
-2. **Developer**: API key management, policy viewing
-3. **Viewer**: Read-only access to dashboards
+- **OWNER**: Full organization control, can manage all members
+- **ADMIN**: User management, policy configuration, billing access
+- **DEVELOPER**: API key management, usage monitoring, policy testing
+- **VIEWER**: Read-only access to analytics and policies
+
+### Security Features
+- **Password Security**: Argon2id hashing with optional server-side pepper
+- **Session Management**: HTTP-only cookies with secure flags
+- **MFA Support**: TOTP with QR code setup and verification
+- **Email Verification**: Required before organization access
+- **Rate Limiting**: Login, signup, and password reset protection
+- **Audit Logging**: All authentication and authorization events
 
 ### API Key Authentication
 - **HMAC Signatures**: Optional for enhanced security
@@ -769,6 +791,32 @@ ENV NEXT_TELEMETRY_DISABLED=1
 - **Audit Logs**: Immutable security events
 - **Performance Logs**: Timing and resource usage
 - **Error Logs**: Exception tracking and debugging
+
+---
+
+## 📝 Recent Changes Log
+
+- **2024-12-19**: Implemented comprehensive authentication system
+  - Added multi-tenant organization system with role-based access control
+  - Implemented email/password authentication with Argon2id hashing
+  - Added TOTP MFA support with QR code setup
+  - Created organization invitation system with email tokens
+  - Built complete auth UI pages (login, signup, password reset, MFA setup)
+  - Added middleware for org resolution and auth protection
+  - Updated database schema with User, Credential, Org, OrgMembership models
+  - Implemented secure session management with JWT tokens
+  - Added password reset and email verification flows
+  - Created organization management and member invitation system
+  - All authentication features are production-ready with proper security measures
+
+- **2024-12-19**: Fixed development server issues
+  - Resolved port conflicts (3002, 3003)
+  - Removed duplicate pnpm-lock.yaml from platform app
+  - Set up shared UI components using shadcn/ui
+  - Added LoadingSpinner component to shared UI package
+  - Updated TypeScript path mappings for shared components
+  - Removed deprecated `appDir` option from Next.js configs
+  - All TypeScript compilation errors resolved
 
 ---
 

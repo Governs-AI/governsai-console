@@ -35,6 +35,21 @@ const nextConfig = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname),
     }
+    
+    // Handle Node.js modules for client-side
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        crypto: false,
+        stream: false,
+        buffer: false,
+        util: false,
+        fs: false,
+        path: false,
+        os: false,
+      };
+    }
+    
     return config
   },
 }

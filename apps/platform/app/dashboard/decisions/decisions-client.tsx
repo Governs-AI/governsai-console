@@ -1,6 +1,19 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { 
+  Button, 
+  DataTable, 
+  DataTableHeader, 
+  DataTableBody, 
+  DataTableRow, 
+  DataTableHead, 
+  DataTableCell,
+  EmptyState,
+  Skeleton,
+  SkeletonRow,
+  PageHeader
+} from "@governs-ai/ui";
 import { HealthPill } from '@/components/health-pill';
 
 interface Decision {
@@ -51,149 +64,127 @@ export default function DecisionsClient() {
   const getDecisionColor = (decision: string) => {
     switch (decision) {
       case 'allow':
-        return 'text-green-600 bg-green-100';
+        return 'text-success bg-success/10';
       case 'transform':
-        return 'text-yellow-600 bg-yellow-100';
+        return 'text-warning bg-warning/10';
       case 'deny':
-        return 'text-red-600 bg-red-100';
+        return 'text-danger bg-danger/10';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-muted-foreground bg-muted';
     }
   };
 
   const getDirectionColor = (direction: string) => {
     switch (direction) {
       case 'precheck':
-        return 'text-blue-600 bg-blue-100';
+        return 'text-info bg-info/10';
       case 'postcheck':
-        return 'text-purple-600 bg-purple-100';
+        return 'text-accent bg-accent/10';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-muted-foreground bg-muted';
     }
   };
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-2 text-gray-600">Loading decisions...</p>
+      <div className="space-y-6">
+        <div className="h-8 bg-muted rounded animate-pulse" />
+        <div className="h-4 bg-muted rounded animate-pulse w-2/3" />
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 text-center">
-        <div className="text-red-600 mb-4">
-          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <p className="text-red-600 mb-4">Error: {error}</p>
-        <button 
-          onClick={fetchDecisions}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Retry
-        </button>
-      </div>
+      <EmptyState
+        title="Failed to load decisions"
+        desc={error}
+        action={
+          <Button onClick={fetchDecisions}>
+            Try Again
+          </Button>
+        }
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Decision Log</h1>
-          <p className="text-gray-600">
-            Monitor AI governance decisions in real-time
-          </p>
-        </div>
-        <button 
-          onClick={fetchDecisions}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="Decision Log"
+        subtitle="Monitor AI governance decisions in real-time"
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={fetchDecisions}>
+              Refresh
+            </Button>
+            <Button variant="outline">
+              Export
+            </Button>
+          </div>
+        }
+      />
 
       {/* Health Pill */}
       <HealthPill />
 
       {/* Decisions Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Recent Decisions</h2>
-        </div>
-        
-        {decisions.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No decision events found.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Direction
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Decision
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tool
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Scope
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Latency
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Correlation ID
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {decisions.map((decision) => (
-                  <tr key={decision.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatTimestamp(decision.ts)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDirectionColor(decision.direction)}`}>
-                        {decision.direction}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDecisionColor(decision.decision)}`}>
-                        {decision.decision}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {decision.tool || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {decision.scope || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {decision.latencyMs ? `${decision.latencyMs}ms` : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {decision.correlationId || '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {decisions.length === 0 ? (
+        <EmptyState
+          title="No decisions found"
+          desc="Decision events will appear here as they are processed."
+        />
+      ) : (
+        <DataTable>
+          <DataTableHeader>
+            <DataTableRow>
+              <DataTableHead>Time</DataTableHead>
+              <DataTableHead>Direction</DataTableHead>
+              <DataTableHead>Decision</DataTableHead>
+              <DataTableHead>Tool</DataTableHead>
+              <DataTableHead>Scope</DataTableHead>
+              <DataTableHead>Latency</DataTableHead>
+              <DataTableHead>Correlation ID</DataTableHead>
+            </DataTableRow>
+          </DataTableHeader>
+          <DataTableBody>
+            {decisions.map((decision) => (
+              <DataTableRow key={decision.id}>
+                <DataTableCell className="text-sm text-muted-foreground">
+                  {formatTimestamp(decision.ts)}
+                </DataTableCell>
+                <DataTableCell>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDirectionColor(decision.direction)}`}>
+                    {decision.direction}
+                  </span>
+                </DataTableCell>
+                <DataTableCell>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDecisionColor(decision.decision)}`}>
+                    {decision.decision}
+                  </span>
+                </DataTableCell>
+                <DataTableCell className="text-sm">
+                  {decision.tool || '-'}
+                </DataTableCell>
+                <DataTableCell className="text-sm">
+                  {decision.scope || '-'}
+                </DataTableCell>
+                <DataTableCell className="text-sm">
+                  {decision.latencyMs ? `${decision.latencyMs}ms` : '-'}
+                </DataTableCell>
+                <DataTableCell className="text-sm font-mono">
+                  {decision.correlationId || '-'}
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
+      )}
     </div>
   );
 }
