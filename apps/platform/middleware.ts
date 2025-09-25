@@ -16,7 +16,16 @@ export default function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // For protected routes, just pass through - auth will be handled in pages/layouts
+  // For protected routes like /o/[slug]/*, check for session cookie
+  if (nextUrl.pathname.startsWith("/o/")) {
+    const sessionToken = req.cookies.get('session')?.value;
+    
+    if (!sessionToken) {
+      // No session, redirect to login
+      return NextResponse.redirect(new URL('/auth/login', req.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

@@ -68,7 +68,7 @@ export default function SignupPage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-gray-600 mb-4">
-              Please click the link in your email to verify your account and complete the signup process.
+              Please click the link in your email to verify your account and access your organization dashboard.
             </p>
             <Button
               onClick={() => router.push('/auth/login')}
@@ -168,7 +168,7 @@ export default function SignupPage() {
                 placeholder="Enter your organization name"
               />
               <p className="text-xs text-gray-500 mt-1">
-                We'll create an organization for you if you provide a name
+                Leave blank to create "{name || email.split('@')[0]}'s org" automatically
               </p>
             </div>
 

@@ -2,12 +2,6 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-// import { ErrorBoundary } from "@/components/ui/error-boundary"
-// import { ToastProvider, ToastViewport } from "@/components/ui/toast"
-// import { APP_CONFIG, getValidAppUrl } from "@/lib/constants"
-// import { Providers } from "@/components/providers"
-// import { AppLayout } from "@/components/app-layout"
-// import { StructuredData } from "@/components/seo-structured-data"
 
 const inter = Inter({
   subsets: ["latin"],

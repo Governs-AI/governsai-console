@@ -1,22 +1,56 @@
-export default function PlatformHomePage() {
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { LoadingSpinner } from '@governs-ai/ui';
+
+export default function RootPage() {
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    checkAuthAndRedirect();
+  }, []);
+
+  const checkAuthAndRedirect = async () => {
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // User is authenticated, redirect to their organization dashboard
+        if (data.activeOrg?.slug) {
+          router.replace(`/o/${data.activeOrg.slug}/dashboard`);
+        } else if (data.organizations && data.organizations.length > 0) {
+          // User has orgs but no active org, redirect to first org
+          router.replace(`/o/${data.organizations[0].slug}/dashboard`);
+        } else {
+          // User has no organizations, redirect to onboarding
+          router.replace('/onboarding');
+        }
+      } else {
+        // User is not authenticated, redirect to login
+        router.replace('/auth/login');
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      // On error, redirect to login
+      router.replace('/auth/login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          GovernsAI Platform
-        </h1>
-        <p className="text-xl text-gray-600 mb-8">
-          Secure, monitor, and control your AI interactions
-        </p>
-        <div className="space-x-4">
-          <a href="/dashboard" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
-            Go to Dashboard
-          </a>
-          <a href="/profile" className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700">
-            View Profile
-          </a>
-        </div>
+        <LoadingSpinner size="lg" className="mx-auto mb-4" />
+        <p className="text-muted-foreground">Redirecting...</p>
       </div>
     </div>
-  )
+  );
 }

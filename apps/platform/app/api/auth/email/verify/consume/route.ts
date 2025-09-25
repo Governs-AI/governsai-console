@@ -38,9 +38,19 @@ export async function GET(request: NextRequest) {
     // Mark email as verified
     await markEmailVerified(user.id);
 
+    // Get user's organizations to redirect to their dashboard
+    const memberships = await prisma.orgMembership.findMany({
+      where: { userId: user.id },
+      include: { org: true },
+      orderBy: { createdAt: 'asc' }, // First org created (their own)
+    });
+
+    const activeOrg = memberships[0]?.org;
+
     return NextResponse.json({
       success: true,
       message: 'Email verified successfully',
+      activeOrgSlug: activeOrg?.slug,
     });
 
   } catch (error) {

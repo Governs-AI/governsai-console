@@ -1,143 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
-// import { auth } from "@governs-ai/auth";
-import {
-    getUserProfile,
-    createUserProfile,
-    updateUserProfile,
-    getFullUserData,
-    getUserDataCounts
-} from "@governs-ai/db";
+import { verifySessionToken, getUserOrganizations } from "@/lib/auth";
+import { prisma } from "@governs-ai/db";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        // const session = await auth();
-        const session = null; // TODO: Implement auth
-
-        if (!session?.user?.id) {
+        // Get session token from cookies
+        const sessionToken = request.cookies.get('session')?.value;
+        
+        if (!sessionToken) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { searchParams } = new URL(request.url);
-        const includeAll = searchParams.get("includeAll") === "true";
-
-        if (includeAll) {
-            // Get full user data including profile, activities, goals, etc.
-            const [userData, dataCounts] = await Promise.all([
-                getFullUserData(session.user.id),
-                getUserDataCounts(session.user.id)
-            ]);
-
-            if (!userData) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: "User not found",
-                    },
-                    { status: 404 }
-                );
-            }
-
-            return NextResponse.json({
-                success: true,
-                data: {
-                    ...userData,
-                    counts: dataCounts
-                },
-            });
-        } else {
-            // Get just the profile
-            const profile = await getUserProfile(session.user.id);
-
-            return NextResponse.json({
-                success: true,
-                data: profile,
-            });
+        // Verify session token
+        const session = verifySessionToken(sessionToken);
+        
+        if (!session) {
+            return NextResponse.json({ error: "Invalid session" }, { status: 401 });
         }
+
+        // Get user data from database
+        const user = await prisma.user.findUnique({
+            where: { id: session.sub },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                emailVerified: true,
+                createdAt: true,
+            },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        // Get user's organizations
+        const memberships = await getUserOrganizations(session.sub);
+        
+        // Find active org (from session or default to first)
+        const activeOrg = memberships.find(m => m.orgId === session.orgId) || memberships[0];
+
+        return NextResponse.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                emailVerified: user.emailVerified,
+                createdAt: user.createdAt,
+            },
+            organizations: memberships.map(m => ({
+                id: m.org.id,
+                name: m.org.name,
+                slug: m.org.slug,
+                role: m.role,
+            })),
+            activeOrg: activeOrg ? {
+                id: activeOrg.org.id,
+                name: activeOrg.org.name,
+                slug: activeOrg.org.slug,
+                role: activeOrg.role,
+            } : null,
+        });
     } catch (error) {
         console.error("Profile API Error:", error);
         return NextResponse.json(
-            {
-                success: false,
-                error: "Failed to fetch profile",
-            },
-            { status: 500 }
-        );
-    }
-}
-
-export async function PUT(request: NextRequest) {
-    try {
-        // const session = await auth();
-        const session = null; // TODO: Implement auth
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const body = await request.json();
-
-        const {
-            targetRole,
-            targetSalary,
-            targetLocation,
-            aiGoals,
-            skills,
-            experience,
-            education,
-            linkedin,
-            github,
-            portfolio,
-        } = body;
-
-        // Check if profile exists
-        const existingProfile = await getUserProfile(session.user.id);
-
-        let profile;
-        if (existingProfile) {
-            // Update existing profile
-            profile = await updateUserProfile(session.user.id, {
-                targetRole,
-                targetSalary,
-                targetLocation,
-                aiGoals,
-                skills,
-                experience,
-                education,
-                linkedin,
-                github,
-                portfolio,
-            });
-        } else {
-            // Create new profile
-            profile = await createUserProfile({
-                userId: session.user.id,
-                targetRole,
-                targetSalary,
-                targetLocation,
-                aiGoals,
-                skills,
-                experience,
-                education,
-                linkedin,
-                github,
-                portfolio,
-            });
-        }
-
-        return NextResponse.json({
-            success: true,
-            data: profile,
-            message: existingProfile ? "Profile updated successfully" : "Profile created successfully",
-        });
-    } catch (error) {
-        console.error("Update Profile API Error:", error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: "Failed to update profile",
-            },
+            { error: "Failed to fetch profile" },
             { status: 500 }
         );
     }

@@ -23,20 +23,21 @@ interface PlatformShellProps {
   orgSlug?: string;
 }
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Decisions', href: '/dashboard/decisions', icon: FileText },
-  { name: 'Tool Calls', href: '/dashboard/tool-calls', icon: Activity },
-  { name: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle },
-  { name: 'Spend', href: '/dashboard/spend', icon: DollarSign },
-  { name: 'Policies', href: '/dashboard/policies', icon: Shield },
-  { name: 'Keys', href: '/dashboard/keys', icon: Key },
-  { name: 'DLQ', href: '/dashboard/dlq', icon: AlertTriangle },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+const getNavigation = (orgSlug: string) => [
+  { name: 'Dashboard', href: `/o/${orgSlug}/dashboard`, icon: LayoutDashboard },
+  { name: 'Decisions', href: `/o/${orgSlug}/decisions`, icon: FileText },
+  { name: 'Tool Calls', href: `/o/${orgSlug}/tool-calls`, icon: Activity },
+  { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
+  { name: 'Spend', href: `/o/${orgSlug}/spend`, icon: DollarSign },
+  { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
+  { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key },
+  { name: 'DLQ', href: `/o/${orgSlug}/dlq`, icon: AlertTriangle },
+  { name: 'Settings', href: `/o/${orgSlug}/settings`, icon: Settings },
 ];
 
 export default function PlatformShell({ children, orgSlug = 'acme-inc' }: PlatformShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
+  const navigation = getNavigation(orgSlug);
 
   return (
     <div className="min-h-screen bg-background text-foreground">

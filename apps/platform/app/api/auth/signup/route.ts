@@ -12,7 +12,7 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().optional(),
-  orgName: z.string().optional(),
+  orgName: z.string().optional(), // Optional for team signups
 });
 
 export async function POST(request: NextRequest) {
@@ -44,24 +44,28 @@ export async function POST(request: NextRequest) {
     // TODO: Send verification email
     console.log(`Email verification token for ${email}: ${verificationToken}`);
 
-    // If orgName provided, create organization
-    let org = null;
-    if (orgName) {
-      const orgSlug = generateOrgSlug(orgName);
-      
-      // Check if org slug already exists
-      const existingOrg = await prisma.org.findUnique({
-        where: { slug: orgSlug },
-      });
+    // Always create an organization for the user
+    // If orgName provided, use it; otherwise create "{user_name}'s org"
+    const finalOrgName = orgName || `${name || email.split('@')[0]}'s org`;
+    const orgSlug = generateOrgSlug(finalOrgName);
+    
+    // Check if org slug already exists
+    const existingOrg = await prisma.org.findUnique({
+      where: { slug: orgSlug },
+    });
 
-      if (existingOrg) {
-        return NextResponse.json(
-          { error: 'Organization name already taken' },
-          { status: 400 }
-        );
+    let org;
+    if (existingOrg) {
+      // If slug exists, append a number
+      let counter = 1;
+      let uniqueSlug = `${orgSlug}-${counter}`;
+      while (await prisma.org.findUnique({ where: { slug: uniqueSlug } })) {
+        counter++;
+        uniqueSlug = `${orgSlug}-${counter}`;
       }
-
-      org = await createOrganization(orgName, orgSlug, user.id);
+      org = await createOrganization(finalOrgName, uniqueSlug, user.id);
+    } else {
+      org = await createOrganization(finalOrgName, orgSlug, user.id);
     }
 
     return NextResponse.json({
@@ -72,11 +76,11 @@ export async function POST(request: NextRequest) {
         name: user.name,
         emailVerified: user.emailVerified,
       },
-      org: org ? {
+      org: {
         id: org.id,
         name: org.name,
         slug: org.slug,
-      } : null,
+      },
       message: 'Please check your email to verify your account',
     });
 
