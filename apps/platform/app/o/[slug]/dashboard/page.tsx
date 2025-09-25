@@ -146,11 +146,16 @@ export default function DashboardPage() {
           
           <Card className="interactive-card">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">API Keys</CardTitle>
+              <CardTitle className="text-lg">API Keys & Websockets</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">Manage your API keys and access controls</p>
-              <Button variant="outline" size="sm" className="w-full">
+              <p className="text-sm text-muted-foreground mb-4">Manage websockets and API keys for precheck/postcheck</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => router.push(`/o/${orgSlug}/keys`)}
+              >
                 Manage Keys →
               </Button>
             </CardContent>

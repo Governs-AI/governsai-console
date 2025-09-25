@@ -17,6 +17,10 @@ model Org {
   updatedAt DateTime @updatedAt
 
   memberships OrgMembership[]
+  channels WebSocketChannel[]
+  sessions WebSocketSession[]
+  networkRules NetworkAccessRule[]
+  apiKeys APIKey[]
   // existing tenant tables (decisions, policies, etc.) reference orgId
 }
 
@@ -37,6 +41,8 @@ model User {
   budgets       Budget[]
   auditLogs     AuditLog[]
   mfaTotp       MfaTotp?
+  channels      WebSocketChannel[]
+  sessions      WebSocketSession[]
 }
 
 // User Credentials
@@ -107,20 +113,52 @@ model MfaTotp {
 model APIKey {
   id           String   @id @default(cuid())
   key          String   @unique
+  keyHash      String?  @unique // Store hash in production
   name         String
   userId       String
   orgId        String   @map("org_id")
+  scopes       String[] @default([])
+  env          String   @default("prod")
   isActive     Boolean  @default(true)
+  lastUsed     DateTime?
+  ipAllow      Json?    // Per-key IP/CIDR allowlist override
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   expiresAt    DateTime?
   
   // Relations
+  org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   usageRecords UsageRecord[]
+  channels     WebSocketChannel[]
   
   @@index([key])
+  @@index([keyHash])
   @@index([userId])
   @@index([orgId])
+  @@index([isActive])
+  @@index([lastUsed])
+}
+
+// Network Access Control (like MongoDB Atlas)
+model NetworkAccessRule {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  kind      String   // "origin" | "ip" | "cidr"
+  value     String   // e.g. "https://app.example.com" | "203.0.113.10" | "203.0.113.0/24"
+  label     String?  // "Khushi's laptop", "Prod frontends"
+  notes     String?
+  isActive  Boolean  @default(true)
+  expiresAt DateTime?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, kind, isActive])
+  @@index([orgId, expiresAt])
+  @@index([isActive])
 }
 
 // AI Provider Configuration
@@ -233,4 +271,71 @@ model Decision {
   @@index([direction])
   @@index([tool])
   @@index([correlationId])
+}
+
+// WebSocket Gateway Configuration
+model WebSocketGateway {
+  id          String   @id @default(cuid())
+  name        String
+  url         String   // WebSocket gateway URL
+  isActive    Boolean  @default(true)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions WebSocketSession[]
+
+  @@index([isActive])
+}
+
+// WebSocket Channel Subscriptions
+model WebSocketChannel {
+  id          String   @id @default(cuid())
+  orgId       String?  @map("org_id")  // null for user-level channels
+  userId      String?  @map("user_id") // null for org-level channels
+  keyId       String?  @map("key_id")  // null for org/user channels
+  channelType String   // 'org', 'user', 'key'
+  channelName String   // e.g., 'approvals', 'decisions', 'dlq', 'usage'
+  isActive    Boolean  @default(true)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org  Org?  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key  APIKey? @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([keyId])
+  @@index([channelType])
+  @@index([channelType, channelName])
+  @@index([orgId, isActive])
+  @@index([userId, isActive])
+  @@index([keyId, isActive])
+}
+
+// WebSocket Connection Sessions
+model WebSocketSession {
+  id          String   @id @default(cuid())
+  userId      String
+  orgId       String?  @map("org_id")
+  sessionId   String   @unique
+  gatewayId   String
+  channels    Json     // Array of subscribed channels
+  cursor      Json?    // Resumable cursor state
+  isActive    Boolean  @default(true)
+  lastSeen    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org     Org?            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  gateway WebSocketGateway @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([sessionId])
+  @@index([isActive])
+  @@index([lastSeen])
 }
