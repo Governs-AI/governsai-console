@@ -1,6 +1,4 @@
-import { PrismaClient } from '../generated/index.js';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index.js';
 
 export async function getFullUserProfileByEmail(email: string) {
   return prisma.user.findUnique({

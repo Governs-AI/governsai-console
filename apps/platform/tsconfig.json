@@ -21,7 +21,8 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/components/ui/*": ["../../packages/ui/src/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,

@@ -38,14 +38,13 @@ GovernsAI is a secure control plane for AI interactions that acts as an intellig
 ```
 governs-ai/
 ├── apps/                    # Applications
-│   ├── landing/             # Marketing & Landing Page (Port 3000)
+│   ├── landing/             # Marketing & Landing Page (Port 3003)
 │   ├── platform/            # Main Platform App (Port 3002)
 │   └── docs/                # Documentation Site (Port 3001)
 ├── packages/                # Shared Packages
 │   ├── ui/                  # UI Components (shadcn/ui based)
 │   ├── layout/              # Layout Components
 │   ├── db/                  # Database Schema & Queries
-│   ├── billing/             # Billing & Usage Tracking
 │   ├── common-utils/        # Shared Utilities
 │   ├── typescript-config/   # TypeScript Configuration
 │   └── eslint-config/       # ESLint Configuration
@@ -61,7 +60,7 @@ governs-ai/
 - **Package Manager**: pnpm with Turborepo
 
 ### Application Ports
-- **Landing**: http://localhost:3000
+- **Landing**: http://localhost:3003
 - **Platform**: http://localhost:3002
 - **Docs**: http://localhost:3001
 

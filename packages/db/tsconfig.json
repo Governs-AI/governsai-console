@@ -4,7 +4,9 @@
       "rootDir": ".",
       "outDir": "dist",
       "types": ["node"],
-      "noEmit": false
+      "noEmit": false,
+      "module": "CommonJS",
+      "moduleResolution": "node"
     },
     "include": ["."],
     "exclude": ["node_modules", "dist"]

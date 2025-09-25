@@ -1,4 +1,4 @@
-import { PrismaClient } from "./generated/index.js";
+import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -26,11 +26,7 @@ if (process.env.DATABASE_URL) {
   console.log("⚠️ DATABASE_URL not found, skipping database connection");
 }
 
-export * from './generated/index.js';
-
-// Database queries
-export * from './queries/user';
-export * from './queries/decisions';
+export * from '@prisma/client';
 
 export default prisma;
-export type { PrismaClient } from "./generated/index.js";
+export type { PrismaClient } from "@prisma/client";

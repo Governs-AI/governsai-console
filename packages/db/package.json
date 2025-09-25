@@ -1,11 +1,10 @@
 {
   "name": "@governs-ai/db",
-  "type": "module",
   "main": "dist/index.js",
   "types": "index.ts",
   "scripts": {
     "generate": "prisma generate",
-    "build": "rm -rf dist && tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r generated dist/",
+    "build": "rm -rf dist && tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r queries dist/",
     "dev": "tsc --watch",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",

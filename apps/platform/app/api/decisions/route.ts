@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDecisions, getDecisionStats, getLastIngestTime } from '@governs-ai/db';
+import { prisma } from '@governs-ai/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,17 +35,110 @@ export async function GET(request: NextRequest) {
       endTime,
     };
     
+    // Build where clause
+    const where: any = {};
+    if (filters.orgId) where.orgId = filters.orgId;
+    if (filters.direction) where.direction = filters.direction;
+    if (filters.decision) where.decision = filters.decision;
+    if (filters.tool) where.tool = filters.tool;
+    if (filters.correlationId) where.correlationId = filters.correlationId;
+    
+    if (filters.startTime || filters.endTime) {
+      where.ts = {};
+      if (filters.startTime) where.ts.gte = filters.startTime;
+      if (filters.endTime) where.ts.lte = filters.endTime;
+    }
+    
     // Fetch decisions
-    const decisions = await getDecisions(filters, limit, offset);
+    const decisions = await prisma.decision.findMany({
+      where,
+      orderBy: { ts: 'desc' },
+      take: limit,
+      skip: offset,
+    });
     
     // Fetch stats if requested
     let stats = null;
     if (includeStats) {
-      stats = await getDecisionStats(orgId, { start: startTime, end: endTime });
+      const [total, byDecision, byDirection, byTool] = await Promise.all([
+        // Total decisions
+        prisma.decision.count({
+          where: {
+            orgId,
+            ts: {
+              gte: startTime,
+              lte: endTime,
+            },
+          },
+        }),
+        
+        // By decision type
+        prisma.decision.groupBy({
+          by: ['decision'],
+          where: {
+            orgId,
+            ts: {
+              gte: startTime,
+              lte: endTime,
+            },
+          },
+          _count: true,
+        }),
+        
+        // By direction
+        prisma.decision.groupBy({
+          by: ['direction'],
+          where: {
+            orgId,
+            ts: {
+              gte: startTime,
+              lte: endTime,
+            },
+          },
+          _count: true,
+        }),
+        
+        // By tool (top 10)
+        prisma.decision.groupBy({
+          by: ['tool'],
+          where: {
+            orgId,
+            ts: {
+              gte: startTime,
+              lte: endTime,
+            },
+            tool: { not: null },
+          },
+          _count: true,
+          orderBy: { _count: { tool: 'desc' } },
+          take: 10,
+        }),
+      ]);
+      
+      stats = {
+        total,
+        byDecision: byDecision.reduce((acc: any, item: any) => {
+          acc[item.decision] = item._count;
+          return acc;
+        }, {}),
+        byDirection: byDirection.reduce((acc: any, item: any) => {
+          acc[item.direction] = item._count;
+          return acc;
+        }, {}),
+        byTool: byTool.reduce((acc: any, item: any) => {
+          acc[item.tool || 'unknown'] = item._count;
+          return acc;
+        }, {}),
+      };
     }
     
     // Get last ingest time for health monitoring
-    const lastIngestTime = await getLastIngestTime(orgId);
+    const lastDecision = await prisma.decision.findFirst({
+      where: { orgId },
+      orderBy: { ts: 'desc' },
+      select: { ts: true },
+    });
+    const lastIngestTime = lastDecision?.ts || null;
     
     return NextResponse.json({
       decisions,

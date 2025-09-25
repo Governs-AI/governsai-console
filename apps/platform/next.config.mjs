@@ -14,7 +14,6 @@ const nextConfig = {
   basePath: '',
   experimental: {
     optimizePackageImports: ['lucide-react'],
-    appDir: true,
   },
   images: {
     domains: ['placeholder.svg'],
