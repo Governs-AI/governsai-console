@@ -2,9 +2,8 @@ import { WebSocketServer } from 'ws';
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { WebSocketHandler } from './websocket/handler.js';
+import { SimpleWebSocketHandler } from './websocket/simple-handler.js';
 import { AuthService } from './services/auth.js';
 import { DecisionService } from './services/decision.js';
 import { HealthService } from './services/health.js';
@@ -62,11 +61,6 @@ class GovernsWebSocketService {
    * Setup Express middleware
    */
   setupExpress() {
-    // Security middleware
-    this.app.use(helmet({
-      contentSecurityPolicy: false, // Allow WebSocket connections
-      crossOriginEmbedderPolicy: false
-    }));
     
     // TODO: Add allowed origins later
     // origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3002', 'https://governs.ai'],
@@ -181,8 +175,8 @@ class GovernsWebSocketService {
       maxPayload: 1024 * 1024 // 1MB max message size
     });
 
-    // Initialize WebSocket handler
-    this.wsHandler = new WebSocketHandler(this.wss, {
+    // Initialize simplified WebSocket handler
+    this.wsHandler = new SimpleWebSocketHandler({
       authService: this.authService,
       decisionService: this.decisionService,
       healthService: this.healthService

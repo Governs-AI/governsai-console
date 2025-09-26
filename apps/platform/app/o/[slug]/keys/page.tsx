@@ -21,8 +21,6 @@ import {
   Input
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
-import WebSocketConfig from '@/components/websocket-config';
-import { useWebSocket } from '@/lib/websocket-client';
 import { 
   Plus,
   Edit,
@@ -64,7 +62,7 @@ export default function KeysPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
   const [subscribedChannels, setSubscribedChannels] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState('websocket');
+  const [activeTab, setActiveTab] = useState('channels');
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
@@ -246,16 +244,6 @@ export default function KeysPage() {
         <div className="border-b border-border">
           <div className="flex space-x-8">
             <button
-              onClick={() => setActiveTab('websocket')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'websocket'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              WebSocket Configuration
-            </button>
-            <button
               onClick={() => setActiveTab('channels')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'channels'
@@ -269,10 +257,6 @@ export default function KeysPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'websocket' && (
-          <WebSocketConfig />
-        )}
-
         {activeTab === 'channels' && (
           <div className="space-y-6">
             {/* KPI Cards */}

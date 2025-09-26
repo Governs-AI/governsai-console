@@ -17,7 +17,6 @@ import {
   XCircle,
   Clock,
   Zap,
-  Key,
   AlertCircle,
   ChevronDown,
   ChevronUp
@@ -43,19 +42,6 @@ interface Decision {
   policyId?: string;
 }
 
-interface WebSocketConnection {
-  id: string;
-  sessionId: string;
-  userId: string;
-  orgId: string;
-  gatewayId: string;
-  channels: string[];
-  isActive: boolean;
-  lastSeen: string;
-  createdAt: string;
-  apiKeyName?: string;
-  userEmail?: string;
-}
 
 interface DecisionStats {
   total: number;
@@ -72,11 +58,9 @@ export default function DecisionsPage() {
   const orgSlug = params.slug as string;
 
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [webSocketConnections, setWebSocketConnections] = useState<WebSocketConnection[]>([]);
   const [stats, setStats] = useState<DecisionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'decisions' | 'websockets'>('decisions');
   const [filters, setFilters] = useState({
     direction: '',
     decision: '',
@@ -118,10 +102,7 @@ export default function DecisionsPage() {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       });
 
-      const [decisionsResponse, connectionsResponse] = await Promise.all([
-        fetch(`/api/decisions?${decisionsParams}`, { credentials: 'include' }),
-        fetch(`/api/websockets/connections?orgSlug=${orgSlug}`, { credentials: 'include' })
-      ]);
+      const decisionsResponse = await fetch(`/api/decisions?${decisionsParams}`, { credentials: 'include' });
 
       if (decisionsResponse.ok) {
         const decisionsData = await decisionsResponse.json();
@@ -130,13 +111,6 @@ export default function DecisionsPage() {
         setStats(decisionsData.stats || null);
       } else {
         console.error('Failed to fetch decisions:', decisionsResponse.status, decisionsResponse.statusText);
-      }
-
-      if (connectionsResponse.ok) {
-        const connectionsData = await connectionsResponse.json();
-        setWebSocketConnections(connectionsData.connections || []);
-      } else {
-        console.error('Failed to fetch connections:', connectionsResponse.status, connectionsResponse.statusText);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -303,35 +277,8 @@ export default function DecisionsPage() {
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="border-b border-border">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('decisions')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'decisions'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              Decisions ({decisions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('websockets')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'websockets'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              WebSocket Connections ({webSocketConnections.length})
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'decisions' && (
-          <div className="space-y-4">
+        {/* Decisions Content */}
+        <div className="space-y-4">
             {/* Search and Filters */}
             <div className="flex gap-4 items-center">
               <div className="flex-1">
@@ -507,70 +454,6 @@ export default function DecisionsPage() {
               </div>
             )}
           </div>
-        )}
-
-        {activeTab === 'websockets' && (
-          <div className="space-y-4">
-            {webSocketConnections.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No WebSocket Connections</h3>
-                  <p className="text-muted-foreground">
-                    No active WebSocket connections found. Connections will appear here when clients connect to your WebSocket gateway.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {webSocketConnections.map((connection) => (
-                  <Card key={connection.id} className="hover:bg-muted/50 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className={`w-3 h-3 rounded-full mt-1 ${
-                            connection.isActive ? 'bg-green-500' : 'bg-red-500'
-                          }`} />
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Badge variant={connection.isActive ? "success" : "secondary"}>
-                                {connection.isActive ? 'Connected' : 'Disconnected'}
-                              </Badge>
-                              {connection.apiKeyName && (
-                                <Badge variant="outline">
-                                  <Key className="h-3 w-3 mr-1" />
-                                  {connection.apiKeyName}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              User: {connection.userEmail || 'Unknown'}
-                            </p>
-                            <p className="text-xs text-muted-foreground font-mono">
-                              Session: {connection.sessionId}
-                            </p>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <span>Channels:</span>
-                              {connection.channels.map((channel, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {channel}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right text-sm text-muted-foreground">
-                          <p>Connected: {formatTimestamp(connection.createdAt)}</p>
-                          <p>Last Seen: {formatTimestamp(connection.lastSeen)}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </PlatformShell>
   );

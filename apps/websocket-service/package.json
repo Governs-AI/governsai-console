@@ -17,11 +17,8 @@
     "ws": "^8.14.2",
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "helmet": "^7.1.0",
     "dotenv": "^16.3.1",
-    "zod": "^3.22.4",
     "jsonwebtoken": "^9.0.2",
-    "argon2": "^0.31.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
