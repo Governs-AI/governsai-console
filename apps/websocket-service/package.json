@@ -1,0 +1,43 @@
+{
+  "name": "@governs-ai/websocket-service",
+  "version": "1.0.0",
+  "description": "GovernsAI WebSocket Service for real-time precheck/postcheck decision streaming",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "build": "echo 'No build step needed for Node.js service'",
+    "test": "echo 'Tests not implemented yet'",
+    "docker:build": "docker build -t governs-websocket .",
+    "docker:run": "docker run -p 3000:3000 governs-websocket"
+  },
+  "dependencies": {
+    "@governs-ai/db": "workspace:*",
+    "ws": "^8.14.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "zod": "^3.22.4",
+    "jsonwebtoken": "^9.0.2",
+    "argon2": "^0.31.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "websocket",
+    "real-time",
+    "ai-governance",
+    "precheck",
+    "postcheck",
+    "governs-ai"
+  ],
+  "author": "GovernsAI",
+  "license": "MIT"
+}

@@ -40,7 +40,8 @@ governs-ai/
 ├── apps/                    # Applications
 │   ├── landing/             # Marketing & Landing Page (Port 3003)
 │   ├── platform/            # Main Platform App (Port 3002)
-│   └── docs/                # Documentation Site (Port 3001)
+│   ├── docs/                # Documentation Site (Port 3001)
+│   └── websocket-service/   # Standalone WebSocket Service (Port 3000)
 ├── packages/                # Shared Packages
 │   ├── ui/                  # UI Components (shadcn/ui based)
 │   ├── layout/              # Layout Components
@@ -794,7 +795,124 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 ---
 
+## 🔌 WebSocket Architecture
+
+### Overview
+GovernsAI uses a **standalone WebSocket service** for real-time AI governance decisions (precheck/postcheck). This service is deployed separately from the main platform for scalability and performance.
+
+### Standalone WebSocket Service: `apps/websocket-service/`
+**Purpose**: Dedicated real-time service for precheck/postcheck AI governance decisions
+
+**Architecture**:
+```
+┌─────────────────┐    ┌──────────────────┐
+│   Dashboard     │    │  External Apps   │
+│   (Vercel)      │    │  (Precheck)      │
+└─────────────────┘    └──────────────────┘
+         │                       │
+         └───────────────────────┘
+                    │
+         ┌─────────────────────┐
+         │  WebSocket Service  │
+         │    (Railway)        │
+         │                     │
+         │  - Authentication   │
+         │  - Message Routing  │
+         │  - Decision Storage │
+         │  - Real-time Sync   │
+         └─────────────────────┘
+                    │
+         ┌─────────────────────┐
+         │     Database        │
+         │   (Shared)          │
+         └─────────────────────┘
+```
+
+**Key Components**:
+- `src/server.js` - Main service entry point with Express + WebSocket server
+- `src/websocket/handler.js` - WebSocket connection and message handling
+- `src/websocket/validator.js` - Message validation with Zod schemas
+- `src/websocket/channels.js` - Channel subscription management
+- `src/services/auth.js` - API key and session authentication
+- `src/services/decision.js` - Decision processing and storage
+- `src/services/health.js` - Health monitoring and metrics
+
+**Database Models**:
+- `Decision` - Processed precheck/postcheck decisions
+- `APIKey` - Authentication keys for external clients
+- `WebSocketSession` - Active connection tracking (optional)
+- `AuditLog` - Activity logging and audit trail
+
+**Flow**:
+1. User generates WebSocket URL via dashboard (`/api/ws/generate-url/`)
+2. External precheck/postcheck system connects to `wss://websocket-service.railway.app/ws`
+3. Client sends `INGEST` messages with decision data
+4. Messages are validated, processed, and stored in `Decision` table
+5. Real-time updates are broadcast to dashboard subscribers
+
+### Dashboard Integration: `/api/ws/`
+**Purpose**: WebSocket URL generation and configuration for dashboard
+
+**Key Components**:
+- `/api/ws/generate-url/` - Generate WebSocket URLs pointing to standalone service
+- `/api/ws/generate-url/new-key/` - Create new API key and generate URL
+- `/api/ws/generate-url/delete-key/` - Soft-delete API keys
+
+**Usage**: These endpoints provide the dashboard interface for managing WebSocket connections to the standalone service.
+
+### Monitoring System: `/api/websockets/`
+**Purpose**: WebSocket connection monitoring and activity logging
+
+**Key Components**:
+- `/api/websockets/connections/` - Fetch connection status for dashboard
+- `/api/websockets/activity/` - Log WebSocket activities for audit
+
+**Usage**: These endpoints are used by the decisions page to display real-time connection status and activity from the standalone service.
+
+### Message Schemas
+**INGEST Message Format**:
+```json
+{
+  "type": "INGEST",
+  "channel": "org:orgId:decisions",
+  "schema": "decision.v1",
+  "idempotencyKey": "unique-key",
+  "data": {
+    "orgId": "string",
+    "direction": "precheck|postcheck", 
+    "decision": "allow|transform|deny",
+    "tool": "string",
+    "scope": "string",
+    "payloadHash": "string",
+    "latencyMs": 123,
+    "correlationId": "string"
+  }
+}
+```
+
+### Security
+- API key authentication embedded in WebSocket URL
+- Channel-based access control (org-level, user-level, key-level)
+- Session tracking with automatic cleanup
+- Audit logging for all WebSocket activities
+
+---
+
 ## 📝 Recent Changes Log
+
+- **2024-12-26**: Standalone WebSocket Service Architecture
+  - **MAJOR CHANGE**: Created completely separate WebSocket service (`apps/websocket-service/`)
+  - **Deployment Strategy**: WebSocket service can be deployed independently on Railway/other platforms
+  - **Scalability**: Dedicated service for high-throughput real-time decision processing
+  - **Architecture**: Express + WebSocket server with comprehensive message handling
+  - **Authentication**: API key and session token support with proper validation
+  - **Channel Management**: Organized message routing by org/user/key channels
+  - **Health Monitoring**: Built-in health checks, metrics, and performance tracking
+  - **Production Ready**: Docker support, graceful shutdown, error handling
+  - **Testing**: Comprehensive test client for validation
+  - **Documentation**: Complete README with API reference and deployment guide
+  - **Platform Integration**: Updated dashboard to point to standalone service
+  - **Clean Architecture**: Removed old embedded WebSocket code from platform
 
 - **2024-12-19**: Implemented comprehensive authentication system
   - Added multi-tenant organization system with role-based access control

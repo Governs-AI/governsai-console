@@ -88,9 +88,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Generate WebSocket URL with the new API key
-    const baseWsUrl = gateway.url.replace('http://', 'ws://').replace('https://', 'wss://');
-    const wsUrl = `${baseWsUrl}?key=${newApiKey.key}&org=${newApiKey.org.slug}&channels=${validChannels.join(',')}`;
+    // Generate WebSocket URL pointing to standalone WebSocket service
+    const wsServerUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.WEBSOCKET_SERVICE_URL || 'wss://your-websocket-service.railway.app/ws'
+      : 'ws://localhost:3000/ws';
+    const wsUrl = `${wsServerUrl}?key=${newApiKey.key}&org=${newApiKey.org.slug}&channels=${validChannels.join(',')}`;
 
     // Log the new API key creation for audit
     await prisma.auditLog.create({

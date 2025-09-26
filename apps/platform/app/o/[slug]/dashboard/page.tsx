@@ -138,7 +138,12 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">Monitor AI governance decisions in real-time</p>
-              <Button variant="outline" size="sm" className="w-full">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => router.push(`/o/${orgSlug}/decisions`)}
+              >
                 View Decisions →
               </Button>
             </CardContent>

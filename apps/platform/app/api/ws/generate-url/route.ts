@@ -89,9 +89,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Generate WebSocket URL with embedded API key and channels
-    const baseWsUrl = gateway.url.replace('http://', 'ws://').replace('https://', 'wss://');
-    const wsUrl = `${baseWsUrl}?key=${apiKey.key}&org=${apiKey.org.slug}&channels=${validChannels.join(',')}`;
+    // Generate WebSocket URL pointing to standalone WebSocket service
+    const wsServerUrl = process.env.NODE_ENV === 'production' 
+      ? process.env.WEBSOCKET_SERVICE_URL || 'wss://your-websocket-service.railway.app/ws'
+      : 'ws://localhost:3000/ws';
+    const wsUrl = `${wsServerUrl}?key=${apiKey.key}&org=${apiKey.org.slug}&channels=${validChannels.join(',')}`;
 
     // Log the URL generation for audit
     await prisma.auditLog.create({
@@ -106,6 +108,9 @@ export async function POST(request: NextRequest) {
           channels: validChannels,
           description,
           gatewayId: gateway.id,
+          gatewayName: gateway.name,
+          orgSlug: apiKey.org.slug,
+          userEmail: apiKey.user.email,
           timestamp: new Date().toISOString(),
         },
       },
