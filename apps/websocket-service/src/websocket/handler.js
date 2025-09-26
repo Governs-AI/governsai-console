@@ -222,14 +222,26 @@ export class WebSocketHandler {
       const { channel, schema, idempotencyKey, data } = message;
 
       // Validate schema
-      if (schema !== 'decision.v1') {
+      if (!['decision.v1', 'toolcall.v1', 'dlq.v1'].includes(schema)) {
         throw new Error(`Unsupported schema: ${schema}`);
       }
 
-      // Validate decision data
-      const validation = this.validator.validateDecisionData(data);
+      // Validate data based on schema
+      let validation;
+      if (schema === 'decision.v1') {
+        validation = this.validator.validateDecisionData(data);
+      } else if (schema === 'dlq.v1') {
+        // For DLQ messages, we'll just validate basic structure
+        validation = { success: true }; // TODO: Add DLQ validation
+      } else if (schema === 'toolcall.v1') {
+        // For toolcall messages, we'll just validate basic structure
+        validation = { success: true }; // TODO: Add toolcall validation
+      } else {
+        validation = { success: false, error: 'Unknown schema' };
+      }
+      
       if (!validation.success) {
-        throw new Error(`Invalid decision data: ${validation.error}`);
+        throw new Error(`Invalid ${schema} data: ${validation.error}`);
       }
 
       // Check authorization for channel
@@ -237,43 +249,58 @@ export class WebSocketHandler {
         throw new Error(`Not authorized to publish to channel: ${channel}`);
       }
 
-      // Process the decision
-      const decision = await this.services.decisionService.processDecision({
-        ...data,
-        orgId: connection.orgId,
-        userId: connection.userId,
-        apiKey: connection.apiKey,
-        channel,
-        idempotencyKey,
-        receivedAt: new Date()
-      });
+      // Process the message based on schema
+      let result;
+      if (schema === 'decision.v1') {
+        // Ensure orgId is in the data object for validation
+        const dataWithOrgId = { ...data, orgId: connection.orgId };
+        
+        result = await this.services.decisionService.processDecision({
+          orgId: connection.orgId, // Top-level orgId for decision service
+          userId: connection.userId,
+          apiKey: connection.apiKey,
+          channel,
+          idempotencyKey,
+          receivedAt: new Date(),
+          ...dataWithOrgId // Spread data with orgId
+        });
+      } else {
+        // For non-decision schemas, just log and acknowledge
+        console.log(`📝 Received ${schema} message: ${idempotencyKey}`);
+        result = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          wasDedup: false,
+          schema,
+          channel,
+          idempotencyKey
+        };
+      }
 
       // Send acknowledgment
       this.sendMessage(connection.ws, {
         type: 'ACK',
         id: idempotencyKey,
-        decisionId: decision.id,
-        dedup: decision.wasDedup || false,
+        decisionId: result.id,
+        dedup: result.wasDedup || false,
+        schema: result.schema || schema,
         timestamp: new Date().toISOString()
       });
 
       // Broadcast to subscribers if not a duplicate
-      if (!decision.wasDedup) {
+      if (!result.wasDedup) {
         await this.broadcastToChannel(channel, {
-          type: 'DECISION',
+          type: schema === 'decision.v1' ? 'DECISION' : 'MESSAGE',
           data: {
-            id: decision.id,
-            orgId: decision.orgId,
-            direction: decision.direction,
-            decision: decision.decision,
-            tool: decision.tool,
-            scope: decision.scope,
-            timestamp: decision.ts
+            id: result.id,
+            schema: result.schema || schema,
+            channel,
+            idempotencyKey,
+            timestamp: new Date().toISOString()
           }
         });
       }
 
-      console.log(`✅ Decision processed: ${decision.id} (${data.direction}/${data.decision})`);
+      console.log(`✅ ${schema} message processed: ${result.id}`);
 
     } catch (error) {
       console.error(`❌ INGEST processing error:`, error);

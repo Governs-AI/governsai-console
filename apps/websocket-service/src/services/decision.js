@@ -39,13 +39,14 @@ export class DecisionService {
         };
       }
 
-      // Validate decision data
-      this.validateDecisionData(data);
+      // Validate decision data (ensure orgId is in data object for validation)
+      const dataForValidation = { ...data, orgId };
+      this.validateDecisionData(dataForValidation);
 
       // Create decision record
       const decision = await prisma.decision.create({
         data: {
-          orgId: data.orgId,
+          orgId: orgId, // Use destructured orgId
           direction: data.direction,
           decision: data.decision,
           tool: data.tool || null,

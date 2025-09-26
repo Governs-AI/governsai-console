@@ -31,7 +31,7 @@ export class MessageValidator {
     this.ingestSchema = z.object({
       type: z.literal('INGEST'),
       channel: z.string().min(1),
-      schema: z.enum(['decision.v1']),
+      schema: z.enum(['decision.v1', 'toolcall.v1', 'dlq.v1']),
       idempotencyKey: z.string().min(1),
       data: z.object({}).passthrough() // Will be validated separately
     });
@@ -59,8 +59,8 @@ export class MessageValidator {
 
     // Channel name schema
     this.channelSchema = z.string().regex(
-      /^(org|user|key):[a-zA-Z0-9_-]+:(decisions|notifications|usage)$/,
-      'Channel must follow format: {type}:{id}:{category}'
+      /^(org|user|key):[a-zA-Z0-9_-]+:(decisions|notifications|usage|precheck|postcheck|dlq|approvals)$/,
+      'Channel must follow format: {type}:{id}:{category} where category is one of: decisions, notifications, usage, precheck, postcheck, dlq, approvals'
     );
   }
 
@@ -327,9 +327,12 @@ export class MessageValidator {
         description: 'Channel naming format',
         format: '{type}:{id}:{category}',
         types: ['org', 'user', 'key'],
-        categories: ['decisions', 'notifications', 'usage'],
+        categories: ['decisions', 'notifications', 'usage', 'precheck', 'postcheck', 'dlq', 'approvals'],
         examples: [
           'org:acme-corp:decisions',
+          'org:acme-corp:precheck',
+          'org:acme-corp:postcheck',
+          'org:acme-corp:dlq',
           'user:user123:notifications',
           'key:api_key456:usage'
         ]

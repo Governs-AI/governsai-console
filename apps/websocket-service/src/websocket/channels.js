@@ -175,7 +175,11 @@ export class ChannelManager {
     if (connection.orgId) {
       channels.push(
         `org:${connection.orgId}:decisions`,
-        `org:${connection.orgId}:notifications`
+        `org:${connection.orgId}:notifications`,
+        `org:${connection.orgId}:precheck`,
+        `org:${connection.orgId}:postcheck`,
+        `org:${connection.orgId}:dlq`,
+        `org:${connection.orgId}:approvals`
       );
     }
     
@@ -205,9 +209,10 @@ export class ChannelManager {
       throw new Error('Channel name must be a string');
     }
 
-    const channelRegex = /^(org|user|key):[a-zA-Z0-9_-]+:(decisions|notifications|usage)$/;
+    // Allow more categories for AI governance: decisions, notifications, usage, precheck, postcheck, dlq, approvals
+    const channelRegex = /^(org|user|key):[a-zA-Z0-9_-]+:(decisions|notifications|usage|precheck|postcheck|dlq|approvals)$/;
     if (!channelRegex.test(channel)) {
-      throw new Error(`Invalid channel format: ${channel}. Must be {type}:{id}:{category}`);
+      throw new Error(`Invalid channel format: ${channel}. Must be {type}:{id}:{category} where category is one of: decisions, notifications, usage, precheck, postcheck, dlq, approvals`);
     }
   }
 

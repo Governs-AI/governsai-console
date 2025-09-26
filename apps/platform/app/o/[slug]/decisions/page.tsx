@@ -94,9 +94,22 @@ export default function DecisionsPage() {
     if (!loading) setRefreshing(true);
     
     try {
-      // Fetch decisions
+      // First, get the organization ID from the profile API
+      const profileResponse = await fetch('/api/profile', { credentials: 'include' });
+      if (!profileResponse.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+      const profileData = await profileResponse.json();
+      
+      // Find the organization by slug
+      const org = profileData.organizations.find((o: any) => o.slug === orgSlug);
+      if (!org) {
+        throw new Error('Organization not found');
+      }
+      
+      // Fetch decisions using the actual organization ID
       const decisionsParams = new URLSearchParams({
-        orgId: orgSlug,
+        orgId: org.id,
         includeStats: 'true',
         limit: '100',
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
@@ -109,13 +122,18 @@ export default function DecisionsPage() {
 
       if (decisionsResponse.ok) {
         const decisionsData = await decisionsResponse.json();
+        console.log('Decisions fetched:', decisionsData.decisions?.length || 0, 'decisions');
         setDecisions(decisionsData.decisions || []);
         setStats(decisionsData.stats || null);
+      } else {
+        console.error('Failed to fetch decisions:', decisionsResponse.status, decisionsResponse.statusText);
       }
 
       if (connectionsResponse.ok) {
         const connectionsData = await connectionsResponse.json();
         setWebSocketConnections(connectionsData.connections || []);
+      } else {
+        console.error('Failed to fetch connections:', connectionsResponse.status, connectionsResponse.statusText);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
