@@ -21,6 +21,7 @@ import {
   Input
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
+import WebSocketConfig from '@/components/websocket-config';
 import { useWebSocket } from '@/lib/websocket-client';
 import { 
   Plus,
@@ -35,7 +36,7 @@ import {
   Wifi,
   WifiOff,
   Play,
-  Square
+  Square,
 } from 'lucide-react';
 
 interface Channel {
@@ -63,6 +64,7 @@ export default function KeysPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
   const [subscribedChannels, setSubscribedChannels] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState('websocket');
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
@@ -219,267 +221,304 @@ export default function KeysPage() {
     <PlatformShell orgSlug={orgSlug}>
       <div className="space-y-6">
         <PageHeader
-          title="WebSocket Channels"
-          subtitle={`Manage real-time channels for ${orgSlug}`}
+          title="API Keys & WebSocket"
+          subtitle={`Manage API keys and WebSocket integration for ${orgSlug}`}
           actions={
             <div className="flex gap-2">
               <div className="flex items-center gap-2 text-sm">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-danger'}`} />
                 {isConnected ? 'Connected' : 'Disconnected'}
               </div>
-              <Button
-                onClick={() => setShowCreateForm(!showCreateForm)}
-                variant="outline"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {showCreateForm ? 'Cancel' : 'Add Channel'}
-              </Button>
+              {activeTab === 'channels' && (
+                <Button
+                  onClick={() => setShowCreateForm(!showCreateForm)}
+                  variant="outline"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {showCreateForm ? 'Cancel' : 'Add Channel'}
+                </Button>
+              )}
             </div>
           }
         />
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KpiCard label="Total Channels" value={channels.length.toString()} />
-          <KpiCard label="Subscribed" value={subscribedCount.toString()} />
-          <KpiCard label="Org Channels" value={orgChannels.length.toString()} />
-          <KpiCard label="User Channels" value={userChannels.length.toString()} />
+        {/* Tab Navigation */}
+        <div className="border-b border-border">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('websocket')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'websocket'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              WebSocket Configuration
+            </button>
+            <button
+              onClick={() => setActiveTab('channels')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'channels'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              Channels ({channels.length})
+            </button>
+          </div>
         </div>
 
-        {/* WebSocket Status */}
-        {gateway && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-5 w-5" />
-                WebSocket Gateway
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Gateway:</span>
-                  <span className="text-sm text-muted-foreground">{gateway.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-danger'}`} />
-                    <span className="text-sm">{isConnected ? 'Connected' : 'Disconnected'}</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Session ID:</span>
-                  <code className="text-xs bg-muted px-2 py-1 rounded">{gateway.sessionId}</code>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Tab Content */}
+        {activeTab === 'websocket' && (
+          <WebSocketConfig />
         )}
 
-        {/* Create Form */}
-        {showCreateForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New Channel</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreateChannel} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Channel Type</label>
-                    <select
-                      value={formData.channelType}
-                      onChange={(e) => setFormData(prev => ({ ...prev, channelType: e.target.value as 'org' | 'user' | 'key' }))}
-                      className="w-full px-3 py-2 border border-border rounded-md bg-background"
-                    >
-                      <option value="org">Organization Level</option>
-                      <option value="user">User Level</option>
-                      <option value="key">Key Level</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Channel Name</label>
-                    <Input
-                      value={formData.channelName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, channelName: e.target.value }))}
-                      placeholder="approvals, decisions, dlq, usage"
-                      required
-                    />
-                  </div>
-                </div>
-                {formData.channelType === 'key' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">API Key</label>
-                    <Input
-                      value={formData.keyId}
-                      onChange={(e) => setFormData(prev => ({ ...prev, keyId: e.target.value }))}
-                      placeholder="API Key ID"
-                      required
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Description (Optional)</label>
-                  <Input
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Description of this channel"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Creating...' : 'Create Channel'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowCreateForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-md">
-            {error}
-          </div>
-        )}
-
-        {/* Channels Table */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Channels</h2>
-            <div className="text-sm text-muted-foreground">
-              {channels.length} total, {subscribedCount} subscribed
+        {activeTab === 'channels' && (
+          <div className="space-y-6">
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <KpiCard label="Total Channels" value={channels.length.toString()} />
+              <KpiCard label="Subscribed" value={subscribedCount.toString()} />
+              <KpiCard label="Org Channels" value={orgChannels.length.toString()} />
+              <KpiCard label="User Channels" value={userChannels.length.toString()} />
             </div>
-          </div>
-          
-          <DataTable>
-            <DataTableHeader>
-              <DataTableRow>
-                <DataTableHead>Channel</DataTableHead>
-                <DataTableHead>Type</DataTableHead>
-                <DataTableHead>Name</DataTableHead>
-                <DataTableHead>Description</DataTableHead>
-                <DataTableHead>Status</DataTableHead>
-                <DataTableHead>Actions</DataTableHead>
-              </DataTableRow>
-            </DataTableHeader>
-            <DataTableBody>
-              {channels.map((channel) => (
-                <DataTableRow key={channel.id}>
-                  <DataTableCell>
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                        {channel.channel}
-                      </code>
+
+            {/* WebSocket Status */}
+            {gateway && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wifi className="h-5 w-5" />
+                    WebSocket Gateway
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Gateway:</span>
+                      <span className="text-sm text-muted-foreground">{gateway.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Status:</span>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-danger'}`} />
+                        <span className="text-sm">{isConnected ? 'Connected' : 'Disconnected'}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Session ID:</span>
+                      <code className="text-xs bg-muted px-2 py-1 rounded">{gateway.sessionId}</code>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Create Form */}
+            {showCreateForm && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create New Channel</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleCreateChannel} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Channel Type</label>
+                        <select
+                          value={formData.channelType}
+                          onChange={(e) => setFormData(prev => ({ ...prev, channelType: e.target.value as 'org' | 'user' | 'key' }))}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                        >
+                          <option value="org">Organization Level</option>
+                          <option value="user">User Level</option>
+                          <option value="key">Key Level</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Channel Name</label>
+                        <Input
+                          value={formData.channelName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, channelName: e.target.value }))}
+                          placeholder="approvals, decisions, dlq, usage"
+                          required
+                        />
+                      </div>
+                    </div>
+                    {formData.channelType === 'key' && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">API Key</label>
+                        <Input
+                          value={formData.keyId}
+                          onChange={(e) => setFormData(prev => ({ ...prev, keyId: e.target.value }))}
+                          placeholder="API Key ID"
+                          required
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Description (Optional)</label>
+                      <Input
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Description of this channel"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={loading}>
+                        {loading ? 'Creating...' : 'Create Channel'}
+                      </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => copyToClipboard(channel.channel, channel.channel)}
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowCreateForm(false)}
                       >
-                        {copiedChannel === channel.channel ? (
-                          <Check className="h-3 w-3 text-success" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
+                        Cancel
                       </Button>
                     </div>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <Badge variant={channel.type === 'org' ? 'default' : channel.type === 'user' ? 'secondary' : 'outline'}>
-                      {channel.type === 'org' ? (
-                        <>
-                          <Globe className="h-3 w-3 mr-1" />
-                          Org
-                        </>
-                      ) : channel.type === 'user' ? (
-                        <>
-                          <User className="h-3 w-3 mr-1" />
-                          User
-                        </>
-                      ) : (
-                        <>
-                          <Key className="h-3 w-3 mr-1" />
-                          Key
-                        </>
-                      )}
-                    </Badge>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <div>
-                      <div className="font-medium">{channel.name}</div>
-                      {channel.keyName && (
-                        <div className="text-sm text-muted-foreground">
-                          {channel.keyName}
-                        </div>
-                      )}
-                    </div>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <div className="text-sm text-muted-foreground">
-                      {channel.description || '—'}
-                    </div>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <Badge variant={subscribedChannels.has(channel.channel) ? 'default' : 'secondary'}>
-                      {subscribedChannels.has(channel.channel) ? 'Subscribed' : 'Not Subscribed'}
-                    </Badge>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <div className="flex gap-1">
-                      {subscribedChannels.has(channel.channel) ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleUnsubscribe(channel.channel)}
-                        >
-                          <Square className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleSubscribe(channel.channel)}
-                          disabled={!isConnected}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </DataTableCell>
-                </DataTableRow>
-              ))}
-            </DataTableBody>
-          </DataTable>
-        </section>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Channel Types
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p><strong>Organization Level:</strong> Applied to all users in the organization. Examples: org:abc:approvals, org:abc:decisions</p>
-              <p><strong>User Level:</strong> Applied only to the specific user. Examples: user:123:notifications, user:123:settings</p>
-              <p><strong>Key Level:</strong> Applied to specific API key usage. Examples: key:key1:usage, key:key1:errors</p>
-              <p><strong>Usage:</strong> Subscribe to channels to receive real-time events. Use the WebSocket client for programmatic access.</p>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Error Message */}
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-md">
+                {error}
+              </div>
+            )}
+
+            {/* Channels Table */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium">Channels</h2>
+                <div className="text-sm text-muted-foreground">
+                  {channels.length} total, {subscribedCount} subscribed
+                </div>
+              </div>
+              
+              <DataTable>
+                <DataTableHeader>
+                  <DataTableRow>
+                    <DataTableHead>Channel</DataTableHead>
+                    <DataTableHead>Type</DataTableHead>
+                    <DataTableHead>Name</DataTableHead>
+                    <DataTableHead>Description</DataTableHead>
+                    <DataTableHead>Status</DataTableHead>
+                    <DataTableHead>Actions</DataTableHead>
+                  </DataTableRow>
+                </DataTableHeader>
+                <DataTableBody>
+                  {channels.map((channel) => (
+                    <DataTableRow key={channel.id}>
+                      <DataTableCell>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {channel.channel}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => copyToClipboard(channel.channel, channel.channel)}
+                          >
+                            {copiedChannel === channel.channel ? (
+                              <Check className="h-3 w-3 text-success" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </DataTableCell>
+                      <DataTableCell>
+                        <Badge variant={channel.type === 'org' ? 'default' : channel.type === 'user' ? 'secondary' : 'outline'}>
+                          {channel.type === 'org' ? (
+                            <>
+                              <Globe className="h-3 w-3 mr-1" />
+                              Org
+                            </>
+                          ) : channel.type === 'user' ? (
+                            <>
+                              <User className="h-3 w-3 mr-1" />
+                              User
+                            </>
+                          ) : (
+                            <>
+                              <Key className="h-3 w-3 mr-1" />
+                              Key
+                            </>
+                          )}
+                        </Badge>
+                      </DataTableCell>
+                      <DataTableCell>
+                        <div>
+                          <div className="font-medium">{channel.name}</div>
+                          {channel.keyName && (
+                            <div className="text-sm text-muted-foreground">
+                              {channel.keyName}
+                            </div>
+                          )}
+                        </div>
+                      </DataTableCell>
+                      <DataTableCell>
+                        <div className="text-sm text-muted-foreground">
+                          {channel.description || '—'}
+                        </div>
+                      </DataTableCell>
+                      <DataTableCell>
+                        <Badge variant={subscribedChannels.has(channel.channel) ? 'default' : 'secondary'}>
+                          {subscribedChannels.has(channel.channel) ? 'Subscribed' : 'Not Subscribed'}
+                        </Badge>
+                      </DataTableCell>
+                      <DataTableCell>
+                        <div className="flex gap-1">
+                          {subscribedChannels.has(channel.channel) ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleUnsubscribe(channel.channel)}
+                            >
+                              <Square className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleSubscribe(channel.channel)}
+                              disabled={!isConnected}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))}
+                </DataTableBody>
+              </DataTable>
+            </section>
+
+            {/* Info Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  Channel Types
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p><strong>Organization Level:</strong> Applied to all users in the organization. Examples: org:abc:approvals, org:abc:decisions</p>
+                  <p><strong>User Level:</strong> Applied only to the specific user. Examples: user:123:notifications, user:123:settings</p>
+                  <p><strong>Key Level:</strong> Applied to specific API key usage. Examples: key:key1:usage, key:key1:errors</p>
+                  <p><strong>Usage:</strong> Subscribe to channels to receive real-time events. Use the WebSocket client for programmatic access.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </PlatformShell>
   );
