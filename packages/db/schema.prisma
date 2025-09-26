@@ -261,6 +261,9 @@ model Decision {
   scope            String?
   detectorSummary  Json     @default("{}") @map("detector_summary")
   payloadHash      String   @map("payload_hash")
+  payloadOut       Json?    @map("payload_out")
+  reasons          Json?    @default("[]")
+  policyId         String?  @map("policy_id")
   latencyMs        Int?     @map("latency_ms")
   correlationId    String?  @map("correlation_id")
   tags             Json     @default("[]")
@@ -271,6 +274,7 @@ model Decision {
   @@index([direction])
   @@index([tool])
   @@index([correlationId])
+  @@index([policyId])
 }
 
 // WebSocket Gateway Configuration

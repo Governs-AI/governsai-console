@@ -51,16 +51,18 @@ export class WebSocketHandler {
 
       // Parse connection parameters
       const url = new URL(request.url, `http://${request.headers.host}`);
+      console.log("21")  
       const { key, org, channels, session, token } = Object.fromEntries(url.searchParams);
-
+      console.log("22")  
       // Authenticate connection
       const authResult = await this.authenticateConnection({ key, org, session, token });
+      console.log("23")  
       if (!authResult.success) {
         console.log(`❌ Authentication failed for ${connectionId}: ${authResult.error}`);
         ws.close(1008, authResult.error);
         return;
       }
-
+      console.log("24")  
       const { userId, orgId, apiKey, userEmail } = authResult;
 
       // Create connection info
@@ -77,20 +79,20 @@ export class WebSocketHandler {
         messageCount: 0,
         isActive: true
       };
-
+      console.log("25")  
       // Store connection
       this.connections.set(connectionId, connectionInfo);
       this.addToOrgConnections(orgId, connectionId);
       this.addToUserConnections(userId, connectionId);
-
+      console.log("26")  
       // Setup WebSocket event handlers
       this.setupConnectionHandlers(ws, connectionInfo);
-
+      console.log("27")  
       // Subscribe to initial channels
       if (connectionInfo.channels.length > 0) {
         await this.channelManager.subscribe(connectionId, connectionInfo.channels);
       }
-
+      console.log("28")  
       // Send welcome message
       this.sendMessage(ws, {
         type: 'READY',
@@ -99,14 +101,14 @@ export class WebSocketHandler {
         timestamp: new Date().toISOString(),
         server: 'GovernsAI WebSocket Service v1.0.0'
       });
-
+      console.log("29")  
       // Log successful connection
       const duration = Date.now() - startTime;
       console.log(`✅ Connection established: ${connectionId} (${userEmail}) in ${duration}ms`);
-
+      console.log("30")  
       // Update health service
       this.services.healthService.recordConnection(connectionId, orgId);
-
+      console.log("31")  
     } catch (error) {
       console.error(`❌ Connection setup error for ${connectionId}:`, error);
       ws.close(1011, 'Internal server error');
@@ -119,9 +121,11 @@ export class WebSocketHandler {
   setupConnectionHandlers(ws, connectionInfo) {
     const { id: connectionId } = connectionInfo;
 
+    console.log("26.1")  
     // Handle incoming messages
     ws.on('message', async (data) => {
       try {
+        console.log("26.2")  
         await this.handleMessage(connectionId, data);
       } catch (error) {
         console.error(`❌ Message handling error for ${connectionId}:`, error);
@@ -131,17 +135,20 @@ export class WebSocketHandler {
 
     // Handle connection close
     ws.on('close', (code, reason) => {
+      console.log("26.3")  
       this.handleDisconnection(connectionId, code, reason);
     });
 
     // Handle connection errors
     ws.on('error', (error) => {
+      console.log("26.4")  
       console.error(`❌ WebSocket error for ${connectionId}:`, error);
       this.handleDisconnection(connectionId, 1006, 'Connection error');
     });
 
     // Handle pong responses
     ws.on('pong', () => {
+      console.log("26.5")  
       if (this.connections.has(connectionId)) {
         this.connections.get(connectionId).lastSeen = new Date();
       }
@@ -152,25 +159,33 @@ export class WebSocketHandler {
    * Handle incoming WebSocket message
    */
   async handleMessage(connectionId, data) {
+    console.log("26.2.1")  
     const connection = this.connections.get(connectionId);
+    console.log("26.2.2")  
     if (!connection) {
+      console.log("26.2.3")  
       console.log(`❌ Message from unknown connection: ${connectionId}`);
       return;
     }
-
+    console.log("26.2.4")  
     // Update connection stats
     connection.lastSeen = new Date();
     connection.messageCount++;
-
+    console.log("26.2.5")  
     // Parse message
     let message;
     try {
+      console.log("26.2.6")  
+      console.log(`📨 Raw message from ${connectionId}: ${data.toString()}`);
       message = JSON.parse(data.toString());
+      console.log(`📨 Parsed message:`, JSON.stringify(message, null, 2));
+      console.log("26.2.7")  
     } catch (error) {
+      console.error(`❌ JSON parse error:`, error);
       this.sendError(connection.ws, 'INVALID_JSON', 'Message must be valid JSON');
       return;
     }
-
+    console.log("26.2.8")  
     // Validate message structure
     const validation = this.validator.validateMessage(message);
     if (!validation.success) {
@@ -179,7 +194,7 @@ export class WebSocketHandler {
     }
 
     console.log(`📨 Message from ${connectionId}: ${message.type}`);
-
+    console.log("26.2.9  ======", message.type)  
     // Route message based on type
     switch (message.type) {
       case 'PING':
@@ -187,6 +202,7 @@ export class WebSocketHandler {
         break;
       
       case 'INGEST':
+        console.log("26.2.10")  
         await this.handleIngest(connection, message);
         break;
       
@@ -219,13 +235,14 @@ export class WebSocketHandler {
    */
   async handleIngest(connection, message) {
     try {
+      console.log("26.2.10.1")  
       const { channel, schema, idempotencyKey, data } = message;
 
       // Validate schema
       if (!['decision.v1', 'toolcall.v1', 'dlq.v1'].includes(schema)) {
         throw new Error(`Unsupported schema: ${schema}`);
       }
-
+      console.log("26.2.10.2 ======", schema)  
       // Validate data based on schema
       let validation;
       if (schema === 'decision.v1') {
@@ -239,22 +256,22 @@ export class WebSocketHandler {
       } else {
         validation = { success: false, error: 'Unknown schema' };
       }
-      
+      console.log("26.2.10.3 ======", validation)  
       if (!validation.success) {
         throw new Error(`Invalid ${schema} data: ${validation.error}`);
       }
-
+      console.log("26.2.10.4")  
       // Check authorization for channel
       if (!this.channelManager.canPublishToChannel(connection, channel)) {
         throw new Error(`Not authorized to publish to channel: ${channel}`);
       }
-
+      console.log("26.2.10.5")  
       // Process the message based on schema
       let result;
       if (schema === 'decision.v1') {
         // Ensure orgId is in the data object for validation
         const dataWithOrgId = { ...data, orgId: connection.orgId };
-        
+        console.log("26.2.10.6")  
         result = await this.services.decisionService.processDecision({
           orgId: connection.orgId, // Top-level orgId for decision service
           userId: connection.userId,
@@ -264,6 +281,7 @@ export class WebSocketHandler {
           receivedAt: new Date(),
           ...dataWithOrgId // Spread data with orgId
         });
+        console.log("26.2.10.7")  
       } else {
         // For non-decision schemas, just log and acknowledge
         console.log(`📝 Received ${schema} message: ${idempotencyKey}`);
@@ -275,7 +293,7 @@ export class WebSocketHandler {
           idempotencyKey
         };
       }
-
+      
       // Send acknowledgment
       this.sendMessage(connection.ws, {
         type: 'ACK',

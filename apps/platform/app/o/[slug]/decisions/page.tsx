@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Badge,
   LoadingSpinner,
@@ -14,16 +12,15 @@ import {
 } from '@governs-ai/ui';
 import {
   RefreshCw,
-  Filter,
-  Download,
   Activity,
   CheckCircle,
   XCircle,
   Clock,
   Zap,
-  Globe,
   Key,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
 
@@ -40,6 +37,10 @@ interface Decision {
   correlationId?: string;
   tags: string[];
   ts: string;
+  // Additional fields for better display
+  payloadOut?: Record<string, any>;
+  reasons?: string[];
+  policyId?: string;
 }
 
 interface WebSocketConnection {
@@ -82,6 +83,8 @@ export default function DecisionsPage() {
     tool: '',
     timeRange: '24h'
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedDecisions, setExpandedDecisions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchData();
@@ -143,30 +146,6 @@ export default function DecisionsPage() {
     }
   };
 
-  const getDecisionIcon = (decision: string) => {
-    switch (decision) {
-      case 'allow': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'deny': return <XCircle className="h-4 w-4 text-red-600" />;
-      case 'transform': return <Zap className="h-4 w-4 text-yellow-600" />;
-      default: return <AlertCircle className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  const getDecisionBadge = (decision: string) => {
-    switch (decision) {
-      case 'allow': return <Badge variant="success">Allow</Badge>;
-      case 'deny': return <Badge variant="destructive">Deny</Badge>;
-      case 'transform': return <Badge variant="warning">Transform</Badge>;
-      default: return <Badge variant="secondary">{decision}</Badge>;
-    }
-  };
-
-  const getDirectionBadge = (direction: string) => {
-    return direction === 'precheck' 
-      ? <Badge variant="outline">Pre-check</Badge>
-      : <Badge variant="secondary">Post-check</Badge>;
-  };
-
   const formatTimestamp = (ts: string) => {
     return new Date(ts).toLocaleString();
   };
@@ -174,6 +153,73 @@ export default function DecisionsPage() {
   const formatLatency = (latencyMs?: number) => {
     if (!latencyMs) return 'N/A';
     return `${latencyMs}ms`;
+  };
+
+  const toggleExpanded = (decisionId: string) => {
+    const newExpanded = new Set(expandedDecisions);
+    if (newExpanded.has(decisionId)) {
+      newExpanded.delete(decisionId);
+    } else {
+      newExpanded.add(decisionId);
+    }
+    setExpandedDecisions(newExpanded);
+  };
+
+  const filteredDecisions = decisions.filter(decision => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      decision.id.toLowerCase().includes(searchLower) ||
+      decision.decision.toLowerCase().includes(searchLower) ||
+      decision.direction.toLowerCase().includes(searchLower) ||
+      decision.tool?.toLowerCase().includes(searchLower) ||
+      decision.correlationId?.toLowerCase().includes(searchLower) ||
+      decision.policyId?.toLowerCase().includes(searchLower) ||
+      decision.reasons?.some(reason => reason.toLowerCase().includes(searchLower))
+    );
+  });
+
+  const getDecisionVariant = (decision: string) => {
+    switch (decision) {
+      case 'allow':
+        return 'default';
+      case 'transform':
+        return 'secondary';
+      case 'deny':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getDecisionIcon = (decision: string) => {
+    switch (decision) {
+      case 'allow':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'transform':
+        return <Zap className="h-4 w-4 text-yellow-500" />;
+      case 'deny':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getDecisionBadge = (decision: string) => {
+    return (
+      <Badge variant={getDecisionVariant(decision)} className="flex items-center gap-1">
+        {getDecisionIcon(decision)}
+        {decision}
+      </Badge>
+    );
+  };
+
+  const getDirectionBadge = (direction: string) => {
+    return (
+      <Badge variant="outline">
+        {direction === 'precheck' ? 'Pre-check' : 'Post-check'}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -286,7 +332,41 @@ export default function DecisionsPage() {
         {/* Tab Content */}
         {activeTab === 'decisions' && (
           <div className="space-y-4">
-            {decisions.length === 0 ? (
+            {/* Search and Filters */}
+            <div className="flex gap-4 items-center">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search decisions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={filters.direction}
+                  onChange={(e) => setFilters(prev => ({ ...prev, direction: e.target.value }))}
+                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">All Directions</option>
+                  <option value="precheck">Pre-check</option>
+                  <option value="postcheck">Post-check</option>
+                </select>
+                <select
+                  value={filters.decision}
+                  onChange={(e) => setFilters(prev => ({ ...prev, decision: e.target.value }))}
+                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">All Decisions</option>
+                  <option value="allow">Allow</option>
+                  <option value="transform">Transform</option>
+                  <option value="deny">Deny</option>
+                </select>
+              </div>
+            </div>
+
+            {filteredDecisions.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -297,42 +377,133 @@ export default function DecisionsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {decisions.map((decision) => (
-                  <Card key={decision.id} className="hover:bg-muted/50 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3">
-                          {getDecisionIcon(decision.decision)}
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              {getDecisionBadge(decision.decision)}
-                              {getDirectionBadge(decision.direction)}
-                              {decision.tool && (
-                                <Badge variant="outline">
-                                  <Globe className="h-3 w-3 mr-1" />
-                                  {decision.tool}
-                                </Badge>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Decision</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Direction</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Tool</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Time</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Latency</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredDecisions.map((decision) => (
+                      <React.Fragment key={decision.id}>
+                        <tr className="hover:bg-muted/30">
+                          <td className="px-4 py-3">
+                            {getDecisionBadge(decision.decision)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {getDirectionBadge(decision.direction)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {decision.tool || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {formatTimestamp(decision.ts)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {formatLatency(decision.latencyMs)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => toggleExpanded(decision.id)}
+                              className="p-1 hover:bg-muted rounded"
+                            >
+                              {expandedDecisions.has(decision.id) ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
                               )}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {decision.scope || 'No scope specified'}
-                            </p>
-                            {decision.correlationId && (
-                              <p className="text-xs text-muted-foreground font-mono">
-                                ID: {decision.correlationId}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right text-sm text-muted-foreground">
-                          <p>{formatTimestamp(decision.ts)}</p>
-                          <p>{formatLatency(decision.latencyMs)}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                            </button>
+                          </td>
+                        </tr>
+                        {expandedDecisions.has(decision.id) && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-4 bg-muted/20">
+                              <div className="space-y-4">
+                                {/* Basic Info */}
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="font-medium">ID:</span> {decision.id}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Correlation ID:</span> {decision.correlationId || 'N/A'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Policy ID:</span> {decision.policyId || 'N/A'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Scope:</span> {decision.scope || 'N/A'}
+                                  </div>
+                                </div>
+
+                                {/* Payload Hash */}
+                                <div>
+                                  <span className="font-medium text-sm">Payload Hash:</span>
+                                  <code className="ml-2 text-xs bg-muted px-2 py-1 rounded">
+                                    {decision.payloadHash}
+                                  </code>
+                                </div>
+
+                                {/* Reasons */}
+                                {decision.reasons && decision.reasons.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-sm">Reasons:</span>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {decision.reasons.map((reason, index) => (
+                                        <Badge key={index} variant="outline" className="text-xs">
+                                          {reason}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Detector Summary */}
+                                {decision.detectorSummary && Object.keys(decision.detectorSummary).length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-sm">Detector Summary:</span>
+                                    <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto">
+                                      {JSON.stringify(decision.detectorSummary, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+
+                                {/* Payload Out */}
+                                {decision.payloadOut && Object.keys(decision.payloadOut).length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-sm">Payload Out:</span>
+                                    <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto">
+                                      {JSON.stringify(decision.payloadOut, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+
+                                {/* Tags */}
+                                {decision.tags && decision.tags.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-sm">Tags:</span>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {decision.tags.map((tag, index) => (
+                                        <Badge key={index} variant="secondary" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

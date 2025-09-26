@@ -28,9 +28,12 @@ export class DecisionService {
         ...data
       } = decisionData;
 
+      console.log("1")
       // Check for duplicates using idempotency key and payload hash
       const duplicateCheck = await this.checkDuplicate(orgId, data.payloadHash, data.correlationId);
+      console.log("2")
       if (duplicateCheck.isDuplicate) {
+        console.log("3")
         console.log(`⚠️ Duplicate decision detected: ${duplicateCheck.existingId}`);
         return {
           id: duplicateCheck.existingId,
@@ -39,10 +42,12 @@ export class DecisionService {
         };
       }
 
+      console.log("4")
       // Validate decision data (ensure orgId is in data object for validation)
       const dataForValidation = { ...data, orgId };
+      console.log("5")
       this.validateDecisionData(dataForValidation);
-
+      console.log("6")
       // Create decision record
       const decision = await prisma.decision.create({
         data: {
@@ -53,19 +58,22 @@ export class DecisionService {
           scope: data.scope || null,
           detectorSummary: data.detectorSummary || {},
           payloadHash: data.payloadHash,
+          payloadOut: data.payloadOut || null,
+          reasons: data.reasons || [],
+          policyId: data.policyId || null,
           latencyMs: data.latencyMs || null,
           correlationId: data.correlationId || null,
           tags: data.tags || [],
           ts: data.ts ? new Date(data.ts) : receivedAt || new Date()
         }
       });
-
+      console.log("7")
       // Cache decision for duplicate detection
       this.cacheDecision(decision);
-
+      console.log("8")
       // Log processing metrics
       await this.logDecisionMetrics(decision, { userId, apiKey, channel });
-
+      console.log("9")
       console.log(`✅ Decision processed: ${decision.id} (${data.direction}/${data.decision})`);
 
       return {
@@ -78,8 +86,9 @@ export class DecisionService {
         scope: decision.scope,
         ts: decision.ts
       };
-
     } catch (error) {
+      console.log("10") 
+
       console.error('Decision processing error:', error);
       throw new Error(`Failed to process decision: ${error.message}`);
     }
