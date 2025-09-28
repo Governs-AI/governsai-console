@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { 
   KpiCard, 
   PageHeader, 
@@ -23,115 +23,69 @@ import {
 import PlatformShell from '@/components/platform-shell';
 import { 
   Plus,
-  Edit,
   Trash2,
-  Copy,
-  Check,
-  Globe,
-  User,
-  Settings,
   Key,
-  Wifi,
-  WifiOff,
-  Play,
-  Square,
+  Calendar,
+  Activity,
+  Shield,
 } from 'lucide-react';
 
-interface Channel {
+interface APIKey {
   id: string;
-  channel: string;
-  type: 'org' | 'user' | 'key';
   name: string;
-  description?: string;
-  keyName?: string;
+  scopes: string[];
+  isActive: boolean;
+  lastUsed: string | null;
   createdAt: string;
-}
-
-interface WebSocketGateway {
-  id: string;
-  name: string;
-  url: string;
-  sessionId: string;
+  expiresAt: string | null;
 }
 
 export default function KeysPage() {
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [gateway, setGateway] = useState<WebSocketGateway | null>(null);
+  const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [copiedChannel, setCopiedChannel] = useState<string | null>(null);
-  const [subscribedChannels, setSubscribedChannels] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState('channels');
   const params = useParams();
-  const router = useRouter();
   const orgSlug = params.slug as string;
 
   // Form state
   const [formData, setFormData] = useState({
-    channelType: 'org' as 'org' | 'user' | 'key',
-    channelName: '',
-    keyId: '',
-    description: '',
-  });
-
-  // WebSocket connection
-  const { client, isConnected } = useWebSocket({
-    onMessage: (message) => {
-      console.log('WebSocket message:', message);
-      if (message.type === 'EVENT') {
-        // Handle real-time events
-        console.log('Event received:', message.channel, message.data);
-      }
-    },
-    onError: (error) => {
-      console.error('WebSocket error:', error);
-    },
+    name: '',
+    scopes: [] as string[],
   });
 
   useEffect(() => {
-    fetchData();
+    fetchApiKeys();
   }, []);
 
-  const fetchData = async () => {
+  const fetchApiKeys = async () => {
     try {
-      const [channelsResponse, gatewayResponse] = await Promise.all([
-        fetch('/api/ws/channels', {
-          method: 'GET',
-          credentials: 'include',
-        }),
-        fetch('/api/ws', {
-          method: 'GET',
-          credentials: 'include',
-        }),
-      ]);
+      const response = await fetch(`/api/orgs/${orgSlug}/api-keys`, {
+        method: 'GET',
+        credentials: 'include',
+      });
 
-      if (!channelsResponse.ok || !gatewayResponse.ok) {
-        setError('Failed to load data');
+      if (!response.ok) {
+        setError('Failed to load API keys');
         return;
       }
 
-      const [channelsData, gatewayData] = await Promise.all([
-        channelsResponse.json(),
-        gatewayResponse.json(),
-      ]);
-
-      setChannels(channelsData.channels || []);
-      setGateway(gatewayData.gateway || null);
+      const data = await response.json();
+      setApiKeys(data || []);
     } catch (err) {
-      console.error('Failed to fetch data:', err);
-      setError('Failed to load data');
+      console.error('Failed to fetch API keys:', err);
+      setError('Failed to load API keys');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateChannel = async (e: React.FormEvent) => {
+  const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const response = await fetch('/api/ws/channels', {
+      const response = await fetch(`/api/orgs/${orgSlug}/api-keys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,367 +96,276 @@ export default function KeysPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to create channel');
+        setError(errorData.error || 'Failed to create API key');
         return;
       }
 
       const data = await response.json();
-      setChannels(prev => [data.channel, ...prev]);
+      setApiKeys(prev => [data, ...prev]);
       setShowCreateForm(false);
       setFormData({ 
-        channelType: 'org', 
-        channelName: '', 
-        keyId: '', 
-        description: '' 
+        name: '', 
+        scopes: [] 
       });
     } catch (err) {
-      console.error('Failed to create channel:', err);
-      setError('Failed to create channel');
+      console.error('Failed to create API key:', err);
+      setError('Failed to create API key');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubscribe = async (channel: string) => {
-    if (!isConnected) {
-      setError('WebSocket not connected');
-      return;
-    }
-
-    client.subscribe([channel]);
-    setSubscribedChannels(prev => new Set([...prev, channel]));
-  };
-
-  const handleUnsubscribe = async (channel: string) => {
-    if (!isConnected) {
-      setError('WebSocket not connected');
-      return;
-    }
-
-    client.unsubscribe([channel]);
-    setSubscribedChannels(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(channel);
-      return newSet;
-    });
-  };
-
-  const copyToClipboard = async (text: string, channel: string) => {
+  const handleToggleKey = async (keyId: string, isActive: boolean) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedChannel(channel);
-      setTimeout(() => setCopiedChannel(null), 2000);
+      const response = await fetch(`/api/orgs/${orgSlug}/api-keys/${keyId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ isActive }),
+      });
+
+      if (!response.ok) {
+        setError('Failed to update API key');
+        return;
+      }
+
+      setApiKeys(prev => prev.map(key => 
+        key.id === keyId ? { ...key, isActive } : key
+      ));
     } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
+      console.error('Failed to update API key:', err);
+      setError('Failed to update API key');
     }
   };
 
-  if (loading && channels.length === 0) {
+  const handleDeleteKey = async (keyId: string) => {
+    if (!confirm('Are you sure you want to delete this API key?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/orgs/${orgSlug}/api-keys/${keyId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        setError('Failed to delete API key');
+        return;
+      }
+
+      setApiKeys(prev => prev.filter(key => key.id !== keyId));
+    } catch (err) {
+      console.error('Failed to delete API key:', err);
+      setError('Failed to delete API key');
+    }
+  };
+
+  if (loading && apiKeys.length === 0) {
     return (
       <PlatformShell orgSlug={orgSlug}>
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center">
             <LoadingSpinner size="lg" className="mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading channels...</p>
+            <p className="text-muted-foreground">Loading API keys...</p>
           </div>
         </div>
       </PlatformShell>
     );
   }
 
-  const orgChannels = channels.filter(ch => ch.type === 'org');
-  const userChannels = channels.filter(ch => ch.type === 'user');
-  const keyChannels = channels.filter(ch => ch.type === 'key');
-  const subscribedCount = subscribedChannels.size;
+  const activeKeys = apiKeys.filter(key => key.isActive);
+  const inactiveKeys = apiKeys.filter(key => !key.isActive);
 
   return (
     <PlatformShell orgSlug={orgSlug}>
       <div className="space-y-6">
         <PageHeader
-          title="API Keys & WebSocket"
-          subtitle={`Manage API keys and WebSocket integration for ${orgSlug}`}
+          title="API Keys"
+          subtitle={`Manage API keys for ${orgSlug} organization`}
           actions={
-            <div className="flex gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-danger'}`} />
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </div>
-              {activeTab === 'channels' && (
-                <Button
-                  onClick={() => setShowCreateForm(!showCreateForm)}
-                  variant="outline"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {showCreateForm ? 'Cancel' : 'Add Channel'}
-                </Button>
-              )}
-            </div>
+            <Button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              variant="outline"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {showCreateForm ? 'Cancel' : 'Create Key'}
+            </Button>
           }
         />
 
-        {/* Tab Navigation */}
-        <div className="border-b border-border">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('channels')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'channels'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              Channels ({channels.length})
-            </button>
-          </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <KpiCard label="Total Keys" value={apiKeys.length.toString()} />
+          <KpiCard label="Active Keys" value={activeKeys.length.toString()} />
+          <KpiCard label="Inactive Keys" value={inactiveKeys.length.toString()} />
+          <KpiCard label="Recently Used" value={apiKeys.filter(key => key.lastUsed && new Date(key.lastUsed) > new Date(Date.now() - 24 * 60 * 60 * 1000)).length.toString()} />
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'channels' && (
-          <div className="space-y-6">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <KpiCard label="Total Channels" value={channels.length.toString()} />
-              <KpiCard label="Subscribed" value={subscribedCount.toString()} />
-              <KpiCard label="Org Channels" value={orgChannels.length.toString()} />
-              <KpiCard label="User Channels" value={userChannels.length.toString()} />
-            </div>
-
-            {/* WebSocket Status */}
-            {gateway && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wifi className="h-5 w-5" />
-                    WebSocket Gateway
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+        {/* Create Form */}
+        {showCreateForm && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Create New API Key</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateKey} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Key Name</label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="My API Key"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Scopes</label>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Gateway:</span>
-                      <span className="text-sm text-muted-foreground">{gateway.name}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Status:</span>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-danger'}`} />
-                        <span className="text-sm">{isConnected ? 'Connected' : 'Disconnected'}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Session ID:</span>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">{gateway.sessionId}</code>
-                    </div>
+                    {['decisions', 'approvals', 'dlq', 'toolcalls', 'usage'].map((scope) => (
+                      <label key={scope} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.scopes.includes(scope)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData(prev => ({ ...prev, scopes: [...prev.scopes, scope] }));
+                            } else {
+                              setFormData(prev => ({ ...prev, scopes: prev.scopes.filter(s => s !== scope) }));
+                            }
+                          }}
+                          className="rounded border-border"
+                        />
+                        <span className="text-sm">{scope}</span>
+                      </label>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Create Form */}
-            {showCreateForm && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Create New Channel</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleCreateChannel} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Channel Type</label>
-                        <select
-                          value={formData.channelType}
-                          onChange={(e) => setFormData(prev => ({ ...prev, channelType: e.target.value as 'org' | 'user' | 'key' }))}
-                          className="w-full px-3 py-2 border border-border rounded-md bg-background"
-                        >
-                          <option value="org">Organization Level</option>
-                          <option value="user">User Level</option>
-                          <option value="key">Key Level</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Channel Name</label>
-                        <Input
-                          value={formData.channelName}
-                          onChange={(e) => setFormData(prev => ({ ...prev, channelName: e.target.value }))}
-                          placeholder="approvals, decisions, dlq, usage"
-                          required
-                        />
-                      </div>
-                    </div>
-                    {formData.channelType === 'key' && (
-                      <div>
-                        <label className="block text-sm font-medium mb-1">API Key</label>
-                        <Input
-                          value={formData.keyId}
-                          onChange={(e) => setFormData(prev => ({ ...prev, keyId: e.target.value }))}
-                          placeholder="API Key ID"
-                          required
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Description (Optional)</label>
-                      <Input
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Description of this channel"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={loading}>
-                        {loading ? 'Creating...' : 'Create Channel'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowCreateForm(false)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-md">
-                {error}
-              </div>
-            )}
-
-            {/* Channels Table */}
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium">Channels</h2>
-                <div className="text-sm text-muted-foreground">
-                  {channels.length} total, {subscribedCount} subscribed
                 </div>
-              </div>
-              
-              <DataTable>
-                <DataTableHeader>
-                  <DataTableRow>
-                    <DataTableHead>Channel</DataTableHead>
-                    <DataTableHead>Type</DataTableHead>
-                    <DataTableHead>Name</DataTableHead>
-                    <DataTableHead>Description</DataTableHead>
-                    <DataTableHead>Status</DataTableHead>
-                    <DataTableHead>Actions</DataTableHead>
-                  </DataTableRow>
-                </DataTableHeader>
-                <DataTableBody>
-                  {channels.map((channel) => (
-                    <DataTableRow key={channel.id}>
-                      <DataTableCell>
-                        <div className="flex items-center gap-2">
-                          <code className="text-xs bg-muted px-2 py-1 rounded">
-                            {channel.channel}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => copyToClipboard(channel.channel, channel.channel)}
-                          >
-                            {copiedChannel === channel.channel ? (
-                              <Check className="h-3 w-3 text-success" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </DataTableCell>
-                      <DataTableCell>
-                        <Badge variant={channel.type === 'org' ? 'default' : channel.type === 'user' ? 'secondary' : 'outline'}>
-                          {channel.type === 'org' ? (
-                            <>
-                              <Globe className="h-3 w-3 mr-1" />
-                              Org
-                            </>
-                          ) : channel.type === 'user' ? (
-                            <>
-                              <User className="h-3 w-3 mr-1" />
-                              User
-                            </>
-                          ) : (
-                            <>
-                              <Key className="h-3 w-3 mr-1" />
-                              Key
-                            </>
-                          )}
-                        </Badge>
-                      </DataTableCell>
-                      <DataTableCell>
-                        <div>
-                          <div className="font-medium">{channel.name}</div>
-                          {channel.keyName && (
-                            <div className="text-sm text-muted-foreground">
-                              {channel.keyName}
-                            </div>
-                          )}
-                        </div>
-                      </DataTableCell>
-                      <DataTableCell>
-                        <div className="text-sm text-muted-foreground">
-                          {channel.description || '—'}
-                        </div>
-                      </DataTableCell>
-                      <DataTableCell>
-                        <Badge variant={subscribedChannels.has(channel.channel) ? 'default' : 'secondary'}>
-                          {subscribedChannels.has(channel.channel) ? 'Subscribed' : 'Not Subscribed'}
-                        </Badge>
-                      </DataTableCell>
-                      <DataTableCell>
-                        <div className="flex gap-1">
-                          {subscribedChannels.has(channel.channel) ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleUnsubscribe(channel.channel)}
-                            >
-                              <Square className="h-4 w-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleSubscribe(channel.channel)}
-                              disabled={!isConnected}
-                            >
-                              <Play className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))}
-                </DataTableBody>
-              </DataTable>
-            </section>
-
-            {/* Info Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  Channel Types
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p><strong>Organization Level:</strong> Applied to all users in the organization. Examples: org:abc:approvals, org:abc:decisions</p>
-                  <p><strong>User Level:</strong> Applied only to the specific user. Examples: user:123:notifications, user:123:settings</p>
-                  <p><strong>Key Level:</strong> Applied to specific API key usage. Examples: key:key1:usage, key:key1:errors</p>
-                  <p><strong>Usage:</strong> Subscribe to channels to receive real-time events. Use the WebSocket client for programmatic access.</p>
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Creating...' : 'Create Key'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCreateForm(false)}
+                  >
+                    Cancel
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-md">
+            {error}
           </div>
         )}
+
+        {/* API Keys Table */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">API Keys</h2>
+            <div className="text-sm text-muted-foreground">
+              {apiKeys.length} total, {activeKeys.length} active
+            </div>
+          </div>
+          
+          <DataTable>
+            <DataTableHeader>
+              <DataTableRow>
+                <DataTableHead>Name</DataTableHead>
+                <DataTableHead>Scopes</DataTableHead>
+                <DataTableHead>Status</DataTableHead>
+                <DataTableHead>Last Used</DataTableHead>
+                <DataTableHead>Created</DataTableHead>
+                <DataTableHead>Actions</DataTableHead>
+              </DataTableRow>
+            </DataTableHeader>
+            <DataTableBody>
+              {apiKeys.map((key) => (
+                <DataTableRow key={key.id}>
+                  <DataTableCell>
+                    <div className="flex items-center gap-2">
+                      <Key className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{key.name}</span>
+                    </div>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {key.scopes.map((scope) => (
+                        <Badge key={scope} variant="secondary" className="text-xs">
+                          {scope}
+                        </Badge>
+                      ))}
+                    </div>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <Badge variant={key.isActive ? 'default' : 'secondary'}>
+                      {key.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Activity className="h-3 w-3" />
+                      {key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Never'}
+                    </div>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(key.createdAt).toLocaleDateString()}
+                    </div>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleToggleKey(key.id, !key.isActive)}
+                      >
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteKey(key.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </DataTableCell>
+                </DataTableRow>
+              ))}
+            </DataTableBody>
+          </DataTable>
+        </section>
+
+        {/* Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              API Key Scopes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p><strong>decisions:</strong> Access to decision events and analytics</p>
+              <p><strong>approvals:</strong> Manage approval workflows and policies</p>
+              <p><strong>dlq:</strong> Access to dead letter queue and error handling</p>
+              <p><strong>toolcalls:</strong> Monitor and manage tool call usage</p>
+              <p><strong>usage:</strong> View usage statistics and billing information</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </PlatformShell>
   );

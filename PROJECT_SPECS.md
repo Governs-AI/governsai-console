@@ -18,9 +18,11 @@
 ## 🎯 Project Overview
 
 ### Mission Statement
+
 GovernsAI is a secure control plane for AI interactions that acts as an intelligent gateway between users and AI models, providing complete visibility and control over AI usage, spending, and compliance.
 
 ### Core Value Propositions
+
 - **Cost Control**: Predictable AI spending with budget enforcement
 - **Security**: PII detection and data protection
 - **Compliance**: Comprehensive audit trails and policy enforcement
@@ -28,6 +30,7 @@ GovernsAI is a secure control plane for AI interactions that acts as an intellig
 - **Unified Access**: Single endpoint for multiple AI providers
 
 ### Target Users
+
 - **Primary**: Enterprise developers and DevOps teams
 - **Secondary**: AI application developers and startups
 - **Tertiary**: Compliance officers and security teams
@@ -35,6 +38,7 @@ GovernsAI is a secure control plane for AI interactions that acts as an intellig
 ## 🏗️ System Architecture
 
 ### Monorepo Structure
+
 ```
 governs-ai/
 ├── apps/                    # Applications
@@ -52,6 +56,7 @@ governs-ai/
 ```
 
 ### Technology Stack
+
 - **Frontend**: Next.js 15, TypeScript, React 18, Tailwind CSS
 - **Backend**: Next.js API routes, Prisma ORM
 - **Database**: PostgreSQL with Prisma
@@ -61,6 +66,7 @@ governs-ai/
 - **Package Manager**: pnpm with Turborepo
 
 ### Application Ports
+
 - **Landing**: http://localhost:3003
 - **Platform**: http://localhost:3002
 - **Docs**: http://localhost:3001
@@ -70,6 +76,7 @@ governs-ai/
 ### Core Models
 
 #### User Model
+
 ```prisma
 model User {
   id        String   @id @default(cuid())
@@ -78,7 +85,7 @@ model User {
   image     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   apiKeys      APIKey[]
   usageRecords UsageRecord[]
@@ -88,6 +95,7 @@ model User {
 ```
 
 #### APIKey Model
+
 ```prisma
 model APIKey {
   id        String   @id @default(cuid())
@@ -99,7 +107,7 @@ model APIKey {
   lastUsed  DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   user User @relation(fields: [userId], references: [id])
   userId String
@@ -107,6 +115,7 @@ model APIKey {
 ```
 
 #### Decision Model (Event Ingest)
+
 ```prisma
 model Decision {
   id               String   @id @default(cuid())
@@ -121,7 +130,7 @@ model Decision {
   correlationId    String?
   tags             Json     @default("[]")
   ts               DateTime @default(now())
-  
+
   @@index([orgId, ts(sort: Desc)])
   @@index([decision])
   @@index([direction])
@@ -131,6 +140,7 @@ model Decision {
 ```
 
 #### Policy Model
+
 ```prisma
 model Policy {
   id               String   @id @default(cuid())
@@ -145,6 +155,7 @@ model Policy {
 ```
 
 #### UsageRecord Model
+
 ```prisma
 model UsageRecord {
   id          String   @id @default(cuid())
@@ -156,13 +167,14 @@ model UsageRecord {
   outputTokens Int
   cost        Decimal
   timestamp   DateTime @default(now())
-  
+
   // Relations
   user User @relation(fields: [userId], references: [id])
 }
 ```
 
 #### Budget Model
+
 ```prisma
 model Budget {
   id          String   @id @default(cuid())
@@ -175,13 +187,14 @@ model Budget {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
   user User @relation(fields: [userId], references: [id])
 }
 ```
 
 #### AuditLog Model
+
 ```prisma
 model AuditLog {
   id        String   @id @default(cuid())
@@ -191,7 +204,7 @@ model AuditLog {
   resource  String   // "decision", "policy", "budget"
   details   Json     @default("{}")
   timestamp DateTime @default(now())
-  
+
   // Relations
   user User @relation(fields: [userId], references: [id])
 }
@@ -202,15 +215,18 @@ model AuditLog {
 ### Event Ingest API
 
 #### POST /api/v1/ingest/decision
+
 **Purpose**: Ingest decision events from AI governance system
 
 **Headers**:
+
 ```
 Content-Type: application/json
 X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 **Request Body**:
+
 ```json
 {
   "orgId": "string",
@@ -232,6 +248,7 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 **Response**:
+
 ```json
 {
   "status": "accepted"
@@ -239,6 +256,7 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 **Status Codes**:
+
 - `202 Accepted`: Event ingested successfully
 - `400 Bad Request`: Missing required fields
 - `500 Internal Server Error`: Server error
@@ -246,9 +264,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ### Decisions API
 
 #### GET /api/decisions
+
 **Purpose**: Retrieve decision events with filtering and pagination
 
 **Query Parameters**:
+
 - `orgId`: Organization ID (required)
 - `direction`: Filter by direction ("precheck" | "postcheck")
 - `decision`: Filter by decision ("allow" | "transform" | "deny")
@@ -261,6 +281,7 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 - `includeStats`: Include statistics (boolean)
 
 **Response**:
+
 ```json
 {
   "decisions": [
@@ -306,12 +327,15 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ### API Keys Management
 
 #### GET /api/v1/keys
+
 **Purpose**: List API keys for organization
 
 **Query Parameters**:
+
 - `orgId`: Organization ID (required)
 
 **Response**:
+
 ```json
 [
   {
@@ -326,9 +350,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 #### POST /api/v1/keys
+
 **Purpose**: Create new API key
 
 **Request Body**:
+
 ```json
 {
   "label": "string",
@@ -338,6 +364,7 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 **Response**:
+
 ```json
 {
   "id": "string",
@@ -350,9 +377,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 #### DELETE /api/v1/keys/[id]
+
 **Purpose**: Delete API key
 
 **Response**:
+
 ```json
 {
   "message": "API key deleted successfully"
@@ -360,9 +389,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 #### PATCH /api/v1/keys/[id]
+
 **Purpose**: Update API key (toggle active status)
 
 **Request Body**:
+
 ```json
 {
   "isActive": "boolean"
@@ -372,12 +403,15 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ### Policies Management
 
 #### GET /api/v1/policies
+
 **Purpose**: List policies for organization
 
 **Query Parameters**:
+
 - `orgId`: Organization ID (required)
 
 **Response**:
+
 ```json
 [
   {
@@ -393,9 +427,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 #### POST /api/v1/policies
+
 **Purpose**: Create new policy
 
 **Request Body**:
+
 ```json
 {
   "name": "string",
@@ -412,9 +448,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 #### PATCH /api/v1/policies/[id]
+
 **Purpose**: Update policy
 
 **Request Body**:
+
 ```json
 {
   "name": "string (optional)",
@@ -425,9 +463,11 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```
 
 #### DELETE /api/v1/policies/[id]
+
 **Purpose**: Delete policy
 
 **Response**:
+
 ```json
 {
   "message": "Policy deleted successfully"
@@ -439,11 +479,13 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ### Core UI Components
 
 #### HealthPill Component
+
 **Location**: `apps/platform/components/health-pill.tsx`
 
 **Purpose**: Display system health status and metrics
 
 **Features**:
+
 - Real-time health status (healthy/warning/error)
 - Last ingest time display
 - DLQ count monitoring
@@ -452,6 +494,7 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 - Auto-refresh every 30 seconds
 
 **Props**:
+
 ```typescript
 interface HealthPillProps {
   orgId?: string;
@@ -460,11 +503,13 @@ interface HealthPillProps {
 ```
 
 #### DecisionsClient Component
+
 **Location**: `apps/platform/app/dashboard/decisions/decisions-client.tsx`
 
 **Purpose**: Display and manage decision events
 
 **Features**:
+
 - Real-time decision event table
 - Advanced filtering (direction, decision, tool, time range)
 - Statistics cards (total, allowed, transformed, denied)
@@ -473,6 +518,7 @@ interface HealthPillProps {
 - Auto-refresh capability
 
 **State Management**:
+
 ```typescript
 interface DecisionEvent {
   id: string;
@@ -491,11 +537,13 @@ interface DecisionEvent {
 ```
 
 #### KeysClient Component
+
 **Location**: `apps/platform/app/dashboard/keys/keys-client.tsx`
 
 **Purpose**: Manage API keys
 
 **Features**:
+
 - API key listing with status
 - Create new API keys with scopes
 - Toggle key active/inactive status
@@ -504,16 +552,19 @@ interface DecisionEvent {
 - Copy to clipboard functionality
 
 **Available Scopes**:
+
 - `precheck:invoke`: Allow invoking precheck decisions
 - `ingest:write`: Allow writing decision events
 - `policy:publish`: Allow publishing policies
 
 #### PoliciesClient Component
+
 **Location**: `apps/platform/app/dashboard/policies/policies-client.tsx`
 
 **Purpose**: Manage governance policies
 
 **Features**:
+
 - Policy listing and management
 - Tool access matrix configuration
 - PII class handling per tool
@@ -522,6 +573,7 @@ interface DecisionEvent {
 - Active/inactive status management
 
 **Tool Access Matrix**:
+
 ```typescript
 interface ToolAccessMatrix {
   [tool: string]: {
@@ -531,6 +583,7 @@ interface ToolAccessMatrix {
 ```
 
 **Available Tools**:
+
 - `web.fetch`, `web.search`
 - `code.execute`
 - `file.read`, `file.write`
@@ -538,6 +591,7 @@ interface ToolAccessMatrix {
 - `ai.generate`, `ai.analyze`
 
 **PII Classes**:
+
 - `email`, `phone`, `ssn`
 - `credit_card`, `address`
 - `name`, `date_of_birth`
@@ -545,30 +599,35 @@ interface ToolAccessMatrix {
 ## 🔐 Authentication & Authorization
 
 ### Authentication Methods
+
 - **Primary**: Email + Password with Argon2id hashing
 - **Secondary**: JWT session tokens for web access
 - **MFA**: TOTP (Time-based One-Time Password) support
 - **Future**: OAuth2/OIDC integration
 
 ### Multi-Tenant Organization System
+
 - **Organizations**: Isolated workspaces with unique slugs
 - **Memberships**: Role-based access control per organization
 - **Invitations**: Email-based team member invitations
 - **Subdomain Support**: `{orgSlug}.app.governs.ai` routing
 
 ### User Management
+
 - **Registration**: Self-service signup with email verification
 - **Password Reset**: Secure token-based password recovery
 - **Profile Management**: User profile and organization switching
 - **Account Security**: TOTP MFA setup and management
 
 ### Authorization Levels
+
 - **OWNER**: Full organization control, can manage all members
 - **ADMIN**: User management, policy configuration, billing access
 - **DEVELOPER**: API key management, usage monitoring, policy testing
 - **VIEWER**: Read-only access to analytics and policies
 
 ### Security Features
+
 - **Password Security**: Argon2id hashing with optional server-side pepper
 - **Session Management**: HTTP-only cookies with secure flags
 - **MFA Support**: TOTP with QR code setup and verification
@@ -577,6 +636,7 @@ interface ToolAccessMatrix {
 - **Audit Logging**: All authentication and authorization events
 
 ### API Key Authentication
+
 - **HMAC Signatures**: Optional for enhanced security
 - **Scope-based Access**: Granular permissions
 - **Rate Limiting**: Per-key request limits
@@ -584,9 +644,11 @@ interface ToolAccessMatrix {
 ## 🛡️ AI Governance Features
 
 ### Precheck System
+
 **Purpose**: Validate requests before sending to AI providers
 
 **Features**:
+
 - Budget enforcement
 - PII detection
 - Policy compliance checking
@@ -594,9 +656,11 @@ interface ToolAccessMatrix {
 - Request logging
 
 ### Postcheck System
+
 **Purpose**: Analyze responses after AI provider interaction
 
 **Features**:
+
 - Response content analysis
 - Cost calculation
 - Usage tracking
@@ -604,7 +668,9 @@ interface ToolAccessMatrix {
 - Quality metrics
 
 ### PII Detection
+
 **Supported Data Types**:
+
 - Email addresses
 - Phone numbers
 - Social Security Numbers
@@ -613,13 +679,16 @@ interface ToolAccessMatrix {
 - Names and dates of birth
 
 **Detection Methods**:
+
 - Regex pattern matching
 - Machine learning models
 - Custom rule engines
 - Third-party PII detection services
 
 ### Budget Management
+
 **Features**:
+
 - Per-organization spending limits
 - Real-time cost tracking
 - Automatic request blocking
@@ -629,6 +698,7 @@ interface ToolAccessMatrix {
 ## 🛠️ Development Guidelines
 
 ### Code Standards
+
 - **TypeScript**: Strict mode enabled
 - **ESLint**: Airbnb configuration with custom rules
 - **Prettier**: Code formatting
@@ -636,6 +706,7 @@ interface ToolAccessMatrix {
 - **Conventional Commits**: Standardized commit messages
 
 ### Component Guidelines
+
 - **Functional Components**: Use React hooks
 - **TypeScript Interfaces**: Define all props and state
 - **Error Boundaries**: Implement error handling
@@ -643,6 +714,7 @@ interface ToolAccessMatrix {
 - **Accessibility**: WCAG 2.1 AA compliance
 
 ### API Guidelines
+
 - **RESTful Design**: Follow REST principles
 - **Error Handling**: Consistent error responses
 - **Validation**: Input validation on all endpoints
@@ -650,6 +722,7 @@ interface ToolAccessMatrix {
 - **Rate Limiting**: Implement rate limits
 
 ### Database Guidelines
+
 - **Migrations**: Use Prisma migrations
 - **Indexes**: Optimize query performance
 - **Relations**: Proper foreign key constraints
@@ -661,6 +734,7 @@ interface ToolAccessMatrix {
 ### Environment Variables
 
 #### Required Variables
+
 ```bash
 # Database
 DATABASE_URL="postgresql://username:password@localhost:5432/governs_ai"
@@ -680,6 +754,7 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 ```
 
 #### Application URLs
+
 ```bash
 # Development
 NEXT_PUBLIC_LANDING_DEV_URL="http://localhost:3000"
@@ -693,6 +768,7 @@ NEXT_PUBLIC_DOCS_URL="https://docs.governs.ai"
 ```
 
 ### Vercel Deployment
+
 1. **Separate Projects**: Each app deployed independently
 2. **Environment Variables**: Set in Vercel dashboard
 3. **Custom Domains**: Configure subdomains
@@ -700,6 +776,7 @@ NEXT_PUBLIC_DOCS_URL="https://docs.governs.ai"
 5. **Edge Functions**: Use for high-performance APIs
 
 ### Docker Deployment
+
 ```dockerfile
 # Multi-stage build
 FROM node:18-alpine AS base
@@ -715,12 +792,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ## 🧪 Testing Strategy
 
 ### Testing Levels
+
 1. **Unit Tests**: Component and utility functions
 2. **Integration Tests**: API endpoints and database
 3. **E2E Tests**: Critical user workflows
 4. **Performance Tests**: Load and stress testing
 
 ### Testing Tools
+
 - **Jest**: Unit testing framework
 - **React Testing Library**: Component testing
 - **Playwright**: E2E testing
@@ -728,6 +807,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 - **MSW**: API mocking
 
 ### Test Coverage
+
 - **Minimum Coverage**: 80% for critical paths
 - **Critical Paths**: Authentication, API endpoints, data processing
 - **UI Components**: All interactive components
@@ -736,18 +816,21 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ## 🔒 Security Considerations
 
 ### Data Protection
+
 - **Encryption**: TLS 1.3 for data in transit
 - **Database Encryption**: AES-256 for data at rest
 - **API Keys**: Secure storage and rotation
 - **PII Handling**: Minimal collection and processing
 
 ### Access Control
+
 - **Authentication**: Multi-factor authentication
 - **Authorization**: Role-based access control
 - **API Security**: Rate limiting and DDoS protection
 - **Audit Logging**: Comprehensive activity logs
 
 ### Compliance
+
 - **GDPR**: Data protection and privacy rights
 - **SOC 2**: Security and availability controls
 - **HIPAA**: Healthcare data protection (future)
@@ -756,18 +839,21 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ## ⚡ Performance Requirements
 
 ### Response Times
+
 - **API Endpoints**: < 200ms for 95th percentile
 - **Database Queries**: < 100ms for simple queries
 - **Page Load**: < 2s for initial load
 - **Real-time Updates**: < 1s for live data
 
 ### Scalability
+
 - **Concurrent Users**: Support 10,000+ users
 - **API Requests**: Handle 100,000+ requests/hour
 - **Database**: Support 1M+ records per table
 - **Storage**: Efficient data retention policies
 
 ### Monitoring
+
 - **Application Metrics**: Response times, error rates
 - **Infrastructure Metrics**: CPU, memory, disk usage
 - **Business Metrics**: User activity, feature usage
@@ -776,18 +862,21 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ## 📊 Analytics & Monitoring
 
 ### Key Metrics
+
 - **User Engagement**: Daily/monthly active users
 - **API Usage**: Request volume and patterns
 - **Cost Tracking**: Spending trends and budgets
 - **Security Events**: PII detection and policy violations
 
 ### Dashboards
+
 - **Executive Dashboard**: High-level business metrics
 - **Operations Dashboard**: System health and performance
 - **Security Dashboard**: Threat detection and compliance
 - **Developer Dashboard**: API usage and debugging
 
 ### Logging
+
 - **Application Logs**: Structured JSON logging
 - **Audit Logs**: Immutable security events
 - **Performance Logs**: Timing and resource usage
@@ -798,12 +887,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ## 🔌 WebSocket Architecture
 
 ### Overview
+
 GovernsAI uses a **standalone WebSocket service** for real-time AI governance decisions (precheck/postcheck). This service is deployed separately from the main platform for scalability and performance.
 
 ### Standalone WebSocket Service: `apps/websocket-service/`
+
 **Purpose**: Dedicated real-time service for precheck/postcheck AI governance decisions
 
 **Architecture**:
+
 ```
 ┌─────────────────┐    ┌──────────────────┐
 │   Dashboard     │    │  External Apps   │
@@ -829,6 +921,7 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 ```
 
 **Key Components**:
+
 - `src/server.js` - Main service entry point with Express + WebSocket server
 - `src/websocket/handler.js` - WebSocket connection and message handling
 - `src/websocket/validator.js` - Message validation with Zod schemas
@@ -838,12 +931,14 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 - `src/services/health.js` - Health monitoring and metrics
 
 **Database Models**:
+
 - `Decision` - Processed precheck/postcheck decisions
 - `APIKey` - Authentication keys for external clients
 - `WebSocketSession` - Active connection tracking (optional)
 - `AuditLog` - Activity logging and audit trail
 
 **Flow**:
+
 1. User generates WebSocket URL via dashboard (`/api/ws/generate-url/`)
 2. External precheck/postcheck system connects to `wss://websocket-service.railway.app/ws`
 3. Client sends `INGEST` messages with decision data
@@ -851,9 +946,11 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 5. Real-time updates are broadcast to dashboard subscribers
 
 ### Dashboard Integration: `/api/ws/`
+
 **Purpose**: WebSocket URL generation and configuration for dashboard
 
 **Key Components**:
+
 - `/api/ws/generate-url/` - Generate WebSocket URLs pointing to standalone service
 - `/api/ws/generate-url/new-key/` - Create new API key and generate URL
 - `/api/ws/generate-url/delete-key/` - Soft-delete API keys
@@ -861,16 +958,20 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 **Usage**: These endpoints provide the dashboard interface for managing WebSocket connections to the standalone service.
 
 ### Monitoring System: `/api/websockets/`
+
 **Purpose**: WebSocket connection monitoring and activity logging
 
 **Key Components**:
+
 - `/api/websockets/connections/` - Fetch connection status for dashboard
 - `/api/websockets/activity/` - Log WebSocket activities for audit
 
 **Usage**: These endpoints are used by the decisions page to display real-time connection status and activity from the standalone service.
 
 ### Message Schemas
+
 **INGEST Message Format**:
+
 ```json
 {
   "type": "INGEST",
@@ -879,7 +980,7 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
   "idempotencyKey": "unique-key",
   "data": {
     "orgId": "string",
-    "direction": "precheck|postcheck", 
+    "direction": "precheck|postcheck",
     "decision": "allow|transform|deny",
     "tool": "string",
     "scope": "string",
@@ -891,6 +992,7 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 ```
 
 ### Security
+
 - API key authentication embedded in WebSocket URL
 - Channel-based access control (org-level, user-level, key-level)
 - Session tracking with automatic cleanup
@@ -899,6 +1001,20 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 ---
 
 ## 📝 Recent Changes Log
+
+- **2024-12-26**: Comprehensive Project Review and Analysis
+  - **REVIEW COMPLETED**: Full project architecture and codebase analysis
+  - **CURRENT STATUS**: Project is in active development with solid foundation
+  - **ARCHITECTURE**: Well-structured monorepo with clear separation of concerns
+  - **AUTHENTICATION**: Complete auth system with MFA, org management, and role-based access
+  - **DATABASE**: Comprehensive schema with proper relationships and indexing
+  - **API DESIGN**: RESTful APIs with proper validation and error handling
+  - **FRONTEND**: Modern React/Next.js with shadcn/ui components and Tailwind CSS
+  - **WEBSOCKET**: Standalone service for real-time decision processing (separate from platform)
+  - **DEPLOYMENT**: Docker support and Vercel configuration ready
+  - **CODE QUALITY**: No linting errors, TypeScript strict mode enabled
+  - **DOCUMENTATION**: Comprehensive PROJECT_SPECS.md maintained and up-to-date
+  - **PLATFORM CLEANUP**: Removed WebSocket integration from platform app, focused on API key management
 
 - **2024-12-26**: Standalone WebSocket Service Architecture
   - **MAJOR CHANGE**: Created completely separate WebSocket service (`apps/websocket-service/`)
@@ -940,13 +1056,13 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 
 ## 📝 Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2024-01-XX | Initial MVP with core features |
-| 1.1.0 | 2024-02-XX | PII detection and policy engine |
-| 1.2.0 | 2024-03-XX | Advanced analytics and reporting |
-| 2.0.0 | 2024-04-XX | Enterprise features and compliance |
+| Version | Date       | Changes                            |
+| ------- | ---------- | ---------------------------------- |
+| 1.0.0   | 2024-01-XX | Initial MVP with core features     |
+| 1.1.0   | 2024-02-XX | PII detection and policy engine    |
+| 1.2.0   | 2024-03-XX | Advanced analytics and reporting   |
+| 2.0.0   | 2024-04-XX | Enterprise features and compliance |
 
 ---
 
-*This document is living and will be updated as the project evolves. For the most current version, please refer to the main repository.*
+_This document is living and will be updated as the project evolves. For the most current version, please refer to the main repository._
