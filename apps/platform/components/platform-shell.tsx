@@ -26,7 +26,7 @@ interface PlatformShellProps {
 const getNavigation = (orgSlug: string) => [
   { name: 'Dashboard', href: `/o/${orgSlug}/dashboard`, icon: LayoutDashboard },
   { name: 'Decisions', href: `/o/${orgSlug}/decisions`, icon: FileText },
-  { name: 'Tool Calls', href: `/o/${orgSlug}/tool-calls`, icon: Activity },
+  { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
   { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
   { name: 'Spend', href: `/o/${orgSlug}/spend`, icon: DollarSign },
   { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },

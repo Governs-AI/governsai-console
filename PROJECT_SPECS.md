@@ -1002,6 +1002,18 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 
 ## 📝 Recent Changes Log
 
+- **2024-12-26**: Tool Calls Monitoring Page Implementation
+  - **NEW FEATURE**: Added comprehensive tool calls monitoring page (`/o/[slug]/toolcalls`)
+  - **API ENDPOINT**: Created `/api/toolcalls` endpoint for fetching tool usage data
+  - **DATA SOURCE**: Aggregates tool call data from decisions table (where tool field is not null)
+  - **STATISTICS**: Real-time stats including total calls, by tool, by decision, and average latency
+  - **FILTERING**: Advanced filtering by tool, decision type, and time range (1h, 24h, 7d, 30d)
+  - **SEARCH**: Full-text search across tool calls with expandable details
+  - **UI COMPONENTS**: Modern interface with tool-specific icons and decision badges
+  - **AUTO-REFRESH**: 30-second auto-refresh for real-time monitoring
+  - **NAVIGATION**: Added "Tool Calls" to platform navigation menu
+  - **RESPONSIVE**: Mobile-friendly design with proper loading states
+
 - **2024-12-26**: Comprehensive Project Review and Analysis
   - **REVIEW COMPLETED**: Full project architecture and codebase analysis
   - **CURRENT STATUS**: Project is in active development with solid foundation
