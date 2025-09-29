@@ -26,10 +26,10 @@ export async function precheck(
   const finalApiKey = apiKey || defaultApiKey;
   
   // Construct the user-specific precheck URL
-  const url = `${baseUrl}/v1/u/${finalUserId}/precheck`;
+  // const url = `${baseUrl}/v1/u/${finalUserId}/precheck`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
