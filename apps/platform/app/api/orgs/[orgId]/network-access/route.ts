@@ -36,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId } = params;
+     const { orgId } = await params;
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
@@ -114,7 +114,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId } = params;
+     const { orgId } = await params;
     const body = await request.json();
     const { kind, value, label, notes, expiresAt } = createRuleSchema.parse(body);
 

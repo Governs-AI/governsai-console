@@ -6,7 +6,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const orgId = 'default-org'; // TODO: Get from session/auth
 
     // Verify the key belongs to the organization
@@ -34,7 +34,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { isActive } = body;
     const orgId = 'default-org'; // TODO: Get from session/auth

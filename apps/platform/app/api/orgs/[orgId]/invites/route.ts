@@ -15,7 +15,7 @@ export async function POST(
 ) {
   try {
     const { userId, orgId: contextOrgId } = requireRole(request, 'ADMIN');
-    const { orgId } = params;
+     const { orgId } = await params;
 
     // Verify user has access to this org
     if (orgId !== contextOrgId) {
@@ -85,7 +85,7 @@ export async function GET(
 ) {
   try {
     const { userId, orgId: contextOrgId } = requireRole(request, 'ADMIN');
-    const { orgId } = params;
+     const { orgId } = await params;
 
     // Verify user has access to this org
     if (orgId !== contextOrgId) {

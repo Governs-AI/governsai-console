@@ -5,6 +5,7 @@ import { OpenAIProvider } from '@/lib/providers/openai';
 import { OllamaProvider } from '@/lib/providers/ollama';
 import { SSEWriter } from '@/lib/sse';
 import { ChatRequest, Provider } from '@/lib/types';
+import { getPrecheckUserIdDetails } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,9 +38,11 @@ export async function POST(request: NextRequest) {
     // Handle the streaming in the background
     (async () => {
       try {
-        // Step 1: Precheck
+        // Step 1: Precheck with user context
         const precheckRequest = createChatPrecheckRequest(messages, provider, corrId);
-        const precheckResponse = await precheck(precheckRequest);
+        const { userId, apiKey } = getPrecheckUserIdDetails();
+
+        const precheckResponse = await precheck(precheckRequest, userId, apiKey);
 
         // Send decision event
         writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);

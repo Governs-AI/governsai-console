@@ -30,12 +30,27 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, keyId } = params;
+    const { orgId: orgSlugOrId, keyId } = await params;
+
+    // First, find the organization by slug or ID
+    const org = await prisma.org.findFirst({
+      where: {
+        OR: [
+          { id: orgSlugOrId },
+          { slug: orgSlugOrId }
+        ]
+      },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    }
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
       where: {
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         userId: session.sub,
         role: { in: ['OWNER', 'ADMIN', 'DEVELOPER'] },
       },
@@ -47,7 +62,7 @@ export async function GET(
 
     // Get the API key
     const apiKey = await prisma.aPIKey.findFirst({
-      where: { id: keyId, orgId },
+      where: { id: keyId, orgId: org.id },
       include: {
         user: {
           select: {
@@ -68,7 +83,7 @@ export async function GET(
       prisma.webSocketSession.count({
         where: {
           userId: apiKey.userId,
-          orgId,
+          orgId: org.id,
           isActive: true,
         },
       }),
@@ -138,14 +153,29 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, keyId } = params;
+    const { orgId: orgSlugOrId, keyId } = await params;
     const body = await request.json();
     const updateData = updateKeySchema.parse(body);
+
+    // First, find the organization by slug or ID
+    const org = await prisma.org.findFirst({
+      where: {
+        OR: [
+          { id: orgSlugOrId },
+          { slug: orgSlugOrId }
+        ]
+      },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    }
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
       where: {
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         userId: session.sub,
         role: { in: ['OWNER', 'ADMIN'] },
       },
@@ -157,7 +187,7 @@ export async function PATCH(
 
     // Check if key exists
     const existingKey = await prisma.aPIKey.findFirst({
-      where: { id: keyId, orgId },
+      where: { id: keyId, orgId: org.id },
     });
 
     if (!existingKey) {
@@ -237,14 +267,29 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, keyId } = params;
+    const { orgId: orgSlugOrId, keyId } = await params;
     const { searchParams } = new URL(request.url);
     const disconnect = searchParams.get('disconnect') === 'true';
+
+    // First, find the organization by slug or ID
+    const org = await prisma.org.findFirst({
+      where: {
+        OR: [
+          { id: orgSlugOrId },
+          { slug: orgSlugOrId }
+        ]
+      },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    }
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
       where: {
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         userId: session.sub,
         role: { in: ['OWNER', 'ADMIN'] },
       },
@@ -256,7 +301,7 @@ export async function DELETE(
 
     // Check if key exists
     const existingKey = await prisma.aPIKey.findFirst({
-      where: { id: keyId, orgId },
+      where: { id: keyId, orgId: org.id },
     });
 
     if (!existingKey) {
@@ -277,7 +322,7 @@ export async function DELETE(
       await prisma.webSocketSession.updateMany({
         where: {
           userId: existingKey.userId,
-          orgId,
+          orgId: org.id,
           isActive: true,
         },
         data: {
@@ -327,7 +372,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, keyId } = params;
+    const { orgId: orgSlugOrId, keyId } = await params;
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -335,10 +380,25 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
+    // First, find the organization by slug or ID
+    const org = await prisma.org.findFirst({
+      where: {
+        OR: [
+          { id: orgSlugOrId },
+          { slug: orgSlugOrId }
+        ]
+      },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    }
+
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
       where: {
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         userId: session.sub,
         role: { in: ['OWNER', 'ADMIN'] },
       },
@@ -350,7 +410,7 @@ export async function POST(
 
     // Check if key exists
     const existingKey = await prisma.aPIKey.findFirst({
-      where: { id: keyId, orgId },
+      where: { id: keyId, orgId: org.id },
       include: {
         user: {
           select: {

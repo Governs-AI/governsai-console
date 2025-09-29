@@ -29,24 +29,65 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId } = params;
+     const { orgId: orgSlugOrId } = await params;
+
+    // Debug logging
+    console.log('API Keys Debug:', {
+      orgSlugOrId,
+      userId: session.sub,
+      sessionValid: !!session
+    });
+
+    // First, find the organization by slug or ID
+    const org = await prisma.org.findFirst({
+      where: {
+        OR: [
+          { id: orgSlugOrId },
+          { slug: orgSlugOrId }
+        ]
+      },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    }
+
+    console.log('Found organization:', org);
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
       where: {
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         userId: session.sub,
         role: { in: ['OWNER', 'ADMIN', 'DEVELOPER'] }, // Developers can view keys
       },
     });
 
+    console.log('Membership found:', membership);
+
     if (!membership) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+      // Let's also check what memberships exist for this user
+      const allMemberships = await prisma.orgMembership.findMany({
+        where: { userId: session.sub },
+        select: { orgId: true, role: true }
+      });
+      console.log('All memberships for user:', allMemberships);
+      
+      return NextResponse.json({ 
+        error: 'Insufficient permissions',
+        debug: {
+          orgId: org.id,
+          orgSlug: org.slug,
+          userId: session.sub,
+          allMemberships
+        }
+      }, { status: 403 });
     }
 
     // Get API keys for this organization
     const keys = await prisma.aPIKey.findMany({
-      where: { orgId },
+      where: { orgId: org.id },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -78,7 +119,7 @@ export async function GET(
             where: {
               // Note: We'd need to store keyId in sessions for this to work
               userId: key.user.id,
-              orgId,
+              orgId: org.id,
               isActive: true,
             },
           }),
@@ -148,14 +189,29 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId } = params;
+     const { orgId: orgSlugOrId } = await params;
     const body = await request.json();
     const { name, scopes, env, ipAllow, expiresAt } = createKeySchema.parse(body);
+
+    // First, find the organization by slug or ID
+    const org = await prisma.org.findFirst({
+      where: {
+        OR: [
+          { id: orgSlugOrId },
+          { slug: orgSlugOrId }
+        ]
+      },
+      select: { id: true, name: true, slug: true }
+    });
+
+    if (!org) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+    }
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
       where: {
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         userId: session.sub,
         role: { in: ['OWNER', 'ADMIN'] }, // Only owners and admins can create keys
       },
@@ -174,7 +230,7 @@ export async function POST(
         key: keyValue,
         name,
         userId: session.sub,
-        orgId,
+        orgId: org.id, // Use the actual orgId from database
         scopes,
         env,
         ipAllow: ipAllow || null,
@@ -197,14 +253,26 @@ export async function POST(
       key: {
         id: apiKey.id,
         name: apiKey.name,
-        key: apiKey.key, // Return full key only on creation
+        keyPreview: `${apiKey.key.slice(0, 12)}...${apiKey.key.slice(-4)}`, // Show preview only
         scopes: apiKey.scopes,
         env: apiKey.env,
         isActive: apiKey.isActive,
+        lastUsed: apiKey.lastUsed,
         ipAllow: apiKey.ipAllow,
-        expiresAt: apiKey.expiresAt,
         createdAt: apiKey.createdAt,
-        createdBy: apiKey.user,
+        updatedAt: apiKey.updatedAt,
+        expiresAt: apiKey.expiresAt,
+        createdBy: {
+          id: apiKey.user.id,
+          name: apiKey.user.name,
+          email: apiKey.user.email,
+        },
+        stats: {
+          activeSessions: 0,
+          totalUsage: 0,
+        },
+        // Include the full key only on creation for the user to copy
+        fullKey: apiKey.key,
       },
       warning: 'Save this API key now. You will not be able to see it again.',
     });

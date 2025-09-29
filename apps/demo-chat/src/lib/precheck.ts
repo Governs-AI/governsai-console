@@ -1,4 +1,5 @@
 import { PrecheckRequest, PrecheckResponse } from './types';
+import { getPrecheckUserIdDetails } from './utils';
 
 export class PrecheckError extends Error {
   constructor(
@@ -11,20 +12,28 @@ export class PrecheckError extends Error {
   }
 }
 
-export async function precheck(input: PrecheckRequest): Promise<PrecheckResponse> {
-  const url = process.env.PRECHECK_URL;
-  const apiKey = process.env.PRECHECK_API_KEY;
+export async function precheck(
+  input: PrecheckRequest, 
+  userId?: string, 
+  apiKey?: string
+): Promise<PrecheckResponse> {
+  const { userId: defaultUserId, apiKey: defaultApiKey } = getPrecheckUserIdDetails();
 
-  if (!url) {
-    throw new PrecheckError('PRECHECK_URL environment variable is not set');
-  }
+  const baseUrl = process.env.PRECHECK_URL || 'http://172.16.10.121:8080';
+  
+  // Use provided userId/apiKey or fall back to defaults
+  const finalUserId = userId || defaultUserId;
+  const finalApiKey = apiKey || defaultApiKey;
+  
+  // Construct the user-specific precheck URL
+  const url = `${baseUrl}/v1/u/${finalUserId}/precheck`;
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(apiKey && { 'X-Governs-Key': `${apiKey}` }),
+        'X-Governs-Key': finalApiKey,
       },
       body: JSON.stringify(input),
     });

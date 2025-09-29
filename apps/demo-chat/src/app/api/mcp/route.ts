@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { precheck, createMCPPrecheckRequest } from '@/lib/precheck';
 import { MCPRequest, MCPResponse } from '@/lib/types';
+import { getPrecheckUserIdDetails } from '@/lib/utils';
 
 // Mock MCP tool implementations with realistic data
 const mockTools = {
@@ -487,11 +488,13 @@ export async function POST(request: NextRequest) {
 
     const corrId = uuidv4();
 
-    // Step 1: Precheck the MCP call
+    // Step 1: Precheck the MCP call with user context
     const precheckRequest = createMCPPrecheckRequest(tool, args || {}, corrId);
+
+    const { userId, apiKey } = getPrecheckUserIdDetails();
     
     try {
-      const precheckResponse = await precheck(precheckRequest);
+      const precheckResponse = await precheck(precheckRequest, userId, apiKey);
 
       // Step 2: Handle precheck decision
       if (precheckResponse.decision === 'block') {

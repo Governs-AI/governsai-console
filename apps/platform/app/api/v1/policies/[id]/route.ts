@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const orgId = 'default-org'; // TODO: Get from session/auth
 
     const policy = await prisma.policy.findFirst({
@@ -29,7 +29,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, description, toolAccessMatrix, isActive } = body;
     const orgId = 'default-org'; // TODO: Get from session/auth
@@ -65,7 +65,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const orgId = 'default-org'; // TODO: Get from session/auth
 
     // Verify the policy belongs to the organization

@@ -27,7 +27,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, ruleId } = params;
+    const { orgId, ruleId } = await params;
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({
@@ -93,7 +93,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, ruleId } = params;
+    const { orgId, ruleId } = await params;
     const body = await request.json();
     const updateData = updateRuleSchema.parse(body);
 
@@ -180,7 +180,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
-    const { orgId, ruleId } = params;
+    const { orgId, ruleId } = await params;
 
     // Check if user has access to this organization
     const membership = await prisma.orgMembership.findFirst({

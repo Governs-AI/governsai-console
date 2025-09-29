@@ -6,6 +6,7 @@ import { Message as MessageType, Provider, StreamEvent, Decision, isValidDecisio
 import Message from './Message';
 import ProviderSwitch from './ProviderSwitch';
 import MCPToolTester from './MCPToolTester';
+import { getPrecheckUserIdDetails } from '@/lib/utils';
 
 // Example prompts to demonstrate different precheck behaviors and MCP tools
 const examplePrompts = [
@@ -92,6 +93,9 @@ export default function Chat() {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
+
+      const { userId, apiKey } = getPrecheckUserIdDetails();
+
       // Call chat API with streaming
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -101,6 +105,8 @@ export default function Chat() {
         body: JSON.stringify({
           messages: newMessages,
           provider,
+          userId,
+          apiKey,
         }),
       });
 
