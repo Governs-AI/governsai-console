@@ -45,6 +45,7 @@ governs-ai/
 │   ├── landing/             # Marketing & Landing Page (Port 3003)
 │   ├── platform/            # Main Platform App (Port 3002)
 │   ├── docs/                # Documentation Site (Port 3001)
+│   ├── demo-chat/           # Demo Chat Application (Port 3004)
 │   └── websocket-service/   # Standalone WebSocket Service (Port 3000)
 ├── packages/                # Shared Packages
 │   ├── ui/                  # UI Components (shadcn/ui based)
@@ -70,6 +71,7 @@ governs-ai/
 - **Landing**: http://localhost:3003
 - **Platform**: http://localhost:3002
 - **Docs**: http://localhost:3001
+- **Demo Chat**: http://localhost:3004
 
 ## 🗄️ Database Schema
 
@@ -760,11 +762,13 @@ GOOGLE_CLIENT_SECRET="your-google-client-secret"
 NEXT_PUBLIC_LANDING_DEV_URL="http://localhost:3000"
 NEXT_PUBLIC_PLATFORM_DEV_URL="http://localhost:3002"
 NEXT_PUBLIC_DOCS_DEV_URL="http://localhost:3001"
+NEXT_PUBLIC_DEMO_CHAT_DEV_URL="http://localhost:3004"
 
 # Production
 NEXT_PUBLIC_LANDING_URL="https://governs.ai"
 NEXT_PUBLIC_PLATFORM_URL="https://app.governs.ai"
 NEXT_PUBLIC_DOCS_URL="https://docs.governs.ai"
+NEXT_PUBLIC_DEMO_CHAT_URL="https://demo.governs.ai"
 ```
 
 ### Vercel Deployment
@@ -1001,6 +1005,22 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 ---
 
 ## 📝 Recent Changes Log
+
+- **2024-12-29**: Demo Chat Application Implementation
+  - **NEW APPLICATION**: Created `apps/demo-chat/` - minimal production-lean demo chat app
+  - **PURPOSE**: Demonstrates precheck-before-every-call governance pattern for AI agents
+  - **NO AUTHENTICATION**: Simple demo without login requirements, assumes local agent usage
+  - **MULTI-PROVIDER**: Support for OpenAI and Ollama (local) providers with runtime switching
+  - **PRECHECK INTEGRATION**: Every chat message automatically checked against governance policies
+  - **REAL-TIME STREAMING**: Server-sent events for responsive chat experience with decision visualization
+  - **DECISION TYPES**: Shows allow, redact, block, confirm decisions with color-coded badges
+  - **MCP DEMO**: Mock Model Context Protocol tool calls with governance (web.search, kv.get/set, file.read)
+  - **EXAMPLE PROMPTS**: Built-in examples to test different policy scenarios (clean, PII, purchase, blocked)
+  - **TECH STACK**: Next.js 14 + TypeScript + TailwindCSS + OpenAI SDK
+  - **API ENDPOINTS**: `/api/chat` (streaming), `/api/mcp` (tool calls), `/api/precheck/proxy` (CORS helper)
+  - **PROVIDER ABSTRACTION**: Clean interface supporting OpenAI API and Ollama (OpenAI-compatible)
+  - **DOCUMENTATION**: Comprehensive README with setup, usage, and troubleshooting guides
+  - **PRODUCTION READY**: Docker support, error handling, and deployment configuration
 
 - **2024-12-26**: Tool Calls Monitoring Page Implementation
   - **NEW FEATURE**: Added comprehensive tool calls monitoring page (`/o/[slug]/toolcalls`)

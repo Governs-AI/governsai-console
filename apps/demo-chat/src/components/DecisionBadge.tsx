@@ -1,0 +1,51 @@
+'use client';
+
+import { Decision } from '@/lib/types';
+
+interface DecisionBadgeProps {
+  decision: Decision;
+  reasons?: string[];
+  className?: string;
+}
+
+const decisionStyles: Record<Decision, { bg: string; text: string; icon: string }> = {
+  allow: {
+    bg: 'bg-green-100 border-green-200',
+    text: 'text-green-800',
+    icon: '✓',
+  },
+  redact: {
+    bg: 'bg-yellow-100 border-yellow-200',
+    text: 'text-yellow-800',
+    icon: '✂',
+  },
+  confirm: {
+    bg: 'bg-blue-100 border-blue-200',
+    text: 'text-blue-800',
+    icon: '?',
+  },
+  block: {
+    bg: 'bg-red-100 border-red-200',
+    text: 'text-red-800',
+    icon: '✕',
+  },
+};
+
+export default function DecisionBadge({ decision, reasons, className = '' }: DecisionBadgeProps) {
+  const style = decisionStyles[decision];
+  
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${style.bg} ${style.text} ${className}`}>
+      <span className="text-xs">{style.icon}</span>
+      <span className="capitalize">{decision}</span>
+      {reasons && reasons.length > 0 && (
+        <span 
+          className="cursor-help border-l border-current pl-1.5 ml-1" 
+          title={reasons.join(', ')}
+        >
+          info
+        </span>
+      )}
+    </div>
+  );
+}
