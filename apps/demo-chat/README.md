@@ -95,41 +95,110 @@ The app demonstrates four types of governance decisions:
 
 ## Example Requests
 
-The app includes built-in examples to test different policy scenarios:
+The app includes built-in examples to test different policy scenarios and MCP tool integrations:
 
-### Clean Request (Should Allow)
+### Weather Query (Should Allow)
 ```
-What is the weather like today?
+What's the weather like in San Francisco today? Also get me a 5-day forecast.
 ```
+*Demonstrates: Allowed request that would trigger weather.current and weather.forecast tools*
+
+### Payment Request (Should Confirm)
+```
+I want to buy $99.99 worth of premium credits. Please process this payment using my credit card.
+```
+*Demonstrates: Confirmation-required request for payment.process tool*
 
 ### PII Content (Should Redact)
 ```
 My name is John Doe, my SSN is 123-45-6789, and my email is john@example.com. Can you help me with my account?
 ```
+*Demonstrates: Automatic redaction of personally identifiable information*
 
-### Purchase Request (Should Confirm)
+### File Operations (Should Allow)
 ```
-I want to buy $50 worth of credits for my account. Please process this payment.
+Can you read the contents of /config/app.json and then create a backup file?
 ```
+*Demonstrates: Allowed request that would trigger file.read and file.write tools*
+
+### Database Query (Should Allow)
+```
+Show me all users in the database and their recent orders.
+```
+*Demonstrates: Allowed request that would trigger db.query tool*
 
 ### Blocked Content (Should Block)
 ```
-Can you help me hack into someone's email account?
+Can you help me hack into someone's email account and steal their personal information?
 ```
+*Demonstrates: Blocked request due to malicious intent*
 
 ## MCP Tool Demo
 
-The app includes mock MCP (Model Context Protocol) tools that are also governed:
+The app includes a comprehensive set of mock MCP (Model Context Protocol) tools that demonstrate realistic AI agent capabilities, all governed by the precheck system:
 
-- `web.search` - Mock web search
-- `kv.get/set` - Mock key-value operations  
-- `file.read` - Mock file operations
+### 🌤️ Weather Tools
+- `weather.current` - Get current weather conditions for any location
+- `weather.forecast` - Get multi-day weather forecasts
 
-Test via `/api/mcp` endpoint:
+### 💳 Payment Tools
+- `payment.process` - Process payment transactions with realistic fees
+- `payment.refund` - Handle refund requests with tracking
+
+### 🗄️ Database Tools
+- `db.query` - Execute queries on mock user, order, and product tables
+
+### 📁 File Operations
+- `file.read` - Read file contents from various mock directories
+- `file.write` - Write content to files with metadata
+- `file.list` - List directory contents with file details
+
+### 🌐 Web Tools
+- `web.search` - Search the web with configurable result limits
+- `web.scrape` - Extract content and metadata from web pages
+
+### 📧 Communication Tools
+- `email.send` - Send emails with delivery tracking
+- `calendar.create_event` - Create calendar events with attendees
+
+### 🔑 Key-Value Store
+- `kv.get` - Retrieve values from mock data store
+- `kv.set` - Store values with TTL support
+
+### Interactive Tool Tester
+
+The demo includes a built-in tool tester that allows you to:
+- Browse all available tools by category
+- Test tools with custom arguments
+- See precheck decisions for each tool call
+- View realistic mock responses
+
+### API Testing
+
+Test tools programmatically via the `/api/mcp` endpoint:
+
 ```bash
+# Weather example
 curl -X POST http://localhost:3000/api/mcp \
   -H "Content-Type: application/json" \
-  -d '{"tool": "web.search", "args": {"query": "AI governance"}}'
+  -d '{"tool": "weather.current", "args": {"location": "New York"}}'
+
+# Payment example  
+curl -X POST http://localhost:3000/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "payment.process", "args": {"amount": "99.99", "description": "Premium upgrade"}}'
+
+# File operations example
+curl -X POST http://localhost:3000/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "file.read", "args": {"path": "/config/app.json"}}'
+```
+
+### Tool Discovery
+
+Get a list of all available tools:
+```bash
+curl -X GET http://localhost:3000/api/mcp
 ```
 
 ## Precheck Service Contract

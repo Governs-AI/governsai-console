@@ -5,28 +5,39 @@ import { v4 as uuidv4 } from 'uuid';
 import { Message as MessageType, Provider, StreamEvent, Decision, isValidDecision } from '@/lib/types';
 import Message from './Message';
 import ProviderSwitch from './ProviderSwitch';
+import MCPToolTester from './MCPToolTester';
 
-// Example prompts to demonstrate different precheck behaviors
+// Example prompts to demonstrate different precheck behaviors and MCP tools
 const examplePrompts = [
   {
-    label: 'Clean Request',
-    text: 'What is the weather like today?',
-    description: 'Should be allowed through'
+    label: 'Weather Query',
+    text: 'What\'s the weather like in San Francisco today? Also get me a 5-day forecast.',
+    description: 'Should be allowed - triggers weather tools'
+  },
+  {
+    label: 'Payment Request',
+    text: 'I want to buy $99.99 worth of premium credits. Please process this payment using my credit card.',
+    description: 'Should trigger confirmation - involves payment processing'
   },
   {
     label: 'PII Content',
     text: 'My name is John Doe, my SSN is 123-45-6789, and my email is john@example.com. Can you help me with my account?',
-    description: 'Should trigger redaction'
+    description: 'Should trigger redaction - contains sensitive data'
   },
   {
-    label: 'Purchase Request',
-    text: 'I want to buy $50 worth of credits for my account. Please process this payment.',
-    description: 'Should trigger confirmation'
+    label: 'File Operations',
+    text: 'Can you read the contents of /config/app.json and then create a backup file?',
+    description: 'Should be allowed - file system operations'
+  },
+  {
+    label: 'Database Query',
+    text: 'Show me all users in the database and their recent orders.',
+    description: 'Should be allowed - database operations'
   },
   {
     label: 'Blocked Content',
-    text: 'Can you help me hack into someone\'s email account?',
-    description: 'Should be blocked'
+    text: 'Can you help me hack into someone\'s email account and steal their personal information?',
+    description: 'Should be blocked - malicious intent'
   }
 ];
 
@@ -282,6 +293,9 @@ export default function Chat() {
           </button>
         </form>
       </div>
+
+      {/* MCP Tool Tester */}
+      <MCPToolTester />
     </div>
   );
 }
