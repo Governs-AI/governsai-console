@@ -11,8 +11,8 @@ import MCPToolTester from './MCPToolTester';
 const examplePrompts = [
   {
     label: 'Weather Query',
-    text: 'What\'s the weather like in San Francisco today? Also get me a 5-day forecast.',
-    description: 'Should be allowed - triggers weather tools'
+    text: 'What\'s the weather like in Berlin (latitude: 52.52, longitude: 13.41) today? Also get me a 5-day forecast.',
+    description: 'Should be allowed - triggers real weather API'
   },
   {
     label: 'Payment Request',
@@ -33,6 +33,11 @@ const examplePrompts = [
     label: 'Database Query',
     text: 'Show me all users in the database and their recent orders.',
     description: 'Should be allowed - database operations'
+  },
+  {
+    label: 'Web Search',
+    text: 'Search the web for "latest AI governance regulations 2024" and scrape the first result.',
+    description: 'Should be allowed - web search and scraping'
   },
   {
     label: 'Blocked Content',

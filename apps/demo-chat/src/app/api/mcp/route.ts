@@ -1,51 +1,163 @@
 import { NextRequest } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import FirecrawlApp from '@mendable/firecrawl-js';
 import { precheck, createMCPPrecheckRequest } from '@/lib/precheck';
 import { MCPRequest, MCPResponse } from '@/lib/types';
 
 // Mock MCP tool implementations with realistic data
 const mockTools = {
-  // Weather Tools
+  // Weather Tools - Using Open-Meteo API
   'weather.current': async (args: Record<string, any>) => {
-    const location = args.location || 'San Francisco';
-    const mockWeatherData = {
-      'San Francisco': { temp: 68, condition: 'Partly Cloudy', humidity: 65, wind: '10 mph NW' },
-      'New York': { temp: 72, condition: 'Sunny', humidity: 55, wind: '8 mph SW' },
-      'London': { temp: 61, condition: 'Rainy', humidity: 80, wind: '12 mph W' },
-      'Tokyo': { temp: 75, condition: 'Clear', humidity: 60, wind: '6 mph E' },
-    };
+    const { latitude, longitude, location_name } = args;
     
-    const weather = mockWeatherData[location as keyof typeof mockWeatherData] || 
-                   { temp: 70, condition: 'Unknown', humidity: 50, wind: '5 mph' };
+    if (!latitude || !longitude) {
+      return {
+        error: 'Missing required parameters: latitude and longitude are required',
+        example: 'Use: {"latitude": 52.52, "longitude": 13.41, "location_name": "Berlin"}',
+      };
+    }
     
-    return {
-      location,
-      temperature: `${weather.temp}°F`,
-      condition: weather.condition,
-      humidity: `${weather.humidity}%`,
-      wind: weather.wind,
-      timestamp: new Date().toISOString(),
-      source: 'Mock Weather API',
-    };
+    try {
+      // Call Open-Meteo API for current weather
+      const response = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m&timezone=auto`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const current = data.current;
+      
+      // Weather code to condition mapping (simplified)
+      const weatherConditions: Record<number, string> = {
+        0: 'Clear sky',
+        1: 'Mainly clear',
+        2: 'Partly cloudy',
+        3: 'Overcast',
+        45: 'Fog',
+        48: 'Depositing rime fog',
+        51: 'Light drizzle',
+        53: 'Moderate drizzle',
+        55: 'Dense drizzle',
+        61: 'Slight rain',
+        63: 'Moderate rain',
+        65: 'Heavy rain',
+        71: 'Slight snow',
+        73: 'Moderate snow',
+        75: 'Heavy snow',
+        80: 'Slight rain showers',
+        81: 'Moderate rain showers',
+        82: 'Violent rain showers',
+        95: 'Thunderstorm',
+        96: 'Thunderstorm with slight hail',
+        99: 'Thunderstorm with heavy hail',
+      };
+      
+      const condition = weatherConditions[current.weather_code] || 'Unknown';
+      
+      return {
+        location: location_name || `${latitude}, ${longitude}`,
+        coordinates: { latitude, longitude },
+        temperature: `${current.temperature_2m}°C`,
+        feels_like: `${current.apparent_temperature}°C`,
+        condition,
+        humidity: `${current.relative_humidity_2m}%`,
+        wind_speed: `${current.wind_speed_10m} km/h`,
+        wind_direction: `${current.wind_direction_10m}°`,
+        weather_code: current.weather_code,
+        timestamp: current.time,
+        timezone: data.timezone,
+        source: 'Open-Meteo API',
+        api_url: `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}`,
+      };
+      
+    } catch (error) {
+      return {
+        error: 'Failed to fetch weather data',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        coordinates: { latitude, longitude },
+      };
+    }
   },
 
   'weather.forecast': async (args: Record<string, any>) => {
-    const location = args.location || 'San Francisco';
-    const days = Math.min(args.days || 3, 7);
+    const { latitude, longitude, location_name, days = 3 } = args;
+    const forecastDays = Math.min(days, 7); // Max 7 days
     
-    const forecast = Array.from({ length: days }, (_, i) => ({
-      date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      high: 70 + Math.floor(Math.random() * 20),
-      low: 55 + Math.floor(Math.random() * 15),
-      condition: ['Sunny', 'Partly Cloudy', 'Cloudy', 'Light Rain'][Math.floor(Math.random() * 4)],
-      precipitation: Math.floor(Math.random() * 30) + '%',
-    }));
+    if (!latitude || !longitude) {
+      return {
+        error: 'Missing required parameters: latitude and longitude are required',
+        example: 'Use: {"latitude": 52.52, "longitude": 13.41, "location_name": "Berlin", "days": 5}',
+      };
+    }
     
-    return {
-      location,
-      forecast,
-      source: 'Mock Weather API',
-    };
+    try {
+      // Call Open-Meteo API for weather forecast
+      const response = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&timezone=auto&forecast_days=${forecastDays}`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const daily = data.daily;
+      
+      // Weather code to condition mapping
+      const weatherConditions: Record<number, string> = {
+        0: 'Clear sky',
+        1: 'Mainly clear',
+        2: 'Partly cloudy',
+        3: 'Overcast',
+        45: 'Fog',
+        48: 'Depositing rime fog',
+        51: 'Light drizzle',
+        53: 'Moderate drizzle',
+        55: 'Dense drizzle',
+        61: 'Slight rain',
+        63: 'Moderate rain',
+        65: 'Heavy rain',
+        71: 'Slight snow',
+        73: 'Moderate snow',
+        75: 'Heavy snow',
+        80: 'Slight rain showers',
+        81: 'Moderate rain showers',
+        82: 'Violent rain showers',
+        95: 'Thunderstorm',
+        96: 'Thunderstorm with slight hail',
+        99: 'Thunderstorm with heavy hail',
+      };
+      
+      const forecast = daily.time.map((date: string, index: number) => ({
+        date,
+        high_temp: `${daily.temperature_2m_max[index]}°C`,
+        low_temp: `${daily.temperature_2m_min[index]}°C`,
+        condition: weatherConditions[daily.weather_code[index]] || 'Unknown',
+        precipitation: `${daily.precipitation_sum[index]}mm`,
+        wind_speed_max: `${daily.wind_speed_10m_max[index]} km/h`,
+        weather_code: daily.weather_code[index],
+      }));
+      
+      return {
+        location: location_name || `${latitude}, ${longitude}`,
+        coordinates: { latitude, longitude },
+        forecast,
+        forecast_days: forecastDays,
+        timezone: data.timezone,
+        source: 'Open-Meteo API',
+        api_url: `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}`,
+      };
+      
+    } catch (error) {
+      return {
+        error: 'Failed to fetch weather forecast',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        coordinates: { latitude, longitude },
+      };
+    }
   },
 
   // Payment Tools
@@ -169,45 +281,132 @@ const mockTools = {
     };
   },
 
-  // Web Scraping Tools
+  // Web Search Tools - Using Firecrawl API
   'web.search': async (args: Record<string, any>) => {
-    const query = args.query || 'default query';
-    const limit = Math.min(args.limit || 5, 10);
+    const { query, limit = 10 } = args;
     
-    const results = Array.from({ length: limit }, (_, i) => ({
-      title: `${query} - Result ${i + 1}`,
-      url: `https://example.com/search/${i + 1}`,
-      snippet: `This is search result ${i + 1} for "${query}". Mock content demonstrating web search capabilities.`,
-      domain: 'example.com',
-      published: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-    }));
-    
-    return {
-      query,
-      results,
-      total: results.length,
-      search_time: '0.12s',
-      source: 'Mock Search API',
-    };
+    if (!query) {
+      return {
+        error: 'Missing required parameter: query is required',
+        example: 'Use: {"query": "AI governance best practices", "limit": 5}',
+      };
+    }
+
+    const apiKey = process.env.FIRECRAWL_API_KEY;
+    if (!apiKey) {
+      return {
+        error: 'Firecrawl API key not configured',
+        details: 'Please set FIRECRAWL_API_KEY environment variable',
+      };
+    }
+
+    try {
+      const app = new FirecrawlApp({ apiKey });
+      
+      // Use Firecrawl's search functionality
+      const searchResult = await app.search(query, {
+        limit: Math.min(limit, 10), // Max 10 results
+        searchOptions: {
+          country: 'US',
+          lang: 'en',
+        }
+      });
+
+      if (!searchResult.success) {
+        throw new Error(searchResult.error || 'Search failed');
+      }
+
+      const results = searchResult.data.map((item: any, index: number) => ({
+        title: item.title || `Result ${index + 1}`,
+        url: item.url,
+        snippet: item.description || item.content?.substring(0, 200) + '...',
+        domain: new URL(item.url).hostname,
+        published: item.publishedTime || null,
+        score: item.score || null,
+      }));
+
+      return {
+        query,
+        results,
+        total: results.length,
+        source: 'Firecrawl Search API',
+        search_time: `${Date.now()}ms`,
+      };
+
+    } catch (error) {
+      return {
+        error: 'Failed to perform web search',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        query,
+      };
+    }
   },
 
   'web.scrape': async (args: Record<string, any>) => {
-    const url = args.url || 'https://example.com';
+    const { url, formats = ['markdown', 'html'] } = args;
     
-    return {
-      url,
-      title: 'Example Domain',
-      content: 'This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission.',
-      meta: {
-        description: 'Example domain for demonstrations',
-        keywords: 'example, domain, test',
-        author: 'IANA',
-      },
-      links: [
-        { text: 'More information...', href: 'https://www.iana.org/domains/example' },
-      ],
-      scraped_at: new Date().toISOString(),
-    };
+    if (!url) {
+      return {
+        error: 'Missing required parameter: url is required',
+        example: 'Use: {"url": "https://example.com", "formats": ["markdown", "html"]}',
+      };
+    }
+
+    const apiKey = process.env.FIRECRAWL_API_KEY;
+    if (!apiKey) {
+      return {
+        error: 'Firecrawl API key not configured',
+        details: 'Please set FIRECRAWL_API_KEY environment variable',
+      };
+    }
+
+    try {
+      const app = new FirecrawlApp({ apiKey });
+      
+      // Use Firecrawl's scraping functionality
+      const scrapeResult = await app.scrapeUrl(url, {
+        formats: formats,
+        onlyMainContent: true,
+        includeTags: ['title', 'meta', 'h1', 'h2', 'h3', 'p', 'a'],
+        excludeTags: ['script', 'style', 'nav', 'footer'],
+        waitFor: 1000, // Wait 1 second for dynamic content
+      });
+
+      if (!scrapeResult.success) {
+        throw new Error(scrapeResult.error || 'Scraping failed');
+      }
+
+      const data = scrapeResult.data;
+      
+      return {
+        url,
+        title: data.metadata?.title || 'No title found',
+        content: data.markdown || data.html || data.rawHtml || 'No content extracted',
+        metadata: {
+          description: data.metadata?.description,
+          keywords: data.metadata?.keywords,
+          author: data.metadata?.author,
+          language: data.metadata?.language,
+          published_time: data.metadata?.publishedTime,
+          modified_time: data.metadata?.modifiedTime,
+          image: data.metadata?.ogImage,
+          site_name: data.metadata?.siteName,
+        },
+        links: data.links || [],
+        images: data.metadata?.ogImage ? [data.metadata.ogImage] : [],
+        word_count: data.markdown ? data.markdown.split(/\s+/).length : 0,
+        scraped_at: new Date().toISOString(),
+        source: 'Firecrawl Scrape API',
+        formats_returned: Object.keys(data).filter(key => ['markdown', 'html', 'rawHtml'].includes(key)),
+      };
+
+    } catch (error) {
+      return {
+        error: 'Failed to scrape webpage',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        url,
+      };
+    }
   },
 
   // Email Tools
@@ -359,16 +558,16 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   // Return available tools with detailed descriptions
   const toolDescriptions = {
-    'weather.current': 'Get current weather conditions for a location',
-    'weather.forecast': 'Get weather forecast for multiple days',
+    'weather.current': 'Get current weather conditions using latitude and longitude coordinates',
+    'weather.forecast': 'Get weather forecast for multiple days using coordinates',
     'payment.process': 'Process a payment transaction',
     'payment.refund': 'Process a refund for a transaction',
     'db.query': 'Execute database queries on mock tables',
     'file.read': 'Read contents of a file',
     'file.write': 'Write content to a file',
     'file.list': 'List files and directories',
-    'web.search': 'Search the web for information',
-    'web.scrape': 'Scrape content from a webpage',
+    'web.search': 'Search the web for information using Firecrawl API',
+    'web.scrape': 'Scrape and extract content from webpages using Firecrawl API',
     'email.send': 'Send an email message',
     'calendar.create_event': 'Create a calendar event',
     'kv.get': 'Get value from key-value store',

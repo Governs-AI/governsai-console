@@ -70,16 +70,16 @@ export default function MCPToolTester() {
 
   const getExampleArgs = (toolName: string): string => {
     const examples: Record<string, any> = {
-      'weather.current': { location: 'San Francisco' },
-      'weather.forecast': { location: 'New York', days: 5 },
+      'weather.current': { latitude: 37.7749, longitude: -122.4194, location_name: 'San Francisco' },
+      'weather.forecast': { latitude: 40.7128, longitude: -74.0060, location_name: 'New York', days: 5 },
       'payment.process': { amount: '99.99', currency: 'USD', description: 'Demo purchase' },
       'payment.refund': { transaction_id: 'txn_demo123', amount: '50.00', reason: 'Customer request' },
       'db.query': { query: 'SELECT * FROM users', table: 'users' },
       'file.read': { path: '/demo/sample.txt' },
       'file.write': { path: '/demo/output.txt', content: 'Hello, world!' },
       'file.list': { path: '/demo' },
-      'web.search': { query: 'AI governance', limit: 3 },
-      'web.scrape': { url: 'https://example.com' },
+      'web.search': { query: 'AI governance best practices', limit: 5 },
+      'web.scrape': { url: 'https://example.com', formats: ['markdown', 'html'] },
       'email.send': { to: 'user@example.com', subject: 'Test Email', body: 'Hello!' },
       'calendar.create_event': { title: 'Team Meeting', start_time: '2024-12-30T10:00:00Z' },
       'kv.get': { key: 'user_preferences' },

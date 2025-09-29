@@ -54,6 +54,9 @@ The app demonstrates four types of governance decisions:
    # Precheck service
    PRECHECK_URL=http://localhost:8080/precheck
    PRECHECK_API_KEY=demo_precheck_key
+   
+   # Firecrawl API (for web search and scraping)
+   FIRECRAWL_API_KEY=fc-your-firecrawl-api-key
    ```
 
 3. **Start Ollama (if using local provider)**:
@@ -137,9 +140,11 @@ Can you help me hack into someone's email account and steal their personal infor
 
 The app includes a comprehensive set of mock MCP (Model Context Protocol) tools that demonstrate realistic AI agent capabilities, all governed by the precheck system:
 
-### 🌤️ Weather Tools
-- `weather.current` - Get current weather conditions for any location
-- `weather.forecast` - Get multi-day weather forecasts
+### 🌤️ Weather Tools (Real API Integration)
+- `weather.current` - Get current weather conditions using [Open-Meteo API](https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current=temperature_2m)
+- `weather.forecast` - Get multi-day weather forecasts with real meteorological data
+
+**Required Parameters:** `latitude`, `longitude`, `location_name` (optional)
 
 ### 💳 Payment Tools
 - `payment.process` - Process payment transactions with realistic fees
@@ -153,9 +158,13 @@ The app includes a comprehensive set of mock MCP (Model Context Protocol) tools 
 - `file.write` - Write content to files with metadata
 - `file.list` - List directory contents with file details
 
-### 🌐 Web Tools
-- `web.search` - Search the web with configurable result limits
-- `web.scrape` - Extract content and metadata from web pages
+### 🌐 Web Tools (Real API Integration)
+- `web.search` - Search the web using [Firecrawl API](https://firecrawl.dev) with real search results
+- `web.scrape` - Extract and parse content from any webpage using professional scraping
+
+**Required Parameters:** 
+- `web.search`: `query` (required), `limit` (optional, max 10)
+- `web.scrape`: `url` (required), `formats` (optional, e.g., ['markdown', 'html'])
 
 ### 📧 Communication Tools
 - `email.send` - Send emails with delivery tracking
@@ -178,18 +187,33 @@ The demo includes a built-in tool tester that allows you to:
 Test tools programmatically via the `/api/mcp` endpoint:
 
 ```bash
-# Weather example
-curl -X POST http://localhost:3000/api/mcp \
+# Weather example (using real Open-Meteo API)
+curl -X POST http://localhost:3008/api/mcp \
   -H "Content-Type: application/json" \
-  -d '{"tool": "weather.current", "args": {"location": "New York"}}'
+  -d '{"tool": "weather.current", "args": {"latitude": 52.52, "longitude": 13.41, "location_name": "Berlin"}}'
+
+# Weather forecast example
+curl -X POST http://localhost:3008/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "weather.forecast", "args": {"latitude": 37.7749, "longitude": -122.4194, "location_name": "San Francisco", "days": 5}}'
 
 # Payment example  
-curl -X POST http://localhost:3000/api/mcp \
+curl -X POST http://localhost:3008/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"tool": "payment.process", "args": {"amount": "99.99", "description": "Premium upgrade"}}'
 
+# Web search example (using real Firecrawl API)
+curl -X POST http://localhost:3008/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "web.search", "args": {"query": "AI governance best practices", "limit": 5}}'
+
+# Web scraping example
+curl -X POST http://localhost:3008/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "web.scrape", "args": {"url": "https://example.com", "formats": ["markdown"]}}'
+
 # File operations example
-curl -X POST http://localhost:3000/api/mcp \
+curl -X POST http://localhost:3008/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"tool": "file.read", "args": {"path": "/config/app.json"}}'
 ```
@@ -198,7 +222,7 @@ curl -X POST http://localhost:3000/api/mcp \
 
 Get a list of all available tools:
 ```bash
-curl -X GET http://localhost:3000/api/mcp
+curl -X GET http://localhost:3008/api/mcp
 ```
 
 ## Precheck Service Contract

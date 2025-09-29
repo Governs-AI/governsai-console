@@ -82,9 +82,13 @@ export function createMCPPrecheckRequest(
   args: Record<string, any>,
   corrId?: string
 ): PrecheckRequest {
+  // Create a raw_text representation of the MCP call for precheck
+  const rawText = `MCP Tool Call: ${tool} with arguments: ${JSON.stringify(args)}`;
+  
   return {
     tool: `mcp.${tool}`,
     scope: 'net.external',
+    raw_text: rawText,
     payload: {
       tool,
       args,
