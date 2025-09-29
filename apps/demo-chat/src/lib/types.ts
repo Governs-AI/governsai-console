@@ -8,6 +8,12 @@ export interface Message {
 
 export type Decision = "allow" | "redact" | "block" | "confirm";
 
+// Type guard function to check if a string is a valid Decision
+export function isValidDecision(value: any): value is Decision {
+  return typeof value === 'string' && 
+         ['allow', 'redact', 'block', 'confirm'].includes(value);
+}
+
 export type Provider = "openai" | "ollama";
 
 export interface PrecheckRequest {

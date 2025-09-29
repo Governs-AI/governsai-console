@@ -1,9 +1,9 @@
 'use client';
 
-import { Decision } from '@/lib/types';
+import { Decision, isValidDecision } from '@/lib/types';
 
 interface DecisionBadgeProps {
-  decision: Decision;
+  decision: Decision | string;
   reasons?: string[];
   className?: string;
 }
@@ -32,7 +32,23 @@ const decisionStyles: Record<Decision, { bg: string; text: string; icon: string 
 };
 
 export default function DecisionBadge({ decision, reasons, className = '' }: DecisionBadgeProps) {
-  const style = decisionStyles[decision];
+  // Don't render if decision is not provided
+  if (!decision) {
+    return null;
+  }
+  
+  // Get style with fallback for unknown decision types
+  let style;
+  if (isValidDecision(decision)) {
+    style = decisionStyles[decision];
+  } else {
+    // Fallback for unknown decision types
+    style = {
+      bg: 'bg-gray-100 border-gray-200',
+      text: 'text-gray-800',
+      icon: '?',
+    };
+  }
   
   return (
     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${style.bg} ${style.text} ${className}`}>

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Message as MessageType, Provider, StreamEvent } from '@/lib/types';
+import { Message as MessageType, Provider, StreamEvent, Decision, isValidDecision } from '@/lib/types';
 import Message from './Message';
 import ProviderSwitch from './ProviderSwitch';
 
@@ -123,15 +123,23 @@ export default function Chat() {
 
               if (event.type === 'decision') {
                 // Update assistant message with decision info
-                setMessages(prev => prev.map(msg => 
-                  msg.id === assistantMessage.id 
-                    ? { 
-                        ...msg, 
-                        decision: event.data.decision,
-                        reasons: event.data.reasons 
-                      }
-                    : msg
-                ));
+                const decision = event.data?.decision;
+                const reasons = event.data?.reasons;
+                
+                // Only update if we have a valid decision
+                if (isValidDecision(decision)) {
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessage.id 
+                      ? { 
+                          ...msg, 
+                          decision: decision,
+                          reasons: reasons 
+                        }
+                      : msg
+                  ));
+                } else if (decision) {
+                  console.warn('Invalid decision received:', decision);
+                }
               } else if (event.type === 'content') {
                 // Append content to assistant message
                 setMessages(prev => prev.map(msg => 
