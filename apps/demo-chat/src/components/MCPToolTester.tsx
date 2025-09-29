@@ -47,7 +47,19 @@ export default function MCPToolTester() {
     try {
       const { userId, apiKey } = getPrecheckUserIdDetails();
 
-      const parsedArgs = JSON.parse(args);
+      // Validate JSON args
+      let parsedArgs;
+      try {
+        parsedArgs = JSON.parse(args);
+      } catch (jsonError) {
+        setResponse({
+          success: false,
+          error: `Invalid JSON in arguments: ${jsonError instanceof Error ? jsonError.message : 'Unknown JSON error'}`,
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const res = await fetch('/api/mcp', {
         method: 'POST',
         headers: {
@@ -75,23 +87,66 @@ export default function MCPToolTester() {
 
   const getExampleArgs = (toolName: string): string => {
     const examples: Record<string, any> = {
+      // Weather tools - should be allowed
       'weather.current': { latitude: 37.7749, longitude: -122.4194, location_name: 'San Francisco' },
       'weather.forecast': { latitude: 40.7128, longitude: -74.0060, location_name: 'New York', days: 5 },
+      
+      // Payment tools - should trigger confirm or block
       'payment.process': { amount: '99.99', currency: 'USD', description: 'Demo purchase' },
       'payment.refund': { transaction_id: 'txn_demo123', amount: '50.00', reason: 'Customer request' },
+      
+      // Database tools - should be allowed
       'db.query': { query: 'SELECT * FROM users', table: 'users' },
+      
+      // File tools - should be allowed
       'file.read': { path: '/demo/sample.txt' },
       'file.write': { path: '/demo/output.txt', content: 'Hello, world!' },
       'file.list': { path: '/demo' },
+      
+      // Web tools - should be allowed
       'web.search': { query: 'AI governance best practices', limit: 5 },
       'web.scrape': { url: 'https://example.com', formats: ['markdown', 'html'] },
+      
+      // Email tools - should trigger confirm or redact
       'email.send': { to: 'user@example.com', subject: 'Test Email', body: 'Hello!' },
+      
+      // Calendar tools - should be allowed
       'calendar.create_event': { title: 'Team Meeting', start_time: '2024-12-30T10:00:00Z' },
+      
+      // KV store tools - should be allowed
       'kv.get': { key: 'user_preferences' },
       'kv.set': { key: 'demo_key', value: 'demo_value', ttl: 3600 },
     };
 
     return JSON.stringify(examples[toolName] || {}, null, 2);
+  };
+
+  // Additional examples that trigger different precheck decisions
+  const getPrecheckExamples = (toolName: string): Array<{label: string, args: any, expectedDecision: string}> => {
+    const examples: Record<string, Array<{label: string, args: any, expectedDecision: string}>> = {
+      'payment.process': [
+        { label: 'Normal Payment', args: { amount: '25.00', currency: 'USD', description: 'Coffee purchase' }, expectedDecision: 'confirm' },
+        { label: 'High Value Payment', args: { amount: '9999.99', currency: 'USD', description: 'Enterprise license' }, expectedDecision: 'confirm' },
+        { label: 'PII in Description', args: { amount: '100.00', currency: 'USD', description: 'Payment for john.doe@company.com account' }, expectedDecision: 'redact' },
+      ],
+      'email.send': [
+        { label: 'Normal Email', args: { to: 'colleague@company.com', subject: 'Meeting Notes', body: 'Here are the meeting notes from today.' }, expectedDecision: 'confirm' },
+        { label: 'PII in Body', args: { to: 'hr@company.com', subject: 'Employee Info', body: 'John Doe, SSN: 123-45-6789, needs vacation approval.' }, expectedDecision: 'redact' },
+        { label: 'Suspicious Email', args: { to: 'external@competitor.com', subject: 'Confidential Data', body: 'Here is our secret business plan.' }, expectedDecision: 'block' },
+      ],
+      'web.search': [
+        { label: 'Safe Search', args: { query: 'weather forecast', limit: 5 }, expectedDecision: 'allow' },
+        { label: 'PII Search', args: { query: 'john.doe@company.com personal information', limit: 5 }, expectedDecision: 'redact' },
+        { label: 'Malicious Search', args: { query: 'how to hack into systems', limit: 5 }, expectedDecision: 'block' },
+      ],
+      'file.read': [
+        { label: 'Safe File', args: { path: '/public/readme.txt' }, expectedDecision: 'allow' },
+        { label: 'Sensitive File', args: { path: '/private/passwords.txt' }, expectedDecision: 'block' },
+        { label: 'Config File', args: { path: '/config/app.json' }, expectedDecision: 'allow' },
+      ],
+    };
+
+    return examples[toolName] || [];
   };
 
   const handleToolChange = (toolName: string) => {
@@ -176,6 +231,39 @@ export default function MCPToolTester() {
           >
             {isLoading ? 'Testing...' : 'Test Tool'}
           </button>
+
+          {/* Precheck Examples for Selected Tool */}
+          {getPrecheckExamples(selectedTool).length > 0 && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Precheck Examples
+              </label>
+              <div className="space-y-2">
+                {getPrecheckExamples(selectedTool).map((example, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setArgs(JSON.stringify(example.args, null, 2));
+                    }}
+                    className="w-full text-left p-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border transition-colors"
+                    disabled={isLoading}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{example.label}</span>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        example.expectedDecision === 'allow' ? 'bg-green-100 text-green-800' :
+                        example.expectedDecision === 'confirm' ? 'bg-yellow-100 text-yellow-800' :
+                        example.expectedDecision === 'redact' ? 'bg-orange-100 text-orange-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {example.expectedDecision.toUpperCase()}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Response Display */}
@@ -221,8 +309,39 @@ export default function MCPToolTester() {
         </div>
       </div>
 
+      {/* Precheck Examples */}
+      <div className="mt-6 p-4 bg-green-50 rounded-md">
+        <h4 className="text-sm font-medium text-green-900 mb-2">Precheck Decision Examples:</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="space-y-1">
+            <div className="text-green-800 font-medium">🟢 ALLOW Examples:</div>
+            <div className="text-green-700">• Weather queries (safe external data)</div>
+            <div className="text-green-700">• File operations (local files)</div>
+            <div className="text-green-700">• Database queries (read-only)</div>
+            <div className="text-green-700">• Web search (public information)</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-yellow-800 font-medium">🟡 CONFIRM Examples:</div>
+            <div className="text-yellow-700">• Payment processing (financial risk)</div>
+            <div className="text-yellow-700">• Email sending (external communication)</div>
+            <div className="text-yellow-700">• High-value operations</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-orange-800 font-medium">🟠 REDACT Examples:</div>
+            <div className="text-orange-700">• PII in arguments (emails, SSNs)</div>
+            <div className="text-orange-700">• Sensitive data in content</div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-red-800 font-medium">🔴 BLOCK Examples:</div>
+            <div className="text-red-700">• Malicious operations</div>
+            <div className="text-red-700">• Policy violations</div>
+            <div className="text-red-700">• Unauthorized access attempts</div>
+          </div>
+        </div>
+      </div>
+
       {/* Tool Categories Info */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-md">
+      <div className="mt-4 p-4 bg-blue-50 rounded-md">
         <h4 className="text-sm font-medium text-blue-900 mb-2">Available Tool Categories:</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
           {Object.entries(categories).map(([category, toolNames]) => (

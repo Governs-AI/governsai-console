@@ -307,24 +307,20 @@ const mockTools = {
       // Use Firecrawl's search functionality
       const searchResult = await app.search(query, {
         limit: Math.min(limit, 10), // Max 10 results
-        searchOptions: {
-          country: 'US',
-          lang: 'en',
-        }
       });
 
-      if (!searchResult.success) {
-        throw new Error(searchResult.error || 'Search failed');
+      if (!searchResult) {
+        throw new Error('Search failed');
       }
 
-      const results = searchResult.data.map((item: any, index: number) => ({
+      const results = Array.isArray(searchResult) ? searchResult.map((item: any, index: number) => ({
         title: item.title || `Result ${index + 1}`,
         url: item.url,
         snippet: item.description || item.content?.substring(0, 200) + '...',
-        domain: new URL(item.url).hostname,
+        domain: item.url ? new URL(item.url).hostname : 'unknown',
         published: item.publishedTime || null,
         score: item.score || null,
-      }));
+      })) : [];
 
       return {
         query,
@@ -365,7 +361,7 @@ const mockTools = {
       const app = new FirecrawlApp({ apiKey });
       
       // Use Firecrawl's scraping functionality
-      const scrapeResult = await app.scrapeUrl(url, {
+      const scrapeResult = await app.scrape(url, {
         formats: formats,
         onlyMainContent: true,
         includeTags: ['title', 'meta', 'h1', 'h2', 'h3', 'p', 'a'],
@@ -373,11 +369,11 @@ const mockTools = {
         waitFor: 1000, // Wait 1 second for dynamic content
       });
 
-      if (!scrapeResult.success) {
-        throw new Error(scrapeResult.error || 'Scraping failed');
+      if (!scrapeResult) {
+        throw new Error('Scraping failed');
       }
 
-      const data = scrapeResult.data;
+      const data = scrapeResult as any;
       
       return {
         url,
@@ -473,6 +469,9 @@ const mockTools = {
     };
   },
 };
+
+// Export mockTools for direct use
+export { mockTools };
 
 export async function POST(request: NextRequest) {
   try {

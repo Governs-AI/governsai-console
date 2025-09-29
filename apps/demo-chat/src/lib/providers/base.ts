@@ -1,13 +1,14 @@
-import { Message } from '../types';
+import { Message, Tool, ToolCall } from '../types';
 
 export interface ChatProvider {
   /**
    * Stream chat completion tokens from the provider
    * @param messages - Array of chat messages
    * @param model - Optional model name override
-   * @returns AsyncGenerator yielding text tokens
+   * @param tools - Optional tools for function calling
+   * @returns AsyncGenerator yielding text tokens or tool calls
    */
-  stream(messages: Message[], model?: string): AsyncGenerator<string>;
+  stream(messages: Message[], model?: string, tools?: Tool[]): AsyncGenerator<{ type: 'content' | 'tool_call', data: any }>;
   
   /**
    * Get the default model for this provider

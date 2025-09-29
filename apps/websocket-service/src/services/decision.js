@@ -28,12 +28,12 @@ export class DecisionService {
         ...data
       } = decisionData;
 
-      console.log("1")
+      console.log("🔍 Checking for duplicates...");
       // Check for duplicates using idempotency key and payload hash
       const duplicateCheck = await this.checkDuplicate(orgId, data.payloadHash, data.correlationId);
-      console.log("2")
+      console.log("✅ Duplicate check completed");
+      
       if (duplicateCheck.isDuplicate) {
-        console.log("3")
         console.log(`⚠️ Duplicate decision detected: ${duplicateCheck.existingId}`);
         return {
           id: duplicateCheck.existingId,
@@ -42,13 +42,14 @@ export class DecisionService {
         };
       }
 
-      console.log("4")
+      console.log("🔍 Validating decision data...");
       // Validate decision data (ensure orgId is in data object for validation)
       const dataForValidation = { ...data, orgId };
-      console.log("5")
+      console.log("📊 Decision data:", JSON.stringify(dataForValidation, null, 2));
       this.validateDecisionData(dataForValidation);
-      console.log("6")
+      console.log("✅ Decision validation passed");
       // Create decision record
+      console.log("💾 Creating decision record in database...");
       const decision = await prisma.decision.create({
         data: {
           orgId: orgId, // Use destructured orgId
@@ -67,13 +68,16 @@ export class DecisionService {
           ts: data.ts ? new Date(data.ts) : receivedAt || new Date()
         }
       });
-      console.log("7")
+      console.log("✅ Decision record created:", decision.id);
+      
       // Cache decision for duplicate detection
       this.cacheDecision(decision);
-      console.log("8")
+      console.log("✅ Decision cached for duplicate detection");
+      
       // Log processing metrics
       await this.logDecisionMetrics(decision, { userId, apiKey, channel });
-      console.log("9")
+      console.log("✅ Decision metrics logged");
+      
       console.log(`✅ Decision processed: ${decision.id} (${data.direction}/${data.decision})`);
 
       return {
@@ -87,9 +91,14 @@ export class DecisionService {
         ts: decision.ts
       };
     } catch (error) {
-      console.log("10") 
-
-      console.error('Decision processing error:', error);
+      console.error('❌ Decision processing error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        orgId: decisionData?.orgId,
+        userId: decisionData?.userId,
+        decisionData: decisionData
+      });
       throw new Error(`Failed to process decision: ${error.message}`);
     }
   }
@@ -164,10 +173,21 @@ export class DecisionService {
    * Validate decision data
    */
   validateDecisionData(data) {
+    console.log('🔍 Validating decision data:', {
+      orgId: data.orgId,
+      direction: data.direction,
+      decision: data.decision,
+      payloadHash: data.payloadHash,
+      hasOrgId: !!data.orgId,
+      orgIdType: typeof data.orgId
+    });
+    
     const required = ['orgId', 'direction', 'decision', 'payloadHash'];
     const missing = required.filter(field => !data[field]);
     
     if (missing.length > 0) {
+      console.error('❌ Missing required fields:', missing);
+      console.error('❌ Full data object:', JSON.stringify(data, null, 2));
       throw new Error(`Missing required fields: ${missing.join(', ')}`);
     }
 
@@ -175,7 +195,7 @@ export class DecisionService {
       throw new Error(`Invalid direction: ${data.direction}`);
     }
 
-    if (!['allow', 'transform', 'deny'].includes(data.decision)) {
+    if (!['allow', 'transform', 'deny', 'redact', 'block', 'confirm'].includes(data.decision)) {
       throw new Error(`Invalid decision: ${data.decision}`);
     }
 

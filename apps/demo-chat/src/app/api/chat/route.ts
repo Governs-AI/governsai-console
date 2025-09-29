@@ -1,11 +1,83 @@
 import { NextRequest } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { precheck, createChatPrecheckRequest } from '@/lib/precheck';
+import { precheck, createChatPrecheckRequest, createMCPPrecheckRequest } from '@/lib/precheck';
 import { OpenAIProvider } from '@/lib/providers/openai';
 import { OllamaProvider } from '@/lib/providers/ollama';
 import { SSEWriter } from '@/lib/sse';
-import { ChatRequest, Provider } from '@/lib/types';
+import { ChatRequest, Provider, Message, ToolCall } from '@/lib/types';
 import { getPrecheckUserIdDetails } from '@/lib/utils';
+import { AVAILABLE_TOOLS } from '@/lib/tools';
+
+// Helper function to execute tool calls
+async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string) {
+  try {
+    console.log('Executing tool call:', toolCall.function.name, 'with args:', toolCall.function.arguments);
+    
+    // Parse tool arguments
+    const args = JSON.parse(toolCall.function.arguments);
+    
+    // Create MCP precheck request for the tool call
+    const precheckRequest = createMCPPrecheckRequest(toolCall.function.name, args, uuidv4());
+    const precheckResponse = await precheck(precheckRequest, userId, apiKey);
+    
+    // Send tool call decision
+    writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
+    
+    // Handle precheck decision
+    if (precheckResponse.decision === 'block') {
+      writer.writeToolResult({
+        tool_call_id: toolCall.id,
+        success: false,
+        error: `Tool call blocked: ${precheckResponse.reasons?.join(', ') || 'Policy violation'}`,
+        decision: precheckResponse.decision,
+        reasons: precheckResponse.reasons,
+      });
+      return;
+    }
+    
+    // Use processed arguments from precheck response
+    const processedArgs = precheckResponse.content?.args || args;
+    
+    // Call the MCP function directly
+    console.log('Calling MCP function directly:', toolCall.function.name);
+    
+    // Import the MCP tools directly
+    const { mockTools } = await import('../mcp/route');
+    
+    // Execute the tool directly
+    const toolFunction = mockTools[toolCall.function.name as keyof typeof mockTools];
+    
+    if (!toolFunction) {
+      throw new Error(`Unknown tool: ${toolCall.function.name}`);
+    }
+    
+    const mcpResult = {
+      success: true,
+      data: await toolFunction(processedArgs),
+      decision: precheckResponse.decision,
+      reasons: precheckResponse.reasons,
+    };
+    
+    console.log('MCP function result:', mcpResult);
+    
+    // Send tool result
+    writer.writeToolResult({
+      tool_call_id: toolCall.id,
+      success: mcpResult.success,
+      data: mcpResult.data,
+      error: (mcpResult.data as any)?.error,
+      decision: mcpResult.decision,
+      reasons: mcpResult.reasons,
+    });
+    
+  } catch (error) {
+    writer.writeToolResult({
+      tool_call_id: toolCall.id,
+      success: false,
+      error: `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    });
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,12 +149,35 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // Step 4: Stream tokens
+        // Step 4: Stream tokens with tool calling support
         const modelToUse = model || chatProvider.getDefaultModel();
         
         try {
-          for await (const token of chatProvider.stream(processedMessages, modelToUse)) {
-            writer.writeContent(token);
+          // Only enable tools for OpenAI provider
+          const tools = provider === 'openai' ? AVAILABLE_TOOLS : undefined;
+          
+          // Add system message with tool information for OpenAI
+          if (provider === 'openai' && tools) {
+            const systemMessage: Message = {
+              id: uuidv4(),
+              role: 'system',
+              content: `You are a helpful AI assistant with access to various tools. You can use these tools to help users with tasks like checking weather, processing payments, reading files, searching the web, and more. When a user asks for something that requires external data or actions, use the appropriate tool. Always explain what you're doing when you use a tool.`,
+            };
+            processedMessages.unshift(systemMessage);
+          }
+          
+          for await (const chunk of chatProvider.stream(processedMessages, modelToUse, tools)) {
+            if (chunk.type === 'content') {
+              writer.writeContent(chunk.data);
+            } else if (chunk.type === 'tool_call') {
+              // Handle tool call
+              const toolCall = chunk.data as ToolCall;
+              console.log('Tool call received:', toolCall);
+              writer.writeToolCall(toolCall);
+              
+              // Execute the tool call
+              await executeToolCall(toolCall, writer, userId, apiKey);
+            }
           }
           
           writer.writeDone();

@@ -182,6 +182,11 @@ class GovernsWebSocketService {
       healthService: this.healthService
     });
 
+    // Handle new WebSocket connections
+    this.wss.on('connection', (ws, req) => {
+      this.wsHandler.handleConnection(ws, req);
+    });
+
     console.log('🔌 WebSocket server configured on /ws');
   }
 

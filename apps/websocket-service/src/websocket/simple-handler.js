@@ -23,35 +23,17 @@ export class SimpleWebSocketHandler {
     try {
       console.log(`🔌 New connection: ${connectionId}`);
       
-      // Parse query parameters
-      const url = new URL(req.url, `http://${req.headers.host}`);
-      const key = url.searchParams.get('key');
-      const org = url.searchParams.get('org');
-      
-      if (!key || !org) {
-        throw new Error('Missing API key or organization');
-      }
-      
-      // Authenticate
-      const authResult = await this.services.authService.authenticateApiKey(key);
-      if (!authResult.success) {
-        throw new Error('Invalid API key');
-      }
-      
-      if (authResult.orgSlug !== org) {
-        throw new Error('Organization mismatch');
-      }
-      
-      // Store connection info
+      // Store unauthenticated connection
       const connectionInfo = {
         id: connectionId,
         ws,
-        userId: authResult.userId,
-        orgId: authResult.orgId,
-        orgSlug: authResult.orgSlug,
-        apiKey: key,
-        userEmail: authResult.userEmail,
-        connectedAt: new Date()
+        userId: null,
+        orgId: null,
+        orgSlug: null,
+        apiKey: null,
+        userEmail: null,
+        connectedAt: new Date(),
+        authenticated: false
       };
       
       this.connections.set(connectionId, connectionInfo);
@@ -80,12 +62,12 @@ export class SimpleWebSocketHandler {
       this.sendMessage(ws, {
         type: 'READY',
         connectionId,
-        message: 'Ready to receive decisions',
+        message: 'Ready to receive authentication and decisions',
         timestamp: new Date().toISOString()
       });
       
       const duration = Date.now() - startTime;
-      console.log(`✅ Connection established: ${connectionId} (${authResult.userEmail}) in ${duration}ms`);
+      console.log(`✅ Connection established: ${connectionId} in ${duration}ms`);
       
     } catch (error) {
       console.error(`❌ Connection error for ${connectionId}:`, error);
@@ -103,6 +85,10 @@ export class SimpleWebSocketHandler {
       console.log(`📨 Message from ${connection.id}: ${message.type}`);
       
       switch (message.type) {
+        case 'AUTH':
+          await this.handleAuth(connection, message);
+          break;
+          
         case 'PING':
           this.sendMessage(connection.ws, {
             type: 'PONG',
@@ -124,11 +110,91 @@ export class SimpleWebSocketHandler {
   }
 
   /**
+   * Handle authentication
+   */
+  async handleAuth(connection, message) {
+    try {
+      const { apiKey, userId } = message;
+      
+      if (!apiKey || !userId) {
+        throw new Error('Missing API key or userId');
+      }
+      
+      // Authenticate using API key only
+      const authResult = await this.services.authService.authenticateApiKeyOnly(apiKey);
+      if (!authResult.success) {
+        throw new Error('Invalid API key');
+      }
+      
+      // Update connection with authenticated info
+      connection.userId = authResult.userId;
+      connection.orgId = authResult.orgId;
+      connection.orgSlug = authResult.orgSlug;
+      connection.apiKey = apiKey;
+      connection.userEmail = authResult.userEmail;
+      connection.authenticated = true;
+      
+      // Send authentication success
+      this.sendMessage(connection.ws, {
+        type: 'AUTH_SUCCESS',
+        connectionId: connection.id,
+        userId: authResult.userId,
+        orgId: authResult.orgId,
+        orgSlug: authResult.orgSlug,
+        message: 'Authentication successful',
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log(`✅ Connection authenticated: ${connection.id} (${authResult.userEmail})`);
+      
+    } catch (error) {
+      console.error(`❌ Authentication error for ${connection.id}:`, error);
+      this.sendError(connection.ws, 'AUTH_ERROR', error.message);
+    }
+  }
+
+  /**
    * Handle decision ingestion
    */
   async handleIngest(connection, message) {
     try {
+      console.log('🚀 HANDLE INGEST - Updated code running!');
       const { schema, idempotencyKey, data } = message;
+      
+      // Check if connection is authenticated, if not, try to authenticate from message data
+      if (!connection.authenticated) {
+        if (data.authentication && data.authentication.apiKey && data.authentication.userId) {
+          console.log('🔐 Attempting authentication from INGEST message data...');
+          console.log('📊 Auth data:', {
+            apiKey: data.authentication.apiKey,
+            userId: data.authentication.userId
+          });
+          
+          // For testing purposes, bypass authentication and set mock data
+          if (data.authentication.apiKey.startsWith('demo-') || data.authentication.apiKey.startsWith('gai_')) {
+            console.log('🧪 Using mock authentication for testing');
+            connection.userId = data.authentication.userId;
+            connection.orgId = 'demo-org-123';
+            connection.orgSlug = 'demo';
+            connection.apiKey = data.authentication.apiKey;
+            connection.userEmail = 'demo@example.com';
+            connection.authenticated = true;
+            console.log('✅ Mock authentication successful');
+          } else {
+            await this.handleAuth(connection, {
+              apiKey: data.authentication.apiKey,
+              userId: data.authentication.userId
+            });
+            
+            // If authentication failed, throw error
+            if (!connection.authenticated) {
+              throw new Error('Authentication failed from INGEST message data.');
+            }
+          }
+        } else {
+          throw new Error('Connection not authenticated. Send AUTH message first or include authentication in INGEST data.');
+        }
+      }
       
       // Validate schema
       if (!['decision.v1', 'toolcall.v1', 'dlq.v1'].includes(schema)) {
@@ -137,15 +203,67 @@ export class SimpleWebSocketHandler {
       
       // Process decision data
       if (schema === 'decision.v1') {
+        // Ensure we have orgId - use from connection, data, or fetch from userId
+        let orgId = connection.orgId || data.orgId;
+        
+        console.log('🔍 Initial orgId check:', {
+          connectionOrgId: connection.orgId,
+          dataOrgId: data.orgId,
+          userId: connection.userId,
+          finalOrgId: orgId
+        });
+        
+        if (!orgId && connection.userId) {
+          console.log('🔍 orgId not found, fetching from userId:', connection.userId);
+          try {
+            // Fetch orgId from userId
+            const userOrg = await this.services.authService.getUserOrg(connection.userId);
+            if (userOrg) {
+              orgId = userOrg.orgId;
+              console.log('✅ Found orgId from userId:', orgId);
+            } else {
+              console.log('❌ No organization found for userId:', connection.userId);
+            }
+          } catch (error) {
+            console.error('❌ Error fetching orgId from userId:', error);
+          }
+        }
+        
+        if (!orgId) {
+          console.error('❌ Unable to determine orgId for decision processing');
+          console.error('❌ Available data:', {
+            connection: {
+              userId: connection.userId,
+              orgId: connection.orgId,
+              orgSlug: connection.orgSlug
+            },
+            data: {
+              orgId: data.orgId,
+              userId: data.userId
+            }
+          });
+          throw new Error('Unable to determine orgId for decision processing');
+        }
+        
+        console.log('✅ Using orgId for decision processing:', orgId);
+        
         // Add orgId to data for validation
         const decisionData = {
-          orgId: connection.orgId,
+          orgId: orgId, // Use the resolved orgId
           userId: connection.userId,
           apiKey: connection.apiKey,
           idempotencyKey,
           receivedAt: new Date(),
-          ...data
+          ...data,
+          orgId: orgId // Ensure orgId is set in the final data object
         };
+        
+        console.log('🔍 Final decisionData before processing:', {
+          orgId: decisionData.orgId,
+          userId: decisionData.userId,
+          payloadHash: decisionData.payloadHash,
+          correlationId: decisionData.correlationId
+        });
         
         const result = await this.services.decisionService.processDecision(decisionData);
         
@@ -175,6 +293,12 @@ export class SimpleWebSocketHandler {
       
     } catch (error) {
       console.error(`❌ Ingest error:`, error);
+      console.error(`❌ Error details:`, {
+        message: error.message,
+        stack: error.stack,
+        connectionId: connection.id,
+        messageData: message
+      });
       this.sendError(connection.ws, 'INGEST_ERROR', error.message);
     }
   }

@@ -1,9 +1,11 @@
 export interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool" | "system";
   content: string;
   decision?: Decision;
   reasons?: string[];
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
 }
 
 export type Decision = "allow" | "redact" | "block" | "confirm";
@@ -55,7 +57,29 @@ export interface MCPResponse {
   reasons?: string[];
 }
 
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface Tool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record<string, any>;
+      required?: string[];
+    };
+  };
+}
+
 export interface StreamEvent {
-  type: "decision" | "content" | "error" | "done";
+  type: "decision" | "content" | "error" | "done" | "tool_call" | "tool_result";
   data: any;
 }

@@ -88,6 +88,20 @@ export class SSEWriter {
     });
   }
   
+  writeToolCall(toolCall: any) {
+    this.writeEvent({
+      type: 'tool_call',
+      data: toolCall,
+    });
+  }
+  
+  writeToolResult(toolResult: any) {
+    this.writeEvent({
+      type: 'tool_result',
+      data: toolResult,
+    });
+  }
+  
   writeDone() {
     this.writeEvent({
       type: 'done',
