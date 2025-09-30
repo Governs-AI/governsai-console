@@ -1,14 +1,15 @@
+'use client';
 import { Suspense } from 'react';
 import { ToolsClient } from '@/components/tools-client';
+import PlatformShell from '@/components/platform-shell';
+import { useParams } from 'next/navigation';
 
-interface ToolsPageProps {
-  params: {
-    slug: string;
-  };
-}
+export default function ToolsPage() {
+  const params = useParams();
+  const orgSlug = params.slug as string;
 
-export default function ToolsPage({ params }: ToolsPageProps) {
   return (
+    <PlatformShell orgSlug={orgSlug}>
     <Suspense fallback={
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -17,7 +18,9 @@ export default function ToolsPage({ params }: ToolsPageProps) {
         </div>
       </div>
     }>
-      <ToolsClient orgSlug={params.slug} />
+      <ToolsClient orgSlug={orgSlug} />
     </Suspense>
+    </PlatformShell>
   );
+
 }

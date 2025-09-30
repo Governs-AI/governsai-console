@@ -9,7 +9,7 @@ import { getPrecheckUserIdDetails } from '@/lib/utils';
 import { AVAILABLE_TOOLS } from '@/lib/tools';
 import { DEFAULT_POLICY } from '@/lib/default-policy';
 import { getToolMetadata } from '@/lib/tool-metadata';
-import { fetchPoliciesFromPlatform, registerAgentTools, getToolMetadataFromPlatform } from '@/lib/platform-api';
+import { fetchPoliciesFromPlatform, registerAgentTools, registerToolsWithMetadata, getToolMetadataFromPlatform } from '@/lib/platform-api';
 
 // Helper function to execute tool calls
 async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string, platformToolMetadata?: Record<string, any>) {
@@ -133,7 +133,10 @@ export async function POST(request: NextRequest) {
         const policy = platformData.policy || DEFAULT_POLICY;
         const platformToolMetadata = platformData.toolMetadata || {};
         
-        // Register this agent's tools with the platform
+        // Register this agent's tools with the platform (with full metadata for auto-discovery)
+        await registerToolsWithMetadata(AVAILABLE_TOOLS);
+        
+        // Also register tool names for tracking
         const toolNames = AVAILABLE_TOOLS.map(tool => tool.function.name);
         await registerAgentTools(toolNames);
         

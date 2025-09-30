@@ -29,6 +29,7 @@ const getNavigation = (orgSlug: string) => [
   { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
   { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
   { name: 'Spend', href: `/o/${orgSlug}/spend`, icon: DollarSign },
+  { name: 'Manage Tools', href: `/o/${orgSlug}/tools`, icon: Activity },
   { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
   { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key },
   { name: 'DLQ', href: `/o/${orgSlug}/dlq`, icon: AlertTriangle },

@@ -41,18 +41,22 @@ export async function precheck(
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       
-      // If precheck service is not available, return a mock allow response for demo purposes
+      // If precheck service is not available, BLOCK the request for security
       if (response.status === 404 || response.status === 500) {
-        console.log('Precheck service not available, using mock response for demo');
+        console.error('⛔ Precheck service not available - BLOCKING request for security');
         return {
-          decision: 'allow',
+          decision: 'block',
           content: {
             messages: input.payload?.messages || [],
             args: input.payload?.args || input.payload || {}
           },
-          reasons: ['Demo mode - precheck service not available'],
+          reasons: ['Precheck service unavailable - request blocked for security'],
           pii_findings: [],
-          metadata: { mock: true }
+          metadata: { 
+            mock: true,
+            error: 'Precheck service not reachable',
+            status: response.status
+          }
         } as PrecheckResponse;
       }
       
@@ -70,17 +74,22 @@ export async function precheck(
       throw error;
     }
     
-    // Handle network errors - return mock response for demo
-    console.log('Precheck service connection failed, using mock response for demo');
+    // Handle network errors - BLOCK for security
+    console.error('⛔ Precheck service connection failed - BLOCKING request for security');
+    console.error('Error:', error instanceof Error ? error.message : 'Unknown error');
     return {
-      decision: 'allow',
+      decision: 'block',
       content: {
         messages: input.payload?.messages || [],
         args: input.payload?.args || input.payload || {}
       },
-      reasons: ['Demo mode - precheck service not available'],
+      reasons: ['Precheck service connection failed - request blocked for security'],
       pii_findings: [],
-      metadata: { mock: true }
+      metadata: { 
+        mock: true,
+        error: error instanceof Error ? error.message : 'Network error',
+        errorType: 'connection_failed'
+      }
     } as PrecheckResponse;
   }
 }

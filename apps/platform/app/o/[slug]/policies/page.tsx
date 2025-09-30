@@ -9,7 +9,6 @@ export default function PoliciesPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
 
-  
   return (
     <PlatformShell orgSlug={orgSlug}>
     <Suspense fallback={
