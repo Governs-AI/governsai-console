@@ -9,35 +9,39 @@ datasource db {
 }
 
 model Org {
-  id           String              @id @default(cuid())
-  name         String              @unique
-  slug         String              @unique
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  apiKeys      APIKey[]
-  networkRules NetworkAccessRule[]
-  memberships  OrgMembership[]
-  channels     WebSocketChannel[]
-  sessions     WebSocketSession[]
+  id                   String                @id @default(cuid())
+  name                 String                @unique
+  slug                 String                @unique
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  apiKeys              APIKey[]
+  networkRules         NetworkAccessRule[]
+  memberships          OrgMembership[]
+  channels             WebSocketChannel[]
+  sessions             WebSocketSession[]
+  passkeys             Passkey[]
+  pendingConfirmations PendingConfirmation[]
 }
 
 model User {
-  id            String             @id @default(cuid())
-  email         String             @unique
-  emailVerified DateTime?
-  name          String?
-  image         String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  apiKeys       APIKey[]
-  auditLogs     AuditLog[]
-  budgets       Budget[]
-  credential    Credential?
-  mfaTotp       MfaTotp?
-  memberships   OrgMembership[]
-  usageRecords  UsageRecord[]
-  channels      WebSocketChannel[]
-  sessions      WebSocketSession[]
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  emailVerified        DateTime?
+  name                 String?
+  image                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  apiKeys              APIKey[]
+  auditLogs            AuditLog[]
+  budgets              Budget[]
+  credential           Credential?
+  mfaTotp              MfaTotp?
+  memberships          OrgMembership[]
+  usageRecords         UsageRecord[]
+  channels             WebSocketChannel[]
+  sessions             WebSocketSession[]
+  passkeys             Passkey[]
+  pendingConfirmations PendingConfirmation[]
 }
 
 model Credential {
@@ -87,25 +91,77 @@ model MfaTotp {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  orgId        String    @map("org_id")
+  credentialId Bytes     @unique @map("credential_id") // Raw credential ID from WebAuthn
+  publicKey    Bytes     @map("public_key") // Public key for verification
+  counter      BigInt    @default(0) // Signature counter (replay protection)
+  transports   String[]  @default([]) // ["usb", "nfc", "ble", "internal"]
+  deviceName   String    @default("Unnamed Device") @map("device_name")
+  aaguid       String? // Authenticator AAGUID
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime? @map("last_used_at")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org          Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId, orgId])
+  @@index([credentialId])
+  @@map("passkeys")
+}
+
+model PendingConfirmation {
+  id                String    @id @default(cuid())
+  correlationId     String    @unique @map("correlation_id") // From precheck
+  userId            String    @map("user_id")
+  orgId             String    @map("org_id")
+  apiKeyId          String    @map("api_key_id") // Which API key made the request
+  requestType       String    @map("request_type") // "chat", "tool_call", "api"
+  requestDesc       String    @map("request_desc") // Human-readable description
+  requestPayload    Json      @map("request_payload") // Store original messages/args
+  decision          String    @default("confirm")
+  reasons           Json      @default("[]")
+  challenge         String    @unique // Base64-encoded WebAuthn challenge
+  status            String    @default("pending") // "pending", "approved", "denied", "expired", "cancelled", "consumed"
+  approvedAt        DateTime? @map("approved_at")
+  consumedAt        DateTime? @map("consumed_at")
+  passkeyId         String?   @map("passkey_id") // Which passkey was used (if approved)
+  confirmationToken String?   @unique @map("confirmation_token") // JWT token issued on approval
+  expiresAt         DateTime  @map("expires_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org               Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  apiKey            APIKey    @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([correlationId])
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@index([challenge])
+  @@index([confirmationToken])
+  @@map("pending_confirmations")
+}
+
 model APIKey {
-  id           String             @id @default(cuid())
-  key          String             @unique
-  keyHash      String?            @unique
-  name         String
-  userId       String
-  orgId        String             @map("org_id")
-  scopes       String[]           @default([])
-  env          String             @default("prod")
-  isActive     Boolean            @default(true)
-  lastUsed     DateTime?
-  ipAllow      Json?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  expiresAt    DateTime?
-  org          Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  usageRecords UsageRecord[]
-  channels     WebSocketChannel[]
+  id                   String                @id @default(cuid())
+  key                  String                @unique
+  keyHash              String?               @unique
+  name                 String
+  userId               String
+  orgId                String                @map("org_id")
+  scopes               String[]              @default([])
+  env                  String                @default("prod")
+  isActive             Boolean               @default(true)
+  lastUsed             DateTime?
+  ipAllow              Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  expiresAt            DateTime?
+  org                  Org                   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageRecords         UsageRecord[]
+  channels             WebSocketChannel[]
+  pendingConfirmations PendingConfirmation[]
 
   @@index([key])
   @@index([keyHash])

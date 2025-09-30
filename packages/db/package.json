@@ -13,9 +13,11 @@
     "db:seed": "tsx seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "5.22.0"
+    "@prisma/client": "5.22.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.0.10",
     "prisma": "5.22.0",
     "tsx": "^4.0.0",
