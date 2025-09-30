@@ -1,311 +1,170 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button, Card, CardContent } from '@governs-ai/ui';
-import { 
-  Shield, 
-  DollarSign, 
-  Eye, 
-  CheckCircle, 
-  ArrowRight, 
-  Star,
-  Users,
-  Zap,
-  Lock,
-  BarChart3,
-  Play,
-  ChevronRight
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
-export default function LandingPage() {
-  const [scrolled, setScrolled] = useState(false);
+function GovernsAIComingSoon() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [showError, setShowError] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleLoadedData = () => {
+      setIsLoaded(true);
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    const handleError = () => {
+      setShowError(true);
+    };
+
+    const handleEnded = () => {
+      video.currentTime = 0;
+      video.play();
+    };
+
+    const playVideo = () => {
+      video.play().catch((e) => {
+        console.log('Autoplay prevented:', e);
+      });
+    };
+
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('error', handleError);
+    video.addEventListener('ended', handleEnded);
+
+    playVideo();
+
+    const handleClick = () => {
+      playVideo();
+    };
+
+    document.addEventListener('click', handleClick, { once: true });
+
+    return () => {
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('error', handleError);
+      video.removeEventListener('ended', handleEnded);
+      document.removeEventListener('click', handleClick);
+    };
   }, []);
 
-  const features = [
-    {
-      icon: <Shield className="h-6 w-6" />,
-      title: "Policy Enforcement",
-      description: "Real-time policy validation with custom rules and compliance checks."
-    },
-    {
-      icon: <DollarSign className="h-6 w-6" />,
-      title: "Cost Control",
-      description: "Predictable AI spending with budget enforcement and usage analytics."
-    },
-    {
-      icon: <Eye className="h-6 w-6" />,
-      title: "Complete Visibility",
-      description: "Monitor every AI interaction with detailed logs and real-time dashboards."
-    },
-    {
-      icon: <Lock className="h-6 w-6" />,
-      title: "Security First",
-      description: "PII detection, data protection, and enterprise-grade security controls."
-    },
-    {
-      icon: <BarChart3 className="h-6 w-6" />,
-      title: "Analytics & Insights",
-      description: "Comprehensive reporting and analytics to optimize your AI usage."
-    },
-    {
-      icon: <Zap className="h-6 w-6" />,
-      title: "High Performance",
-      description: "Sub-100ms latency with 99.9% uptime for mission-critical applications."
+  const toggleSound = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
     }
-  ];
-
-  const testimonials = [
-    {
-      name: "Sarah Chen",
-      role: "CTO, TechCorp",
-      content: "GovernsAI has transformed how we manage AI costs. We've reduced spending by 40% while improving security.",
-      rating: 5
-    },
-    {
-      name: "Michael Rodriguez",
-      role: "Head of AI, InnovateLab",
-      content: "The policy engine is incredibly powerful. We can now enforce compliance across all our AI applications.",
-      rating: 5
-    },
-    {
-      name: "Emily Watson",
-      role: "VP Engineering, DataFlow",
-      content: "The visibility into our AI usage is game-changing. We finally understand what's happening under the hood.",
-      rating: 5
-    }
-  ];
-
-  const stats = [
-    { label: "Decisions Processed", value: "10M+" },
-    { label: "Cost Savings", value: "40%" },
-    { label: "Uptime", value: "99.9%" },
-    { label: "Customers", value: "500+" }
-  ];
+  };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className={`fixed top-0 w-full z-50 transition-all duration-150 ease-pleasant ${
-        scrolled ? 'bg-background/80 backdrop-blur-md border-b border-border' : 'bg-transparent'
-      }`}>
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-brand flex items-center justify-center">
-                <span className="text-brand-foreground font-bold text-sm">G</span>
-              </div>
-              <span className="text-xl font-bold">GovernsAI</span>
-            </div>
-            <nav className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-sm font-medium hover:text-brand transition-colors">Features</a>
-              <a href="#pricing" className="text-sm font-medium hover:text-brand transition-colors">Pricing</a>
-              <a href="#docs" className="text-sm font-medium hover:text-brand transition-colors">Docs</a>
-              <a href="#contact" className="text-sm font-medium hover:text-brand transition-colors">Contact</a>
-            </nav>
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm">
-                Sign In
-              </Button>
-              <Button size="sm">
-                Get Started
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-black">
+      {/* Video Container */}
+      <div className="fixed inset-0 flex items-center justify-center">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="h-screen w-screen opacity-[0.99]"
+        >
+          <source src="/gvai.mp4" type="video/mp4" />
+          <source src="/gvai.webm" type="video/webm" />
+        </video>
+      </div>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-20 pb-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                Governance for AI you can{' '}
-                <span className="text-brand">trust</span>.
-              </h1>
-              <p className="mt-6 text-lg text-muted-foreground">
-                A secure control plane for costs, policies, and audit—without slowing teams down.
-              </p>
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="text-base">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="lg" className="text-base">
-                  <Play className="mr-2 h-4 w-4" />
-                  Watch Demo
-                </Button>
-              </div>
-              <div className="mt-8 flex items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  No credit card required
-                </div>
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  Setup in 5 minutes
-                </div>
-              </div>
-            </div>
-            <div className="relative">
-              <Card className="rounded-2xl border border-border bg-card/60 backdrop-blur p-6 shadow-enterprise-lg">
-                <div className="aspect-video rounded-xl bg-gradient-to-br from-brand/20 to-accent/10 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="h-16 w-16 rounded-full bg-brand/20 flex items-center justify-center mx-auto mb-4">
-                      <Shield className="h-8 w-8 text-brand" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">Product Demo</p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/20 pointer-events-none z-10" />
 
-      {/* Stats Section */}
-      <section className="py-16 bg-muted/30">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl font-bold text-brand">{stat.value}</div>
-                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Gradient Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-10" style={{
+        background: 'radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.4) 100%)'
+      }} />
 
-      {/* Features Section */}
-      <section id="features" className="py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Everything you need to govern AI
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Comprehensive tools to control costs, enforce policies, and maintain security across all your AI applications.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, index) => (
-              <Card key={index} className="rounded-2xl border border-border bg-card p-6 shadow-enterprise-sm hover:shadow-enterprise-md transition-shadow duration-150 ease-pleasant">
-                <div className="text-brand mb-4">{feature.icon}</div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
-              </Card>
-            ))}
-          </div>
+      {/* Loading Indicator */}
+      {/* {!isLoaded && !showError && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 text-white text-base tracking-wider animate-pulse">
+          Loading...
         </div>
-      </section>
+      )} */}
 
-      {/* Testimonials Section */}
-      <section className="py-24 bg-muted/30">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight">
-              Trusted by leading companies
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              See what our customers are saying about GovernsAI.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="rounded-2xl border border-border bg-card p-6 shadow-enterprise-sm">
-                <div className="flex items-center gap-1 mb-4">
-                  {Array.from({ length: testimonial.rating }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-warning text-warning" />
-                  ))}
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">"{testimonial.content}"</p>
-                <div>
-                  <div className="font-semibold">{testimonial.name}</div>
-                  <div className="text-sm text-muted-foreground">{testimonial.role}</div>
-                </div>
-              </Card>
-            ))}
-          </div>
+      {showError && (
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 text-white text-base tracking-wider opacity-100">
+          Video unavailable - Please add your Governs AI video file
         </div>
-      </section>
+      )}
 
-      {/* CTA Section */}
-      <section className="py-24">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <h2 className="text-3xl font-bold tracking-tight">
-            Ready to get started?
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Join hundreds of companies already using GovernsAI to control their AI infrastructure.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-base">
-              Start Free Trial
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="lg" className="text-base">
-              Contact Sales
-            </Button>
-          </div>
-        </div>
-      </section>
+      {/* Sound Toggle - Commented out as in original */}
+      {/* <button
+        onClick={toggleSound}
+        className="fixed top-[5vh] right-[5vw] z-30 bg-white/10 border border-white/20 text-white px-4 py-3 rounded-full cursor-pointer text-sm tracking-wider transition-all duration-300 hover:bg-white/20 hover:scale-105 backdrop-blur-md md:top-[3vh] md:right-[3vw] md:px-3.5 md:py-2.5 md:text-xs"
+      >
+        {isMuted ? '🔇 Unmute' : '🔊 Mute'}
+      </button> */}
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-muted/30">
-        <div className="mx-auto max-w-7xl px-6 py-12">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-8 w-8 rounded-lg bg-brand flex items-center justify-center">
-                  <span className="text-brand-foreground font-bold text-sm">G</span>
-                </div>
-                <span className="text-xl font-bold">GovernsAI</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The secure control plane for AI governance.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">API</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Integrations</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Contact</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Status</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Community</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-            <p>&copy; 2024 GovernsAI. All rights reserved.</p>
-          </div>
+      {/* Content */}
+      <div className="fixed bottom-[5vh] left-1/2 -translate-x-1/2 z-20 text-center text-white opacity-0 animate-fadeInUp md:bottom-[10vh]">
+        <div className="relative overflow-hidden text-[clamp(1.5rem,4vw,3rem)] font-light tracking-[0.2em] uppercase mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">
+          <span className="relative">
+            Governs AI
+            <span className="absolute top-0 left-0 w-full h-full animate-shine" style={{
+              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.4) 80%, transparent 100%)',
+              animationDelay: '6s'
+            }} />
+          </span>
         </div>
-      </footer>
+        <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+          Coming Soon
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+
+        @keyframes shine {
+          0% {
+            left: -100%;
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            left: 100%;
+            opacity: 0;
+          }
+        }
+
+        .animate-fadeInUp {
+          animation: fadeInUp 2s ease-out 3s forwards;
+        }
+
+        .animate-shine {
+          animation: shine 1s ease-in-out 0s forwards;
+          animation-delay: 6s;
+          animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+      `}</style>
     </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <GovernsAIComingSoon />
   );
 }
