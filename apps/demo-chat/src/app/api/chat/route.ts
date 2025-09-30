@@ -153,11 +153,11 @@ export async function POST(request: NextRequest) {
         const modelToUse = model || chatProvider.getDefaultModel();
         
         try {
-          // Only enable tools for OpenAI provider
-          const tools = provider === 'openai' ? AVAILABLE_TOOLS : undefined;
+          // Enable tools for both OpenAI and Ollama providers
+          const tools = AVAILABLE_TOOLS;
           
-          // Add system message with tool information for OpenAI
-          if (provider === 'openai' && tools) {
+          // Add system message with tool information for both providers
+          if (tools) {
             const systemMessage: Message = {
               id: uuidv4(),
               role: 'system',

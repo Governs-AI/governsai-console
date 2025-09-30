@@ -27,8 +27,18 @@ export class OllamaProvider implements ChatProvider {
       temperature: 0.7,
     };
 
-    // Note: Ollama doesn't support function calling yet, so we'll just yield content
-    // In the future, this could be extended to support Ollama's function calling
+    // Add tools if provided (Ollama supports function calling)
+    if (tools && tools.length > 0) {
+      console.log('Adding tools to Ollama request:', tools.length, 'tools');
+      requestBody.tools = tools;
+      requestBody.tool_choice = 'auto';
+    } else {
+      console.log('No tools provided to Ollama request');
+    }
+
+    console.log("----------------- Ollama request body -----------------");
+    console.log(`${this.baseUrl}/chat/completions`);
+    console.log("----------------- Ollama request body -----------------");
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -70,9 +80,33 @@ export class OllamaProvider implements ChatProvider {
 
             try {
               const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                yield { type: 'content', data: content };
+              const choice = parsed.choices?.[0];
+              if (!choice) continue;
+
+              const delta = choice.delta;
+
+              // Handle content
+              if (delta?.content) {
+                yield { type: 'content', data: delta.content };
+              }
+
+              // Handle tool calls
+              if (delta?.tool_calls) {
+                console.log('Tool calls detected in Ollama delta:', delta.tool_calls);
+                for (const toolCall of delta.tool_calls) {
+                  if (toolCall.function) {
+                    const toolCallData = {
+                      id: toolCall.id || '',
+                      type: 'function',
+                      function: {
+                        name: toolCall.function.name || '',
+                        arguments: toolCall.function.arguments || '',
+                      }
+                    };
+                    console.log('Yielding tool call from Ollama:', toolCallData);
+                    yield { type: 'tool_call', data: toolCallData };
+                  }
+                }
               }
             } catch (parseError) {
               // Ignore malformed JSON chunks
