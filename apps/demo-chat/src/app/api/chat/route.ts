@@ -37,31 +37,8 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
       toolMetadata
     );
 
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log(JSON.stringify(precheckRequest, null, 2))
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-    console.log('===========================');
-
     const precheckResponse = await precheck(precheckRequest, userId, apiKey);
-    
-    console.log('=== TOOL PRECHECK RESULT ===');
-    console.log('Tool:', toolCall.function.name);
-    console.log('Decision:', precheckResponse.decision);
-    console.log('Reasons:', precheckResponse.reasons);
-    console.log('===========================');
+  
     
     // Send tool call decision
     writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
@@ -196,12 +173,6 @@ export async function POST(request: NextRequest) {
         const { userId, apiKey } = getPrecheckUserIdDetails();
 
         const precheckResponse = await precheck(precheckRequest, userId, apiKey);
-
-        console.log('=== PRECHECK RESULT ===');
-        console.log('Decision:', precheckResponse.decision);
-        console.log('Reasons:', precheckResponse.reasons);
-        console.log('======================');
-
         // Send decision event
         writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 

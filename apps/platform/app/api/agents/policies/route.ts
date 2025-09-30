@@ -64,7 +64,6 @@ export async function GET(request: NextRequest) {
     //   ];
     // }
 
-    console.log(":::::::", whereClause)
     const policies = await prisma.policy.findMany({
       where: whereClause,
       orderBy: [
@@ -73,13 +72,11 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    console.log(":::::::", policies)
     // Get tool configurations for all tools
     const toolConfigs = await prisma.toolConfig.findMany({
       where: { isActive: true },
     });
 
-    // console.log(":::::::", toolConfigs)
     // Create tool metadata mapping
     const toolMetadata = toolConfigs.reduce((acc, tool) => {
       acc[tool.toolName] = {

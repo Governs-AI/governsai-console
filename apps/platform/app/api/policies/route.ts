@@ -6,11 +6,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    console.log('===========================');
-    console.log('===========================');
-    console.log(searchParams)
-    console.log('===========================');
-    console.log('===========================');
     const orgId = searchParams.get('orgId');
     const userId = searchParams.get('userId');
     const includeInactive = searchParams.get('includeInactive') === 'true';

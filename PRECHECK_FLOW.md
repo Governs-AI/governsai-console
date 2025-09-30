@@ -152,11 +152,6 @@ const precheckRequest = createChatPrecheckRequest(
 // Call precheck service
 const precheckResponse = await precheck(precheckRequest, userId, apiKey);
 
-console.log('=== PRECHECK RESULT ===');
-console.log('Decision:', precheckResponse.decision);
-console.log('Reasons:', precheckResponse.reasons);
-console.log('======================');
-
 // Send decision to client
 writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 
@@ -193,13 +188,6 @@ const precheckRequest = createMCPPrecheckRequest(
 
 // Call precheck service
 const precheckResponse = await precheck(precheckRequest, userId, apiKey);
-
-console.log('=== TOOL PRECHECK RESULT ===');
-console.log('Tool:', toolName);
-console.log('Decision:', precheckResponse.decision);
-console.log('Reasons:', precheckResponse.reasons);
-console.log('===========================');
-
 // Send decision to client
 writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 
@@ -213,8 +201,6 @@ if (precheckResponse.decision === 'block') {
   });
   return; // ← STOPS HERE, TOOL NOT EXECUTED
 }
-
-console.log(`✅ TOOL CALL ALLOWED: ${toolName} - Executing...`);
 
 // Use possibly redacted arguments
 const processedArgs = precheckResponse.content?.args || args;
