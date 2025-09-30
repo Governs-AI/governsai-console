@@ -137,20 +137,7 @@ export class AuthService {
         console.log('❌ API key not found in database');
         
         // For testing purposes, create a mock response for demo API keys
-        if (apiKey.startsWith('gai_') || apiKey.startsWith('demo-')) {
-          console.log('🧪 Using mock API key for testing:', apiKey);
-          return {
-            success: true,
-            userId: 'demo-user-123',
-            orgId: 'demo-org-123',
-            apiKey: apiKey,
-            userEmail: 'demo@example.com',
-            userName: 'Demo User',
-            orgSlug: 'demo',
-            orgName: 'Demo Organization',
-            scopes: ['read', 'write']
-          };
-        }
+        // No mock API keys - all must be validated against database
         
         return { success: false, error: 'Invalid API key' };
       }

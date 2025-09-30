@@ -25,9 +25,9 @@ const decisionStyles: Record<Decision, { bg: string; text: string; icon: string 
     icon: '?',
   },
   block: {
-    bg: 'bg-red-100 border-red-200',
-    text: 'text-red-800',
-    icon: '✕',
+    bg: 'bg-red-100 border-red-300',
+    text: 'text-red-900',
+    icon: '🚫',
   },
 };
 

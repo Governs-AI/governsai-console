@@ -36,22 +36,66 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
       policy, 
       toolMetadata
     );
+
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log(JSON.stringify(precheckRequest, null, 2))
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+    console.log('===========================');
+
     const precheckResponse = await precheck(precheckRequest, userId, apiKey);
+    
+    console.log('=== TOOL PRECHECK RESULT ===');
+    console.log('Tool:', toolCall.function.name);
+    console.log('Decision:', precheckResponse.decision);
+    console.log('Reasons:', precheckResponse.reasons);
+    console.log('===========================');
     
     // Send tool call decision
     writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
     
     // Handle precheck decision
     if (precheckResponse.decision === 'block') {
+      console.log(`❌ TOOL CALL BLOCKED: ${toolCall.function.name}`);
+      
+      // Clean up the error message to be more user-friendly
+      let userFriendlyError = 'Policy violation';
+      if (precheckResponse.reasons && precheckResponse.reasons.length > 0) {
+        // Filter out technical precheck service messages
+        const cleanReasons = precheckResponse.reasons.filter(reason => 
+          !reason.includes('Precheck service') && 
+          !reason.includes('connection failed') &&
+          !reason.includes('service not available')
+        );
+        
+        if (cleanReasons.length > 0) {
+          userFriendlyError = cleanReasons.join(', ');
+        }
+      }
+      
       writer.writeToolResult({
         tool_call_id: toolCall.id,
         success: false,
-        error: `Tool call blocked: ${precheckResponse.reasons?.join(', ') || 'Policy violation'}`,
+        error: `Tool call blocked: ${userFriendlyError}`,
         decision: precheckResponse.decision,
         reasons: precheckResponse.reasons,
       });
       return;
     }
+    
+    console.log(`✅ TOOL CALL ALLOWED: ${toolCall.function.name} - Executing...`);
     
     // Use processed arguments from precheck response
     const processedArgs = precheckResponse.content?.args || args;
@@ -153,17 +197,25 @@ export async function POST(request: NextRequest) {
 
         const precheckResponse = await precheck(precheckRequest, userId, apiKey);
 
+        console.log('=== PRECHECK RESULT ===');
+        console.log('Decision:', precheckResponse.decision);
+        console.log('Reasons:', precheckResponse.reasons);
+        console.log('======================');
+
         // Send decision event
         writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 
         // Step 2: Handle precheck decision
         if (precheckResponse.decision === 'block') {
+          console.log('❌ REQUEST BLOCKED BY PRECHECK');
           writer.writeError(
             `Request blocked: ${precheckResponse.reasons?.join(', ') || 'Policy violation'}`
           );
           writer.close();
           return;
         }
+
+        console.log('✅ REQUEST ALLOWED - Proceeding to LLM');
 
         // Use possibly redacted messages from precheck response
         const processedMessages = precheckResponse.content?.messages || messages;

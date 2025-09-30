@@ -7,17 +7,38 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       agentId,
-      orgId,
+      userId,
+      apiKey,
       tools, // Array of tool names being used
       metadata = {},
     } = body;
 
-    if (!agentId || !orgId || !Array.isArray(tools)) {
+    if (!agentId || !userId || !apiKey || !Array.isArray(tools)) {
       return NextResponse.json(
-        { error: 'agentId, orgId, and tools array are required' },
+        { error: 'agentId, userId, apiKey, and tools array are required' },
         { status: 400 }
       );
     }
+
+    let orgId: string;
+
+    // Authenticate API key and derive orgId
+    const keyRecord = await prisma.aPIKey.findFirst({
+      where: {
+        key: apiKey,
+        isActive: true,
+      },
+      include: {
+        org: true
+      },
+    });
+
+    if (!keyRecord) {
+      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+    }
+
+    orgId = keyRecord.orgId;
+    console.log('Found API key record for agent tools, orgId:', orgId);
 
     // Get tool metadata for the provided tools
     const toolConfigs = await prisma.toolConfig.findMany({

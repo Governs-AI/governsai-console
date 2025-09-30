@@ -20,7 +20,9 @@ export default function Message({ message, className = '' }: MessageProps) {
             isUser
               ? 'bg-blue-500 text-white'
               : isTool
-              ? 'bg-orange-100 text-orange-900 border border-orange-200'
+              ? message.decision === 'block'
+                ? 'bg-red-100 text-red-900 border border-red-300'
+                : 'bg-orange-100 text-orange-900 border border-orange-200'
               : 'bg-gray-100 text-gray-900'
           }`}
         >

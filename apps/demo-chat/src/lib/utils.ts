@@ -1,8 +1,7 @@
 export const getPrecheckUserIdDetails = () => {    
-    const url = process.env.PRECHECK_URL || ""
-    const userId = url.split('/v1/u/')[1].split('/precheck')[0]  || "demo-user-123"
-
-    const apiKey = process.env.PRECHECK_API_KEY || "GAI_LOCAL_DEV_ABC"
+    // Use the seeded user ID and API key from the fresh database
+    const userId = process.env.DEMO_USER_ID || "cmg6y0ie70001ikk227d049c7"
+    const apiKey = process.env.PRECHECK_API_KEY || "gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e"
 
     return {
         userId,

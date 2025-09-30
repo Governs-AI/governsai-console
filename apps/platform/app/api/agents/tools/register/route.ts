@@ -9,24 +9,35 @@ import { prisma } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { apiKey, orgId, tools } = body;
+    const { apiKey, userId, tools } = body;
 
     // Validate required fields
-    if (!apiKey || !orgId || !tools || !Array.isArray(tools)) {
+    if (!apiKey || !userId || !tools || !Array.isArray(tools)) {
       return NextResponse.json(
-        { error: 'Missing required fields: apiKey, orgId, and tools array' },
+        { error: 'Missing required fields: apiKey, userId, and tools array' },
         { status: 400 }
       );
     }
 
-    // Authenticate API key (simplified - in production, validate against APIKey table)
-    // TODO: Add proper API key validation
-    if (!apiKey.startsWith('gai_') && !apiKey.startsWith('demo-')) {
-      return NextResponse.json(
-        { error: 'Invalid API key format' },
-        { status: 401 }
-      );
+    let orgId: string;
+
+    // Authenticate API key and derive orgId
+    const keyRecord = await prisma.aPIKey.findFirst({
+      where: {
+        key: apiKey,
+        isActive: true,
+      },
+      include: {
+        org: true
+      },
+    });
+
+    if (!keyRecord) {
+      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
+
+    orgId = keyRecord.orgId;
+    console.log('Found API key record for tool registration, orgId:', orgId);
 
     const results = {
       created: [] as string[],

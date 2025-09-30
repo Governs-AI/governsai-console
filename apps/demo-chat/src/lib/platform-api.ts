@@ -1,10 +1,14 @@
 import { PolicyConfig, ToolConfigMetadata } from './types';
+import { getPrecheckUserIdDetails } from './utils';
 
 // Platform API configuration
 const PLATFORM_BASE_URL = process.env.PLATFORM_URL || 'http://localhost:3002';
-const DEMO_ORG_ID = process.env.DEMO_ORG_ID || 'demo-org-123';
-const DEMO_USER_ID = process.env.DEMO_USER_ID || 'demo-user-123';
-const DEMO_API_KEY = process.env.DEMO_API_KEY || 'demo-api-key-123';
+
+// Use PRECHECK_API_KEY for platform authentication (same key for both services)
+const getApiKey = () => {
+  const { apiKey } = getPrecheckUserIdDetails();
+  return apiKey;
+};
 
 export interface PlatformPolicyResponse {
   policy: PolicyConfig | null;
@@ -24,10 +28,12 @@ export interface AgentToolsResponse {
 // Fetch policies from the platform
 export async function fetchPoliciesFromPlatform(): Promise<PlatformPolicyResponse> {
   try {
+    const {userId, apiKey} = getPrecheckUserIdDetails();
     const url = new URL(`${PLATFORM_BASE_URL}/api/agents/policies`);
-    url.searchParams.set('orgId', DEMO_ORG_ID);
-    url.searchParams.set('userId', DEMO_USER_ID);
-    url.searchParams.set('apiKey', DEMO_API_KEY);
+    url.searchParams.set('userId', userId);
+    url.searchParams.set('apiKey', apiKey);
+
+    console.log(":::::::", url.toString())
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -51,7 +57,6 @@ export async function fetchPoliciesFromPlatform(): Promise<PlatformPolicyRespons
     return {
       policy: null,
       toolMetadata: {},
-      message: 'Platform unavailable, using default policy',
     };
   }
 }
@@ -59,6 +64,8 @@ export async function fetchPoliciesFromPlatform(): Promise<PlatformPolicyRespons
 // Register tools used by this agent (with full metadata)
 export async function registerAgentTools(tools: string[]): Promise<AgentToolsResponse | null> {
   try {
+    const { userId, apiKey } = getPrecheckUserIdDetails();
+    
     const response = await fetch(`${PLATFORM_BASE_URL}/api/agents/tools`, {
       method: 'POST',
       headers: {
@@ -66,7 +73,8 @@ export async function registerAgentTools(tools: string[]): Promise<AgentToolsRes
       },
       body: JSON.stringify({
         agentId: 'demo-chat-agent',
-        orgId: DEMO_ORG_ID,
+        userId: userId,
+        apiKey: apiKey,
         tools,
         metadata: {
           version: '1.0.0',
@@ -92,6 +100,8 @@ export async function registerAgentTools(tools: string[]): Promise<AgentToolsRes
 // Register tools with full metadata (for auto-discovery)
 export async function registerToolsWithMetadata(toolDefinitions: any[]): Promise<any> {
   try {
+    const apiKey = getApiKey();
+    
     // Import tool metadata
     const { getToolMetadata } = await import('./tool-metadata');
     
@@ -115,14 +125,16 @@ export async function registerToolsWithMetadata(toolDefinitions: any[]): Promise
       };
     });
 
+    const { userId } = getPrecheckUserIdDetails();
+    
     const response = await fetch(`${PLATFORM_BASE_URL}/api/agents/tools/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        apiKey: DEMO_API_KEY,
-        orgId: DEMO_ORG_ID,
+        apiKey: apiKey,
+        userId: userId,
         tools: toolsToRegister,
       }),
     });

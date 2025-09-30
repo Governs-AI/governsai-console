@@ -4,8 +4,6 @@
  */
 
 const PLATFORM_BASE_URL = process.env.PLATFORM_URL || 'http://localhost:3002';
-const DEMO_ORG_ID = process.env.DEMO_ORG_ID || 'demo-org-123';
-const DEMO_API_KEY = process.env.DEMO_API_KEY || 'demo-api-key-123';
 
 export interface ToolRegistration {
   toolName: string;

@@ -76,12 +76,37 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(new Set());
+  const [orgId, setOrgId] = useState<string | null>(null);
+
+  // Fetch org ID from slug
+  const fetchOrgId = async () => {
+    try {
+      const response = await fetch(`/api/orgs?slug=${orgSlug}`);
+      const data = await response.json();
+      if (data.org) {
+        setOrgId(data.org.id);
+        return data.org.id;
+      }
+      throw new Error('Organization not found');
+    } catch (error) {
+      console.error('Error fetching org ID:', error);
+      setError('Failed to load organization');
+      return null;
+    }
+  };
 
   // Fetch policies and tools
   useEffect(() => {
-    fetchData();
+    const initializeData = async () => {
+      const orgId = await fetchOrgId();
+      if (orgId) {
+        await fetchData(orgId);
+      }
+    };
+    
+    initializeData();
     // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(initializeData, 30000);
     return () => clearInterval(interval);
   }, [orgSlug]);
 
@@ -92,15 +117,20 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
     policy.version.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const fetchData = async () => {
+  const fetchData = async (orgId?: string) => {
     if (!loading) setRefreshing(true);
-    await Promise.all([fetchPolicies(), fetchTools()]);
+    await Promise.all([fetchPolicies(orgId), fetchTools()]);
     if (refreshing) setRefreshing(false);
   };
 
-  const fetchPolicies = async () => {
+  const fetchPolicies = async (orgIdParam?: string) => {
     try {
-      const response = await fetch(`/api/policies?orgId=${orgSlug}`);
+      const actualOrgId = orgIdParam || orgId;
+      if (!actualOrgId) {
+        console.error('No orgId available for fetching policies');
+        return;
+      }
+      const response = await fetch(`/api/policies?orgId=${actualOrgId}`);
       const data = await response.json();
       setPolicies(data.policies || []);
     } catch (error) {
@@ -126,7 +156,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
     try {
       const payload = {
         ...policyData,
-        orgId: orgSlug,
+        orgId: orgId,
       };
 
       let response;
@@ -426,6 +456,21 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                         <div>
                           <div className="font-medium">{policy.name}</div>
                           <div className="text-sm text-muted-foreground">{policy.description}</div>
+                          {policy.denyTools.length > 0 && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <span className="text-xs text-red-600">🚫 {policy.denyTools.length} blocked tools</span>
+                              <div className="flex gap-1">
+                                {policy.denyTools.slice(0, 3).map((tool) => (
+                                  <span key={tool} className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                                    {tool}
+                                  </span>
+                                ))}
+                                {policy.denyTools.length > 3 && (
+                                  <span className="text-xs text-red-500">+{policy.denyTools.length - 3} more</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -552,8 +597,8 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
 
                             {/* Denied Tools */}
                             {policy.denyTools.length > 0 && (
-                              <div>
-                                <span className="font-medium text-sm">Denied Tools:</span>
+                              <div className="border-l-4 border-red-200 pl-3">
+                                <span className="font-medium text-sm text-red-800">🚫 Blocked Tools ({policy.denyTools.length}):</span>
                                 <div className="mt-1 flex flex-wrap gap-1">
                                   {policy.denyTools.map((tool) => (
                                     <Badge key={tool} variant="destructive" className="text-xs">
@@ -561,6 +606,9 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                                     </Badge>
                                   ))}
                                 </div>
+                                <p className="text-xs text-red-600 mt-1">
+                                  These tools will be blocked when agents try to use them
+                                </p>
                               </div>
                             )}
 

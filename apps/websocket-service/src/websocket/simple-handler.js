@@ -170,26 +170,15 @@ export class SimpleWebSocketHandler {
             userId: data.authentication.userId
           });
           
-          // For testing purposes, bypass authentication and set mock data
-          if (data.authentication.apiKey.startsWith('demo-') || data.authentication.apiKey.startsWith('gai_')) {
-            console.log('🧪 Using mock authentication for testing');
-            connection.userId = data.authentication.userId;
-            connection.orgId = 'demo-org-123';
-            connection.orgSlug = 'demo';
-            connection.apiKey = data.authentication.apiKey;
-            connection.userEmail = 'demo@example.com';
-            connection.authenticated = true;
-            console.log('✅ Mock authentication successful');
-          } else {
-            await this.handleAuth(connection, {
-              apiKey: data.authentication.apiKey,
-              userId: data.authentication.userId
-            });
-            
-            // If authentication failed, throw error
-            if (!connection.authenticated) {
-              throw new Error('Authentication failed from INGEST message data.');
-            }
+          // Authenticate using the provided API key and userId
+          await this.handleAuth(connection, {
+            apiKey: data.authentication.apiKey,
+            userId: data.authentication.userId
+          });
+          
+          // If authentication failed, throw error
+          if (!connection.authenticated) {
+            throw new Error('Authentication failed from INGEST message data.');
           }
         } else {
           throw new Error('Connection not authenticated. Send AUTH message first or include authentication in INGEST data.');

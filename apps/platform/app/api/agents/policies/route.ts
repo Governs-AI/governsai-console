@@ -5,36 +5,50 @@ import { prisma } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get('orgId');
-    const userId = searchParams.get('userId');
+    let userId = searchParams.get('userId');
     const apiKey = searchParams.get('apiKey');
 
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
+    if (!userId || !apiKey) {
+      return NextResponse.json({ error: 'userId and apiKey are required' }, { status: 400 });
     }
 
-    // Verify API key if provided
-    if (apiKey) {
-      const keyRecord = await prisma.aPIKey.findFirst({
-        where: {
-          key: apiKey,
-          orgId,
-          isActive: true,
-        },
-        include: {
-          user: true,
-        },
-      });
+    let orgId: string;
+    let userRecord: any = null;
 
-      if (!keyRecord) {
-        return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
-      }
+    // Verify API key and get user/org details
+    const keyRecord = await prisma.aPIKey.findFirst({
+      where: {
+        key: apiKey,
+        isActive: true,
+      },
+      include: {
+        user: {
+          include: {
+            memberships: {
+              include: {
+                org: true
+              }
+            }
+          }
+        },
+        org: true
+      },
+    });
 
-      // Use the user from the API key if userId not provided
-      if (!userId) {
-        userId = keyRecord.userId;
-      }
+    if (!keyRecord) {
+      return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
+
+    // Use the user from the API key if userId not provided
+    if (!userId) {
+      userId = keyRecord.userId;
+    }
+
+    // Get orgId from API key or user memberships
+    orgId = keyRecord.orgId;
+    userRecord = keyRecord.user;
+    
+    console.log('Found API key record, orgId:', orgId, 'userId:', userId);
 
     // Get active policies for the organization
     const whereClause: any = {
@@ -43,13 +57,14 @@ export async function GET(request: NextRequest) {
     };
 
     // If userId is provided, get both org-level and user-specific policies
-    if (userId) {
-      whereClause.OR = [
-        { userId: null }, // Org-level policies
-        { userId }, // User-specific policies
-      ];
-    }
+    // if (userId) {
+    //   whereClause.OR = [
+    //     { userId: null }, // Org-level policies
+    //     { userId }, // User-specific policies
+    //   ];
+    // }
 
+    console.log(":::::::", whereClause)
     const policies = await prisma.policy.findMany({
       where: whereClause,
       orderBy: [
@@ -58,11 +73,13 @@ export async function GET(request: NextRequest) {
       ],
     });
 
+    console.log(":::::::", policies)
     // Get tool configurations for all tools
     const toolConfigs = await prisma.toolConfig.findMany({
       where: { isActive: true },
     });
 
+    // console.log(":::::::", toolConfigs)
     // Create tool metadata mapping
     const toolMetadata = toolConfigs.reduce((acc, tool) => {
       acc[tool.toolName] = {
@@ -78,7 +95,7 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {} as Record<string, any>);
 
-    // Return the most recent policy (highest priority)
+    // Return the most recent policy (highest priority) LATER WE WILL ADD MULTIPLE POLICIES
     const activePolicy = policies[0];
 
     if (!activePolicy) {

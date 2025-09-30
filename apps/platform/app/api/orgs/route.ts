@@ -8,6 +8,66 @@ const createOrgSchema = z.object({
   name: z.string().min(1),
 });
 
+// GET /api/orgs - Get organization by slug or list user's organizations
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const slug = searchParams.get('slug');
+    
+    if (slug) {
+      // Get specific org by slug
+      const org = await prisma.org.findUnique({
+        where: { slug },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          createdAt: true,
+        },
+      });
+      
+      if (!org) {
+        return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
+      }
+      
+      return NextResponse.json({ org });
+    }
+    
+    // List user's organizations (requires auth)
+    const { userId } = requireAuth(request);
+    
+    const memberships = await prisma.orgMembership.findMany({
+      where: { userId },
+      include: {
+        org: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    
+    return NextResponse.json({
+      organizations: memberships.map(m => ({
+        id: m.org.id,
+        name: m.org.name,
+        slug: m.org.slug,
+        role: m.role,
+        joinedAt: m.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching organizations:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch organizations' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = requireAuth(request);
@@ -57,30 +117,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const { userId } = requireAuth(request);
-    
-    const memberships = await prisma.orgMembership.findMany({
-      where: { userId },
-      include: { org: true },
-    });
-
-    return NextResponse.json({
-      success: true,
-      organizations: memberships.map(m => ({
-        id: m.org.id,
-        name: m.org.name,
-        slug: m.org.slug,
-        role: m.role,
-      })),
-    });
-
-  } catch (error) {
-    console.error('Get orgs error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
