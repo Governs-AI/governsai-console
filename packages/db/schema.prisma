@@ -8,87 +8,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Organizations
 model Org {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  memberships OrgMembership[]
-  channels WebSocketChannel[]
-  sessions WebSocketSession[]
+  id           String              @id @default(cuid())
+  name         String              @unique
+  slug         String              @unique
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  apiKeys      APIKey[]
   networkRules NetworkAccessRule[]
-  apiKeys APIKey[]
-  // existing tenant tables (decisions, policies, etc.) reference orgId
+  memberships  OrgMembership[]
+  channels     WebSocketChannel[]
+  sessions     WebSocketSession[]
 }
 
-// User Management
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String             @id @default(cuid())
+  email         String             @unique
   emailVerified DateTime?
   name          String?
   image         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  credential    Credential?
-  memberships   OrgMembership[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   apiKeys       APIKey[]
-  usageRecords  UsageRecord[]
-  budgets       Budget[]
   auditLogs     AuditLog[]
+  budgets       Budget[]
+  credential    Credential?
   mfaTotp       MfaTotp?
+  memberships   OrgMembership[]
+  usageRecords  UsageRecord[]
   channels      WebSocketChannel[]
   sessions      WebSocketSession[]
 }
 
-// User Credentials
 model Credential {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  // Argon2id hash (PHC format), optional server-side pepper via env
-  passwordHash   String
-  passwordSetAt  DateTime @default(now())
-  // password reset flow
-  resetToken     String?  @unique
-  resetTokenExp  DateTime?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  passwordHash  String
+  passwordSetAt DateTime  @default(now())
+  resetToken    String?   @unique
+  resetTokenExp DateTime?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Organization Memberships
 model OrgMembership {
   id        String   @id @default(cuid())
   orgId     String
   userId    String
   role      OrgRole  @default(VIEWER)
   createdAt DateTime @default(now())
-
-  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, userId])
   @@index([userId])
   @@index([orgId, role])
 }
 
-// Organization Roles
-enum OrgRole {
-  OWNER
-  ADMIN
-  DEVELOPER
-  VIEWER
-}
-
-// Email Verification Tokens
 model VerificationToken {
   id        String   @id @default(cuid())
   email     String
   token     String   @unique
-  purpose   String   // "email-verify" | "invite"
+  purpose   String  // "email-verify" | "invite"
   orgId     String?
   role      OrgRole?
   expiresAt DateTime
@@ -97,41 +77,36 @@ model VerificationToken {
   @@index([email, purpose])
 }
 
-// TOTP MFA
 model MfaTotp {
   id           String   @id @default(cuid())
   userId       String   @unique
-  secretBase32 String   // store encrypted-at-rest
+  secretBase32 String  // store encrypted-at-rest
   enabled      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// API Key Management
 model APIKey {
-  id           String   @id @default(cuid())
-  key          String   @unique
-  keyHash      String?  @unique // Store hash in production
+  id           String             @id @default(cuid())
+  key          String             @unique
+  keyHash      String?            @unique
   name         String
   userId       String
-  orgId        String   @map("org_id")
-  scopes       String[] @default([])
-  env          String   @default("prod")
-  isActive     Boolean  @default(true)
+  orgId        String             @map("org_id")
+  scopes       String[]           @default([])
+  env          String             @default("prod")
+  isActive     Boolean            @default(true)
   lastUsed     DateTime?
-  ipAllow      Json?    // Per-key IP/CIDR allowlist override
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  ipAllow      Json?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   expiresAt    DateTime?
-  
-  // Relations
-  org          Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org          Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   usageRecords UsageRecord[]
   channels     WebSocketChannel[]
-  
+
   @@index([key])
   @@index([keyHash])
   @@index([userId])
@@ -140,65 +115,56 @@ model APIKey {
   @@index([lastUsed])
 }
 
-// Network Access Control (like MongoDB Atlas)
 model NetworkAccessRule {
-  id        String   @id @default(cuid())
-  orgId     String   @map("org_id")
-  kind      String   // "origin" | "ip" | "cidr"
-  value     String   // e.g. "https://app.example.com" | "203.0.113.10" | "203.0.113.0/24"
-  label     String?  // "Khushi's laptop", "Prod frontends"
+  id        String    @id @default(cuid())
+  orgId     String    @map("org_id")
+  kind      String
+  value     String
+  label     String?
   notes     String?
-  isActive  Boolean  @default(true)
+  isActive  Boolean   @default(true)
   expiresAt DateTime?
   createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  org       Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId, kind, isActive])
   @@index([orgId, expiresAt])
   @@index([isActive])
 }
 
-// AI Provider Configuration
 model AIProvider {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  baseUrl   String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
+  id           String        @id @default(cuid())
+  name         String        @unique
+  baseUrl      String
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   usageRecords UsageRecord[]
 }
 
-// Usage Tracking
 model UsageRecord {
-  id            String   @id @default(cuid())
-  userId        String
-  orgId         String   @map("org_id")
-  apiKeyId      String?
-  providerId    String
-  model         String
-  promptTokens  Int
+  id               String     @id @default(cuid())
+  userId           String
+  orgId            String     @map("org_id")
+  apiKeyId         String?
+  providerId       String
+  model            String
+  promptTokens     Int
   completionTokens Int
-  totalTokens   Int
-  cost          Float
-  createdAt     DateTime @default(now())
-  
-  // Relations
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKey     APIKey?    @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  provider   AIProvider @relation(fields: [providerId], references: [id])
-  
+  totalTokens      Int
+  cost             Float
+  createdAt        DateTime   @default(now())
+  apiKey           APIKey?    @relation(fields: [apiKeyId], references: [id])
+  provider         AIProvider @relation(fields: [providerId], references: [id])
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
   @@index([providerId, createdAt])
 }
 
-// Budget Management
 model Budget {
   id         String   @id @default(cuid())
   userId     String
@@ -206,59 +172,50 @@ model Budget {
   name       String
   amount     Float
   usedAmount Float    @default(0)
-  period     String   // daily, weekly, monthly, yearly
+  period     String
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
-  // Relations
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([orgId])
 }
 
-// Audit Logging
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   orgId     String?  @map("org_id")
-  action    String   // create, update, delete, api_call, etc.
-  resource  String   // user, api_key, budget, etc.
+  action    String
+  resource  String
   details   Json?
   createdAt DateTime @default(now())
-  
-  // Relations
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+  user      User?    @relation(fields: [userId], references: [id])
+
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
   @@index([action, createdAt])
 }
 
-// Policy Management
 model Policy {
-  id          String   @id @default(cuid())
-  orgId       String   @map("org_id")
-  userId      String?  @map("user_id") // Optional: policy can be user-specific
-  name        String
-  description String?
-  version     String   @default("v1")
-  
-  // Policy Configuration
-  defaults    Json     // Default actions for ingress/egress
-  toolAccess  Json     @default("{}") @map("tool_access") // Tool-specific access rules
-  denyTools   Json     @default("[]") @map("deny_tools") // List of denied tools
-  allowTools  Json     @default("[]") @map("allow_tools") // List of explicitly allowed tools
-  networkScopes Json   @default("[]") @map("network_scopes") // Network scope prefixes
-  networkTools  Json   @default("[]") @map("network_tools") // Network tool prefixes
-  onError     String   @default("block") @map("on_error") // block, allow, redact
-  
-  isActive    Boolean  @default(true)
-  priority    Int      @default(0) // Higher priority policies override lower ones
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id            String   @id @default(cuid())
+  orgId         String   @map("org_id")
+  userId        String?  @map("user_id")
+  name          String
+  description   String?
+  version       String   @default("v1")
+  defaults      Json
+  toolAccess    Json     @default("{}") @map("tool_access")
+  denyTools     Json     @default("[]") @map("deny_tools")
+  allowTools    Json     @default("[]") @map("allow_tools")
+  networkScopes Json     @default("[]") @map("network_scopes")
+  networkTools  Json     @default("[]") @map("network_tools")
+  onError       String   @default("block") @map("on_error")
+  isActive      Boolean  @default(true)
+  priority      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
   @@index([orgId])
   @@index([userId])
   @@index([orgId, isActive])
@@ -266,48 +223,44 @@ model Policy {
   @@index([priority])
 }
 
-// Tool Configuration
 model ToolConfig {
-  id          String   @id @default(cuid())
-  toolName    String   @unique @map("tool_name") // e.g., "weather.current"
-  displayName String?  @map("display_name")
-  description String?
-  category    String   // communication, data, computation, file, web, etc.
-  riskLevel   String   @map("risk_level") // low, medium, high, critical
-  scope       String   // net.external, local, net.internal
-  direction   String   @default("both") // ingress, egress, both
-  
-  // Metadata
-  metadata    Json     @default("{}")
-  requiresApproval Boolean @default(false) @map("requires_approval")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id               String   @id @default(cuid())
+  toolName         String   @unique @map("tool_name")
+  displayName      String?  @map("display_name")
+  description      String?
+  category         String
+  riskLevel        String   @map("risk_level")
+  scope            String
+  direction        String   @default("both")
+  metadata         Json     @default("{}")
+  requiresApproval Boolean  @default(false) @map("requires_approval")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
   @@index([category])
   @@index([riskLevel])
   @@index([scope])
   @@index([isActive])
 }
 
-// Decision Logging (Event Ingest)
 model Decision {
-  id               String   @id @default(cuid())
-  orgId            String   @map("org_id")
-  direction        String   // precheck, postcheck
-  decision         String   // allow, transform, deny
-  tool             String?
-  scope            String?
-  detectorSummary  Json     @default("{}") @map("detector_summary")
-  payloadHash      String   @map("payload_hash")
-  payloadOut       Json?    @map("payload_out")
-  reasons          Json?    @default("[]")
-  policyId         String?  @map("policy_id")
-  latencyMs        Int?     @map("latency_ms")
-  correlationId    String?  @map("correlation_id")
-  tags             Json     @default("[]")
-  ts               DateTime @default(now())
-  
+  id              String   @id @default(cuid())
+  orgId           String   @map("org_id")
+  direction       String
+  decision        String
+  tool            String?
+  scope           String?
+  detectorSummary Json     @default("{}") @map("detector_summary")
+  payloadHash     String   @map("payload_hash")
+  payloadOut      Json?    @map("payload_out")
+  reasons         Json?    @default("[]")
+  policyId        String?  @map("policy_id")
+  latencyMs       Int?     @map("latency_ms")
+  correlationId   String?  @map("correlation_id")
+  tags            Json     @default("[]")
+  ts              DateTime @default(now())
+
   @@index([orgId, ts(sort: Desc)])
   @@index([decision])
   @@index([direction])
@@ -316,37 +269,33 @@ model Decision {
   @@index([policyId])
 }
 
-// WebSocket Gateway Configuration
 model WebSocketGateway {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
-  url         String   // WebSocket gateway URL
-  isActive    Boolean  @default(true)
+  url         String
+  isActive    Boolean            @default(true)
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  sessions WebSocketSession[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  sessions    WebSocketSession[]
 
   @@index([isActive])
 }
 
-// WebSocket Channel Subscriptions
 model WebSocketChannel {
   id          String   @id @default(cuid())
-  orgId       String?  @map("org_id")  // null for user-level channels
-  userId      String?  @map("user_id") // null for org-level channels
-  keyId       String?  @map("key_id")  // null for org/user channels
-  channelType String   // 'org', 'user', 'key'
-  channelName String   // e.g., 'approvals', 'decisions', 'dlq', 'usage'
+  orgId       String?  @map("org_id")
+  userId      String?  @map("user_id")
+  keyId       String?  @map("key_id")
+  channelType String
+  channelName String
   isActive    Boolean  @default(true)
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  org  Org?  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  key  APIKey? @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  key         APIKey?  @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  org         Org?     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([userId])
@@ -358,27 +307,32 @@ model WebSocketChannel {
   @@index([keyId, isActive])
 }
 
-// WebSocket Connection Sessions
 model WebSocketSession {
-  id          String   @id @default(cuid())
-  userId      String
-  orgId       String?  @map("org_id")
-  sessionId   String   @unique
-  gatewayId   String
-  channels    Json     // Array of subscribed channels
-  cursor      Json?    // Resumable cursor state
-  isActive    Boolean  @default(true)
-  lastSeen    DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org     Org?            @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  gateway WebSocketGateway @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  id        String           @id @default(cuid())
+  userId    String
+  orgId     String?          @map("org_id")
+  sessionId String           @unique
+  gatewayId String
+  channels  Json
+  cursor    Json?
+  isActive  Boolean          @default(true)
+  lastSeen  DateTime         @default(now())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  gateway   WebSocketGateway @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  org       Org?             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([orgId])
   @@index([sessionId])
   @@index([isActive])
   @@index([lastSeen])
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  DEVELOPER
+  VIEWER
 }
