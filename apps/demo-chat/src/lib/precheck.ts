@@ -89,7 +89,9 @@ export async function precheck(
 export function createChatPrecheckRequest(
   messages: any[],
   provider: string,
-  corrId?: string
+  corrId?: string,
+  policyConfig?: any,
+  toolConfig?: any
 ): PrecheckRequest {
   const rawText = messages
     .filter(msg => msg.role === 'user')
@@ -106,6 +108,8 @@ export function createChatPrecheckRequest(
     },
     tags: ['demo', 'chat'],
     corr_id: corrId,
+    policy_config: policyConfig,
+    tool_config: toolConfig,
   };
 }
 
@@ -113,14 +117,16 @@ export function createChatPrecheckRequest(
 export function createMCPPrecheckRequest(
   tool: string,
   args: Record<string, any>,
-  corrId?: string
+  corrId?: string,
+  policyConfig?: any,
+  toolConfig?: any
 ): PrecheckRequest {
   // Create a raw_text representation of the MCP call for precheck
   const rawText = `MCP Tool Call: ${tool} with arguments: ${JSON.stringify(args)}`;
   
   return {
     tool: `mcp.${tool}`,
-    scope: 'net.external',
+    scope: toolConfig?.scope || 'net.external',
     raw_text: rawText,
     payload: {
       tool,
@@ -128,5 +134,7 @@ export function createMCPPrecheckRequest(
     },
     tags: ['demo', 'mcp'],
     corr_id: corrId,
+    policy_config: policyConfig,
+    tool_config: toolConfig,
   };
 }

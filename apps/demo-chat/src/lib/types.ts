@@ -18,6 +18,39 @@ export function isValidDecision(value: any): value is Decision {
 
 export type Provider = "openai" | "ollama";
 
+export interface PolicyDefaults {
+  ingress: { action: string };
+  egress: { action: string };
+}
+
+export interface ToolAccessRule {
+  direction: "ingress" | "egress";
+  action: "allow" | "redact" | "block" | "confirm";
+  allow_pii?: Record<string, string>; // PII type -> action mapping
+}
+
+export interface PolicyConfig {
+  version: string;
+  defaults: PolicyDefaults;
+  tool_access: Record<string, ToolAccessRule>;
+  deny_tools: string[];
+  allow_tools?: string[];
+  network_scopes: string[];
+  network_tools: string[];
+  on_error: "block" | "allow" | "redact";
+}
+
+export interface ToolConfigMetadata {
+  tool_name: string;
+  scope: string;
+  direction: "ingress" | "egress" | "both";
+  metadata: {
+    category: string;
+    risk_level: "low" | "medium" | "high" | "critical";
+    requires_approval?: boolean;
+  };
+}
+
 export interface PrecheckRequest {
   tool: string;
   scope: string;
@@ -25,6 +58,8 @@ export interface PrecheckRequest {
   payload?: any;
   tags?: string[];
   corr_id?: string;
+  policy_config?: PolicyConfig;
+  tool_config?: ToolConfigMetadata;
 }
 
 export interface PrecheckResponse {

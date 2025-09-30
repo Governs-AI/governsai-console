@@ -240,15 +240,54 @@ model AuditLog {
 model Policy {
   id          String   @id @default(cuid())
   orgId       String   @map("org_id")
+  userId      String?  @map("user_id") // Optional: policy can be user-specific
   name        String
   description String?
-  rules       Json     // Policy rules configuration
+  version     String   @default("v1")
+  
+  // Policy Configuration
+  defaults    Json     // Default actions for ingress/egress
+  toolAccess  Json     @default("{}") @map("tool_access") // Tool-specific access rules
+  denyTools   Json     @default("[]") @map("deny_tools") // List of denied tools
+  allowTools  Json     @default("[]") @map("allow_tools") // List of explicitly allowed tools
+  networkScopes Json   @default("[]") @map("network_scopes") // Network scope prefixes
+  networkTools  Json   @default("[]") @map("network_tools") // Network tool prefixes
+  onError     String   @default("block") @map("on_error") // block, allow, redact
+  
   isActive    Boolean  @default(true)
+  priority    Int      @default(0) // Higher priority policies override lower ones
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@index([orgId])
+  @@index([userId])
   @@index([orgId, isActive])
+  @@index([orgId, userId, isActive])
+  @@index([priority])
+}
+
+// Tool Configuration
+model ToolConfig {
+  id          String   @id @default(cuid())
+  toolName    String   @unique @map("tool_name") // e.g., "weather.current"
+  displayName String?  @map("display_name")
+  description String?
+  category    String   // communication, data, computation, file, web, etc.
+  riskLevel   String   @map("risk_level") // low, medium, high, critical
+  scope       String   // net.external, local, net.internal
+  direction   String   @default("both") // ingress, egress, both
+  
+  // Metadata
+  metadata    Json     @default("{}")
+  requiresApproval Boolean @default(false) @map("requires_approval")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([riskLevel])
+  @@index([scope])
+  @@index([isActive])
 }
 
 // Decision Logging (Event Ingest)

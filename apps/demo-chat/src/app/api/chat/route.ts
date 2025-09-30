@@ -7,17 +7,35 @@ import { SSEWriter } from '@/lib/sse';
 import { ChatRequest, Provider, Message, ToolCall } from '@/lib/types';
 import { getPrecheckUserIdDetails } from '@/lib/utils';
 import { AVAILABLE_TOOLS } from '@/lib/tools';
+import { DEFAULT_POLICY } from '@/lib/default-policy';
+import { getToolMetadata } from '@/lib/tool-metadata';
+import { fetchPoliciesFromPlatform, registerAgentTools, getToolMetadataFromPlatform } from '@/lib/platform-api';
 
 // Helper function to execute tool calls
-async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string) {
+async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string, platformToolMetadata?: Record<string, any>) {
   try {
     console.log('Executing tool call:', toolCall.function.name, 'with args:', toolCall.function.arguments);
     
     // Parse tool arguments
     const args = JSON.parse(toolCall.function.arguments);
     
-    // Create MCP precheck request for the tool call
-    const precheckRequest = createMCPPrecheckRequest(toolCall.function.name, args, uuidv4());
+    // Get tool metadata from platform or fallback to local
+    const toolMetadata = platformToolMetadata ? 
+      getToolMetadataFromPlatform(toolCall.function.name, platformToolMetadata) || getToolMetadata(toolCall.function.name) :
+      getToolMetadata(toolCall.function.name);
+    
+    // Fetch current policy from platform
+    const platformData = await fetchPoliciesFromPlatform();
+    const policy = platformData.policy || DEFAULT_POLICY;
+    
+    // Create MCP precheck request for the tool call with policy and tool config
+    const precheckRequest = createMCPPrecheckRequest(
+      toolCall.function.name, 
+      args, 
+      uuidv4(), 
+      policy, 
+      toolMetadata
+    );
     const precheckResponse = await precheck(precheckRequest, userId, apiKey);
     
     // Send tool call decision
@@ -110,8 +128,24 @@ export async function POST(request: NextRequest) {
     // Handle the streaming in the background
     (async () => {
       try {
-        // Step 1: Precheck with user context
-        const precheckRequest = createChatPrecheckRequest(messages, provider, corrId);
+        // Step 1: Fetch policies and tool metadata from platform
+        const platformData = await fetchPoliciesFromPlatform();
+        const policy = platformData.policy || DEFAULT_POLICY;
+        const platformToolMetadata = platformData.toolMetadata || {};
+        
+        // Register this agent's tools with the platform
+        const toolNames = AVAILABLE_TOOLS.map(tool => tool.function.name);
+        await registerAgentTools(toolNames);
+        
+        // Step 2: Precheck with user context, policy, and tool metadata
+        const chatToolMetadata = getToolMetadataFromPlatform('model.chat', platformToolMetadata) || getToolMetadata('model.chat');
+        const precheckRequest = createChatPrecheckRequest(
+          messages, 
+          provider, 
+          corrId, 
+          policy, 
+          chatToolMetadata
+        );
         const { userId, apiKey } = getPrecheckUserIdDetails();
 
         const precheckResponse = await precheck(precheckRequest, userId, apiKey);
@@ -188,8 +222,8 @@ When using tools, make the tool call directly. Don't explain beforehand.`,
               console.log('Tool call received:', toolCall);
               writer.writeToolCall(toolCall);
               
-              // Execute the tool call
-              await executeToolCall(toolCall, writer, userId, apiKey);
+              // Execute the tool call with platform metadata
+              await executeToolCall(toolCall, writer, userId, apiKey, platformToolMetadata);
             }
           }
           
