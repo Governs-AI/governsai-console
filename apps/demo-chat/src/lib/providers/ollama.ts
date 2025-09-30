@@ -31,7 +31,7 @@ export class OllamaProvider implements ChatProvider {
     if (tools && tools.length > 0) {
       console.log('Adding tools to Ollama request:', tools.length, 'tools');
       requestBody.tools = tools;
-      requestBody.tool_choice = 'auto';
+      requestBody.tool_choice = 'auto'; // Let the model decide when to use tools
     } else {
       console.log('No tools provided to Ollama request');
     }

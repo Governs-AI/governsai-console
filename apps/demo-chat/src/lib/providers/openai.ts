@@ -62,7 +62,7 @@ export class OpenAIProvider implements ChatProvider {
       if (tools && tools.length > 0) {
         console.log('Adding tools to OpenAI request:', tools.length, 'tools');
         requestOptions.tools = tools;
-        requestOptions.tool_choice = 'auto';
+        requestOptions.tool_choice = 'auto'; // Let the model decide when to use tools
       } else {
         console.log('No tools provided to OpenAI request');
       }

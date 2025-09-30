@@ -161,7 +161,20 @@ export async function POST(request: NextRequest) {
             const systemMessage: Message = {
               id: uuidv4(),
               role: 'system',
-              content: `You are a helpful AI assistant with access to various tools. You can use these tools to help users with tasks like checking weather, processing payments, reading files, searching the web, and more. When a user asks for something that requires external data or actions, use the appropriate tool. Always explain what you're doing when you use a tool.`,
+              content: `You are a helpful AI assistant with access to tools.
+
+RULES:
+- For simple greetings, jokes, or general questions: Answer directly without tools
+- For weather requests: Use weather.current or weather.forecast with coordinates
+- For other specific tasks: Use the appropriate tool
+
+Common coordinates:
+- New Delhi: 28.6139, 77.2090
+- London: 51.5074, -0.1278  
+- Tokyo: 35.6762, 139.6503
+- Berlin: 52.5200, 13.4050
+
+When using tools, make the tool call directly. Don't explain beforehand.`,
             };
             processedMessages.unshift(systemMessage);
           }
