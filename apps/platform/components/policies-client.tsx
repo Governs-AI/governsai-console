@@ -18,8 +18,13 @@ import {
   EyeOff,
   Trash2,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Edit,
+  Copy,
+  Power,
+  PowerOff
 } from 'lucide-react';
+import { PolicyForm } from './policy-form';
 
 interface Policy {
   id: string;
@@ -66,6 +71,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,62 +122,83 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
     }
   };
 
-  const createDefaultPolicy = async () => {
+  const handleSavePolicy = async (policyData: any) => {
     try {
-      const defaultPolicy = {
+      const payload = {
+        ...policyData,
         orgId: orgSlug,
-        name: 'Default Demo Policy',
-        description: 'Default policy for demo environment',
-        version: 'v1',
-        defaults: {
-          ingress: { action: 'redact' },
-          egress: { action: 'redact' },
-        },
-        toolAccess: {
-          'weather.current': {
-            direction: 'ingress',
-            action: 'allow',
-            allow_pii: {},
-          },
-          'weather.forecast': {
-            direction: 'ingress',
-            action: 'allow',
-            allow_pii: {},
-          },
-          'email.send': {
-            direction: 'egress',
-            action: 'redact',
-            allow_pii: {
-              'PII:email_address': 'pass_through',
-              'PII:us_ssn': 'tokenize',
-            },
-          },
-        },
-        denyTools: ['python.exec', 'bash.exec', 'shell.exec'],
-        allowTools: [],
-        networkScopes: ['net.'],
-        networkTools: ['web.', 'email.', 'calendar.'],
-        onError: 'block',
-        priority: 0,
       };
 
-      const response = await fetch('/api/policies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(defaultPolicy),
-      });
+      let response;
+      if (editingPolicy) {
+        // Update existing policy
+        response = await fetch(`/api/policies/${editingPolicy.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // Create new policy
+        response = await fetch('/api/policies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (response.ok) {
         await fetchPolicies();
         setIsCreating(false);
-        setSuccess('Policy created successfully');
+        setEditingPolicy(null);
+        setSuccess(editingPolicy ? 'Policy updated successfully' : 'Policy created successfully');
+        setTimeout(() => setSuccess(null), 3000);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to create policy');
+        setError(errorData.error || 'Failed to save policy');
+        setTimeout(() => setError(null), 5000);
       }
     } catch (error) {
-      console.error('Error creating policy:', error);
-      setError('Failed to create policy');
+      console.error('Error saving policy:', error);
+      setError('Failed to save policy');
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
+  const handleEditPolicy = (policy: Policy) => {
+    setEditingPolicy(policy);
+    setIsCreating(false);
+  };
+
+  const handleDuplicatePolicy = async (policy: Policy) => {
+    const duplicateData = {
+      ...policy,
+      name: `${policy.name} (Copy)`,
+      id: undefined,
+    };
+    setEditingPolicy(duplicateData as any);
+    setIsCreating(false);
+  };
+
+  const togglePolicyStatus = async (policyId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/policies/${policyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+
+      if (response.ok) {
+        await fetchPolicies();
+        setSuccess(`Policy ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError('Failed to update policy status');
+        setTimeout(() => setError(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error updating policy status:', error);
+      setError('Failed to update policy status');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -330,26 +357,21 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
         </Card>
       </div>
 
-      {/* Create Policy Form */}
-      {isCreating && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Create New Policy</h3>
-                <p className="text-muted-foreground">Create a new policy for your organization</p>
-              </div>
-              <div className="flex space-x-2">
-                <Button onClick={createDefaultPolicy}>
-                  Create Default Policy
-                </Button>
-                <Button variant="outline" onClick={() => setIsCreating(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Policy Form (Create/Edit) */}
+      {(isCreating || editingPolicy) && (
+        <PolicyForm
+          policy={editingPolicy ? {
+            ...editingPolicy,
+            description: editingPolicy.description || '',
+          } : undefined}
+          orgSlug={orgSlug}
+          availableTools={tools}
+          onSave={handleSavePolicy}
+          onCancel={() => {
+            setIsCreating(false);
+            setEditingPolicy(null);
+          }}
+        />
       )}
 
       {/* Policies Content */}
@@ -418,18 +440,36 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                         {formatDate(policy.updatedAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setSelectedPolicy(selectedPolicy?.id === policy.id ? null : policy)}
+                            onClick={() => handleEditPolicy(policy)}
+                            title="Edit policy"
                           >
-                            {selectedPolicy?.id === policy.id ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDuplicatePolicy(policy)}
+                            title="Duplicate policy"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => togglePolicyStatus(policy.id, policy.isActive)}
+                            title={policy.isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            {policy.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
                           </Button>
                           <Button
                             variant="destructive"
                             size="sm"
                             onClick={() => deletePolicy(policy.id)}
+                            title="Delete policy"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
