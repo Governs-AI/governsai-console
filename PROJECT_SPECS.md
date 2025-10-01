@@ -70,8 +70,9 @@ governs-ai/
 
 - **Landing**: http://localhost:3003
 - **Platform**: http://localhost:3002
-- **Docs**: http://localhost:3001
-- **Demo Chat**: http://localhost:3004
+- **Docs**: http://localhost:3004
+- **Demo Chat**: http://localhost:3001
+- **WebSocket Service**: http://localhost:9000
 
 ## 🗄️ Database Schema
 
@@ -209,6 +210,109 @@ model AuditLog {
 
   // Relations
   user User @relation(fields: [userId], references: [id])
+}
+```
+
+#### PendingConfirmation Model
+
+```prisma
+model PendingConfirmation {
+  id                String   @id @default(cuid())
+  correlationId     String   @unique
+  userId            String
+  orgId             String
+  requestType       String   // "tool_call", "chat", "mcp"
+  requestDesc       String
+  requestPayload    Json
+  decision          String   // "allow", "block", "confirm"
+  reasons           String[]
+  status            String   // "pending", "approved", "rejected", "expired"
+  challenge         String?  // For passkey authentication
+  confirmationToken String?  // For email confirmation
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  org  Org  @relation(fields: [orgId], references: [id])
+
+  @@index([correlationId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([status])
+  @@index([expiresAt])
+}
+```
+
+#### Passkey Model
+
+```prisma
+model Passkey {
+  id              String   @id @default(cuid())
+  userId          String
+  orgId           String
+  credentialId    String   @unique // base64url-encoded credential ID
+  publicKey       Bytes    // WebAuthn public key
+  counter         BigInt   // WebAuthn signature counter
+  deviceType      String?  // "platform", "cross-platform"
+  backedUp        Boolean  @default(false)
+  transports      String[] // ["usb", "nfc", "ble", "internal"]
+  createdAt       DateTime @default(now())
+  lastUsedAt      DateTime?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  org  Org  @relation(fields: [orgId], references: [id])
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([credentialId])
+}
+```
+
+#### Organization Model
+
+```prisma
+model Org {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  memberships        OrgMembership[]
+  apiKeys           APIKey[]
+  policies          Policy[]
+  usageRecords      UsageRecord[]
+  budgets           Budget[]
+  auditLogs         AuditLog[]
+  pendingConfirmations PendingConfirmation[]
+  passkeys          Passkey[]
+}
+```
+
+#### Organization Membership Model
+
+```prisma
+model OrgMembership {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      String   // "OWNER", "ADMIN", "DEVELOPER", "VIEWER"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  org  Org  @relation(fields: [orgId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
 }
 ```
 
@@ -399,6 +503,139 @@ X-Governs-Signature: sha256=<hmac_signature> (optional)
 ```json
 {
   "isActive": "boolean"
+}
+```
+
+### Confirmation Management
+
+#### POST /api/v1/confirmation/create
+
+**Purpose**: Create a new confirmation request for tool calls or chat requests
+
+**Headers**:
+```
+Content-Type: application/json
+X-Governs-Key: <api-key>
+```
+
+**Request Body**:
+```json
+{
+  "correlationId": "string",
+  "requestType": "tool_call" | "chat" | "mcp",
+  "requestDesc": "string",
+  "requestPayload": {
+    "tool": "string",
+    "args": {}
+  },
+  "decision": "confirm",
+  "reasons": ["string"]
+}
+```
+
+**Response**:
+```json
+{
+  "confirmation": {
+    "id": "string",
+    "correlationId": "string",
+    "status": "pending",
+    "expiresAt": "string (ISO date)",
+    "confirmationUrl": "string"
+  }
+}
+```
+
+#### GET /api/v1/confirmation/[correlationId]
+
+**Purpose**: Get confirmation status and details
+
+**Response**:
+```json
+{
+  "confirmation": {
+    "id": "string",
+    "correlationId": "string",
+    "userId": "string",
+    "orgId": "string",
+    "requestType": "string",
+    "requestDesc": "string",
+    "requestPayload": {},
+    "decision": "string",
+    "reasons": ["string"],
+    "status": "pending" | "approved" | "rejected" | "expired",
+    "expiresAt": "string (ISO date)",
+    "createdAt": "string (ISO date)",
+    "approvedAt": "string (ISO date) | null",
+    "user": {
+      "id": "string",
+      "email": "string",
+      "name": "string"
+    },
+    "org": {
+      "id": "string",
+      "name": "string",
+      "slug": "string"
+    }
+  }
+}
+```
+
+#### POST /api/v1/confirmation/auth-challenge
+
+**Purpose**: Generate passkey authentication challenge for confirmation
+
+**Request Body**:
+```json
+{
+  "correlationId": "string"
+}
+```
+
+**Response**:
+```json
+{
+  "challenge": "string (base64url)",
+  "timeout": 60000,
+  "rpId": "localhost",
+  "allowCredentials": [
+    {
+      "id": "string (base64url)",
+      "type": "public-key",
+      "transports": ["usb", "nfc", "ble", "internal"]
+    }
+  ],
+  "userVerification": "required"
+}
+```
+
+#### POST /api/v1/confirmation/verify
+
+**Purpose**: Verify passkey authentication for confirmation approval
+
+**Request Body**:
+```json
+{
+  "correlationId": "string",
+  "credential": {
+    "id": "string",
+    "rawId": "string",
+    "response": {
+      "authenticatorData": "string",
+      "clientDataJSON": "string",
+      "signature": "string",
+      "userHandle": "string"
+    },
+    "type": "public-key"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Confirmation approved successfully"
 }
 ```
 
@@ -598,6 +835,51 @@ interface ToolAccessMatrix {
 - `credit_card`, `address`
 - `name`, `date_of_birth`
 
+#### Demo Chat Components
+
+**Location**: `apps/demo-chat/src/components/`
+
+**Purpose**: Demonstrate AI governance with real-time confirmation flow
+
+**Key Components**:
+
+- **Chat.tsx**: Main chat interface with confirmation handling
+- **Message.tsx**: Message display with decision badges and confirmation UI
+- **DecisionBadge.tsx**: Visual indicators for allow/block/confirm decisions
+
+**Features**:
+
+- **Real-time Streaming**: Server-sent events for responsive chat
+- **Confirmation Flow**: Automatic polling and resumption after approval
+- **Decision Visualization**: Color-coded badges for governance decisions
+- **Tool Call Support**: MCP tool integration with governance
+- **Multi-provider**: OpenAI and Ollama support with runtime switching
+- **Example Prompts**: Built-in examples for testing different scenarios
+
+**State Management**:
+
+```typescript
+interface MessageType {
+  id: string;
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  decision?: 'allow' | 'block' | 'confirm';
+  reasons?: string[];
+  confirmationRequired?: boolean;
+  confirmationUrl?: string;
+  correlationId?: string;
+  tool_calls?: ToolCall[];
+}
+```
+
+**Confirmation Flow**:
+
+1. User sends message → Precheck determines confirmation needed
+2. System creates confirmation request → Shows passkey approval UI
+3. User approves via passkey → System polls for status updates
+4. Confirmation approved → Chat automatically resumes with tool execution
+5. Tool call executes → Results displayed to user
+
 ## 🔐 Authentication & Authorization
 
 ### Authentication Methods
@@ -686,6 +968,33 @@ interface ToolAccessMatrix {
 - Machine learning models
 - Custom rule engines
 - Third-party PII detection services
+
+### Confirmation System
+
+**Purpose**: Require user approval for sensitive AI operations
+
+**Features**:
+
+- **Passkey Authentication**: Secure WebAuthn-based approval
+- **Real-time Polling**: Automatic status checking every 2 seconds
+- **Correlation Tracking**: Unique IDs for request tracking
+- **Expiration Handling**: Automatic timeout for pending confirmations
+- **Status Management**: Pending, approved, rejected, expired states
+- **Cross-Origin Support**: CORS-enabled for demo applications
+
+**Supported Request Types**:
+
+- Tool calls (weather, web search, file operations)
+- Chat requests with sensitive content
+- MCP (Model Context Protocol) operations
+- Custom AI agent actions
+
+**Integration**:
+
+- **Demo Chat**: Automatic confirmation flow with resumption
+- **Platform API**: RESTful endpoints for confirmation management
+- **WebSocket Service**: Real-time decision processing
+- **Database**: Persistent confirmation tracking with audit trails
 
 ### Budget Management
 
@@ -1006,6 +1315,50 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 
 ## 📝 Recent Changes Log
 
+- **2025-01-01**: Fixed CORS Policy and Confirmation Flow Issues
+  - **CRITICAL FIX**: Resolved CORS policy blocking demo chat from accessing platform API
+  - **ROOT CAUSE**: Demo chat (localhost:3001) couldn't access platform API (localhost:3002) due to missing CORS headers
+  - **FILES FIXED**:
+    - `apps/platform/middleware.ts` - Enhanced CORS headers for all API routes
+    - `apps/platform/app/api/v1/confirmation/[correlationId]/route.ts` - Added comprehensive CORS headers
+    - `apps/platform/app/api/v1/confirmation/create/route.ts` - Added CORS headers
+    - `apps/platform/app/api/v1/confirmation/verify/route.ts` - Added CORS headers
+    - `apps/platform/app/api/v1/confirmation/auth-challenge/route.ts` - Added CORS headers
+  - **SOLUTION**:
+    - Added `Access-Control-Allow-Origin: *` to all API responses
+    - Added `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers` headers
+    - Added `Access-Control-Max-Age` for preflight caching
+    - Enhanced middleware to handle CORS for all API routes
+  - **IMPACT**: Demo chat can now successfully communicate with platform API without CORS errors
+  - **VERIFICATION**: Cross-origin requests from demo chat to platform API now work seamlessly
+
+- **2025-01-01**: Fixed Confirmation Approval Loop in Demo Chat
+  - **CRITICAL FIX**: Resolved infinite confirmation loop after passkey approval
+  - **ROOT CAUSE**: Chat was re-sending the same message that triggered confirmation, causing repeated confirmation requests
+  - **FILES FIXED**:
+    - `apps/demo-chat/src/components/Chat.tsx` - Fixed continuation message to prevent re-triggering tool calls
+    - `apps/demo-chat/src/app/api/chat/route.ts` - Added skip precheck logic for approved confirmations
+  - **SOLUTION**:
+    - Modified continuation message to not include original user message content
+    - Added `skipPrecheck` parameter to `executeToolCall` function
+    - Implemented logic to skip individual tool call prechecks when overall request is approved
+    - Enhanced confirmation processing to prevent re-triggering of tool calls
+  - **IMPACT**: Chat now properly executes tool calls after confirmation approval without requiring additional confirmations
+  - **VERIFICATION**: Complete confirmation flow works seamlessly from approval to tool execution
+
+- **2025-01-01**: Enhanced Demo Chat Application
+  - **NEW FEATURES**: Improved demo chat application with better confirmation handling
+  - **PURPOSE**: Demonstrates precheck-before-every-call governance pattern for AI agents
+  - **FEATURES**:
+    - Real-time confirmation polling every 2 seconds
+    - Automatic chat resumption after confirmation approval
+    - Tool call execution without re-confirmation after approval
+    - Enhanced error handling and user feedback
+    - CORS-compliant cross-origin API communication
+  - **TECH STACK**: Next.js 14 + TypeScript + TailwindCSS + OpenAI SDK
+  - **API INTEGRATION**: Seamless integration with platform confirmation APIs
+  - **USER EXPERIENCE**: Smooth confirmation flow with automatic resumption
+
 - **2024-12-29**: Fixed Passkey Authentication Bug
   - **CRITICAL FIX**: Resolved `TypeError: input.replace is not a function` in passkey authentication
   - **ROOT CAUSE**: `credentialId` stored as `Bytes` in database but used directly as string in WebAuthn options
@@ -1198,6 +1551,8 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 | 1.1.0   | 2024-02-XX | PII detection and policy engine    |
 | 1.2.0   | 2024-03-XX | Advanced analytics and reporting   |
 | 2.0.0   | 2024-04-XX | Enterprise features and compliance |
+| 2.1.0   | 2024-12-XX | Passkey authentication and confirmation system |
+| 2.2.0   | 2025-01-01 | CORS fixes and demo chat enhancements |
 
 ---
 
