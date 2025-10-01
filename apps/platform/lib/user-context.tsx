@@ -21,6 +21,7 @@ interface UserContextType {
   user: User | null;
   organizations: Organization[];
   activeOrg: Organization | null;
+  orgId: string | null;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
@@ -32,6 +33,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,9 +51,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
+      console.log('Profile API response:', data);
       setUser(data.user);
       setOrganizations(data.organizations);
       setActiveOrg(data.activeOrg);
+      setOrgId(data.activeOrg?.id || null);
     } catch (err) {
       console.error('Error fetching user data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch user data');
@@ -70,6 +74,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         user,
         organizations,
         activeOrg,
+        orgId,
         loading,
         error,
         refetch: fetchUserData,

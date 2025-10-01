@@ -13,6 +13,7 @@ import {
   Search,
   Bell,
   User,
+  Users,
   ChevronDown,
   MoreVertical,
   LogOut,
@@ -35,6 +36,7 @@ const getNavigation = (orgSlug: string) => [
   { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
   { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key },
   { name: 'Passkeys', href: `/o/${orgSlug}/settings/passkeys`, icon: Key },
+  { name: 'Admin Users', href: `/o/${orgSlug}/admin/users`, icon: Users },
   // { name: 'DLQ', href: `/o/${orgSlug}/dlq`, icon: AlertTriangle },
   { name: 'Settings', href: `/o/${orgSlug}/settings`, icon: Settings },
 ];
@@ -44,6 +46,12 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('PlatformShell - User data:', user);
+    console.log('PlatformShell - User loading:', userLoading);
+  }, [user, userLoading]);
   const navigation = getNavigation(orgSlug);
 
   const handleLogout = async () => {
