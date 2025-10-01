@@ -96,10 +96,22 @@ export default function ConfirmationPage() {
 
       if (!challengeResponse.ok) {
         const errorData = await challengeResponse.json();
+        console.error('Auth challenge error:', errorData);
         throw new Error(errorData.error || 'Failed to get authentication challenge');
       }
 
-      const { options } = await challengeResponse.json();
+      const challengeData = await challengeResponse.json();
+
+      // Check if user needs to register a passkey first
+      if (challengeData.error && challengeData.error.includes('No passkeys registered')) {
+        const currentOrgSlug = confirmation.org.slug;
+        throw new Error(
+          `You need to register a passkey first. ` +
+          `Please visit: /o/${currentOrgSlug}/settings/passkeys to register one, then try again.`
+        );
+      }
+
+      const { options } = challengeData;
 
       // Step 2: Start WebAuthn authentication
       const credential = await startAuthentication(options as PublicKeyCredentialRequestOptionsJSON);
@@ -378,12 +390,19 @@ export default function ConfirmationPage() {
             {/* Info Section */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-2">About Passkey Confirmation</h4>
-              <p className="text-sm text-blue-800">
+              <p className="text-sm text-blue-800 mb-3">
                 This action requires confirmation using your passkey for security purposes.
                 Click "Approve with Passkey" to authenticate using your device's biometric sensor
-                or security key. If you don't have a passkey registered, you'll need to set one up
-                in your organization settings first.
+                or security key.
               </p>
+              {confirmation && (
+                <a
+                  href={`/o/${confirmation.org.slug}/settings/passkeys`}
+                  className="inline-flex items-center gap-1 text-sm text-blue-700 hover:text-blue-900 font-medium"
+                >
+                  → Register a new passkey
+                </a>
+              )}
             </div>
           </CardContent>
         </Card>

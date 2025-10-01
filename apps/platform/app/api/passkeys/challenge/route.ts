@@ -1,45 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateRegistrationOptions } from '@simplewebauthn/server';
 import { prisma } from '@governs-ai/db';
+import { requireAuth } from '@/lib/session';
 
 const RP_NAME = 'GovernsAI';
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get API key from header
-    const apiKey = request.headers.get('X-Governs-Key');
+    // Get user from session
+    const { userId, orgId } = await requireAuth(request);
 
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API key required' },
-        { status: 401 }
-      );
-    }
-
-    // Find API key and get user/org
-    const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
-      include: {
-        user: true,
-        org: true,
-      },
+    // Get user details
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!keyRecord || !keyRecord.isActive) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Invalid or inactive API key' },
-        { status: 401 }
+        { error: 'User not found' },
+        { status: 404 }
       );
     }
-
-    const { user, org } = keyRecord;
 
     // Get existing passkeys for this user+org to exclude
     const existingPasskeys = await prisma.passkey.findMany({
       where: {
-        userId: user.id,
-        orgId: org.id,
+        userId,
+        orgId,
       },
       select: {
         credentialId: true,
@@ -51,7 +39,7 @@ export async function GET(request: NextRequest) {
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
       rpID: RP_ID,
-      userID: new TextEncoder().encode(user.id), // Convert string to Uint8Array
+      userID: new TextEncoder().encode(userId), // Convert string to Uint8Array
       userName: user.email,
       userDisplayName: user.name || user.email,
       attestationType: 'none',
@@ -63,19 +51,18 @@ export async function GET(request: NextRequest) {
       authenticatorSelection: {
         residentKey: 'preferred',
         userVerification: 'required',
-        authenticatorAttachment: 'platform', // Prefer platform authenticators (Face ID, Touch ID)
+        authenticatorAttachment: 'platform',
       },
     });
 
-    // Store challenge temporarily in database for verification
-    // We'll use the PendingConfirmation table temporarily to store the challenge
-    // (It's a bit of a hack, but avoids creating another table)
+    // Store challenge in session storage (we'll use a simple approach for now)
+    // In production, you might want to store this in Redis or a database table
     await prisma.pendingConfirmation.create({
       data: {
-        correlationId: `passkey-reg-${user.id}-${Date.now()}`,
-        userId: user.id,
-        orgId: org.id,
-        apiKeyId: keyRecord.id,
+        correlationId: `passkey-reg-${userId}-${Date.now()}`,
+        userId,
+        orgId,
+        apiKeyId: (await prisma.aPIKey.findFirst({ where: { orgId, userId } }))?.id || '',
         requestType: 'passkey_registration',
         requestDesc: 'Passkey registration challenge',
         requestPayload: { userAgent: request.headers.get('user-agent') },
@@ -85,14 +72,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      options,
-      userId: user.id,
-      orgId: org.id,
-    });
+    return NextResponse.json({ options });
 
   } catch (error) {
     console.error('Error generating registration challenge:', error);
+
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to generate registration challenge',

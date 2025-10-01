@@ -5,7 +5,7 @@ import { prisma } from '@governs-ai/db';
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = requireAuth(request);
+    const { userId } = await requireAuth(request);
 
     // Check if user already has TOTP setup
     const existingTotp = await prisma.mfaTotp.findUnique({

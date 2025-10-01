@@ -38,11 +38,7 @@ export default function PasskeySettingsPage() {
   const fetchPasskeys = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/passkey/list', {
-        headers: {
-          'X-Governs-Key': getApiKey(),
-        },
-      });
+      const response = await fetch('/api/passkeys');
 
       if (!response.ok) {
         throw new Error('Failed to fetch passkeys');
@@ -58,17 +54,6 @@ export default function PasskeySettingsPage() {
     }
   };
 
-  const getApiKey = () => {
-    // Get API key from localStorage or session
-    // For now, we'll need to implement proper API key management
-    // This is a placeholder - you should implement proper authentication
-    const apiKey = localStorage.getItem('governs_api_key');
-    if (!apiKey) {
-      throw new Error('No API key found. Please log in again.');
-    }
-    return apiKey;
-  };
-
   const handleAddPasskey = async () => {
     setError('');
     setSuccess('');
@@ -76,12 +61,7 @@ export default function PasskeySettingsPage() {
 
     try {
       // Step 1: Get registration challenge from server
-      const challengeResponse = await fetch('/api/v1/passkey/register-challenge', {
-        method: 'GET',
-        headers: {
-          'X-Governs-Key': getApiKey(),
-        },
-      });
+      const challengeResponse = await fetch('/api/passkeys/challenge');
 
       if (!challengeResponse.ok) {
         const errorData = await challengeResponse.json();
@@ -94,11 +74,10 @@ export default function PasskeySettingsPage() {
       const credential = await startRegistration(options as PublicKeyCredentialCreationOptionsJSON);
 
       // Step 3: Send credential to server for verification
-      const registerResponse = await fetch('/api/v1/passkey/register', {
+      const registerResponse = await fetch('/api/passkeys/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Governs-Key': getApiKey(),
         },
         body: JSON.stringify({
           credential,
@@ -140,11 +119,10 @@ export default function PasskeySettingsPage() {
     setSuccess('');
 
     try {
-      const response = await fetch(`/api/v1/passkey/${passkeyId}`, {
+      const response = await fetch(`/api/passkeys/${passkeyId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-Governs-Key': getApiKey(),
         },
         body: JSON.stringify({ deviceName: editingName.trim() }),
       });
@@ -180,11 +158,8 @@ export default function PasskeySettingsPage() {
     setSuccess('');
 
     try {
-      const response = await fetch(`/api/v1/passkey/${passkeyId}`, {
+      const response = await fetch(`/api/passkeys/${passkeyId}`, {
         method: 'DELETE',
-        headers: {
-          'X-Governs-Key': getApiKey(),
-        },
       });
 
       if (!response.ok) {

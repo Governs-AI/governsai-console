@@ -6,6 +6,9 @@ export interface Message {
   reasons?: string[];
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+  confirmationRequired?: boolean;
+  confirmationUrl?: string;
+  correlationId?: string;
 }
 
 export type Decision = "allow" | "redact" | "block" | "confirm";

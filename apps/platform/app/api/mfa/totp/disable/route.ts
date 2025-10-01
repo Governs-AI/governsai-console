@@ -10,7 +10,7 @@ const disableSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = requireAuth(request);
+    const { userId } = await requireAuth(request);
     const body = await request.json();
     const { code } = disableSchema.parse(body);
 

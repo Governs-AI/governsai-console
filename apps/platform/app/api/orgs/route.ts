@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
     
     // List user's organizations (requires auth)
-    const { userId } = requireAuth(request);
+    const { userId } = await requireAuth(request);
     
     const memberships = await prisma.orgMembership.findMany({
       where: { userId },
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = requireAuth(request);
+    const { userId } = await requireAuth(request);
     
     const body = await request.json();
     const { name } = createOrgSchema.parse(body);

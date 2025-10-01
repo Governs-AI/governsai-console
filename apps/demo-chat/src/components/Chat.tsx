@@ -191,12 +191,15 @@ export default function Chat() {
                 const toolMessage: MessageType = {
                   id: uuidv4(),
                   role: 'tool',
-                  content: toolResult.success 
+                  content: toolResult.success
                     ? JSON.stringify(toolResult.data, null, 2)
                     : `Error: ${toolResult.error}`,
                   tool_call_id: toolResult.tool_call_id,
                   decision: toolResult.decision,
                   reasons: toolResult.reasons,
+                  confirmationRequired: toolResult.confirmationRequired,
+                  confirmationUrl: toolResult.confirmationUrl,
+                  correlationId: toolResult.correlationId,
                 };
                 setMessages(prev => [...prev, toolMessage]);
               } else if (event.type === 'error') {

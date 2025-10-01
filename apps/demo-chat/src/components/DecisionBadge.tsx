@@ -20,9 +20,9 @@ const decisionStyles: Record<Decision, { bg: string; text: string; icon: string 
     icon: '✂',
   },
   confirm: {
-    bg: 'bg-blue-100 border-blue-200',
-    text: 'text-blue-800',
-    icon: '?',
+    bg: 'bg-yellow-100 border-yellow-200',
+    text: 'text-yellow-800',
+    icon: '⏸️',
   },
   block: {
     bg: 'bg-red-100 border-red-300',

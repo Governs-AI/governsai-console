@@ -5,37 +5,15 @@ import type {
   VerifiedRegistrationResponse,
 } from '@simplewebauthn/server';
 import { prisma } from '@governs-ai/db';
+import { requireAuth } from '@/lib/session';
 
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const ORIGIN = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get API key from header
-    const apiKey = request.headers.get('X-Governs-Key');
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API key required' },
-        { status: 401 }
-      );
-    }
-
-    // Find API key and get user/org
-    const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
-      include: {
-        user: true,
-        org: true,
-      },
-    });
-
-    if (!keyRecord || !keyRecord.isActive) {
-      return NextResponse.json(
-        { error: 'Invalid or inactive API key' },
-        { status: 401 }
-      );
-    }
+    // Get user from session
+    const { userId, orgId } = await requireAuth(request);
 
     const body = await request.json();
     const { credential, deviceName } = body as {
@@ -53,8 +31,8 @@ export async function POST(request: NextRequest) {
     // Find the pending challenge
     const pendingChallenge = await prisma.pendingConfirmation.findFirst({
       where: {
-        userId: keyRecord.user.id,
-        orgId: keyRecord.org.id,
+        userId,
+        orgId,
         requestType: 'passkey_registration',
         status: 'pending',
         expiresAt: { gte: new Date() },
@@ -111,8 +89,8 @@ export async function POST(request: NextRequest) {
     // Store the passkey
     const passkey = await prisma.passkey.create({
       data: {
-        userId: keyRecord.user.id,
-        orgId: keyRecord.org.id,
+        userId,
+        orgId,
         credentialId: Buffer.from(credentialID),
         publicKey: Buffer.from(credentialPublicKey),
         counter: BigInt(counter),
@@ -131,8 +109,8 @@ export async function POST(request: NextRequest) {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        userId: keyRecord.user.id,
-        orgId: keyRecord.org.id,
+        userId,
+        orgId,
         action: 'passkey.register',
         resource: 'Passkey',
         details: {
@@ -152,6 +130,14 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error registering passkey:', error);
+
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to register passkey',

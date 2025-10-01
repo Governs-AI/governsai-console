@@ -53,13 +53,41 @@ export default function Message({ message, className = '' }: MessageProps) {
         {/* Show decision badge for assistant and tool messages */}
         {(message.decision && (message.role === 'assistant' || message.role === 'tool')) && (
           <div className="mt-2 flex justify-start">
-            <DecisionBadge 
-              decision={message.decision} 
+            <DecisionBadge
+              decision={message.decision}
               reasons={message.reasons}
             />
           </div>
         )}
-        
+
+        {/* Show confirmation link if required */}
+        {message.confirmationRequired && message.confirmationUrl && (
+          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-lg">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-900 mb-2">
+                  This action requires your approval via passkey
+                </p>
+                <a
+                  href={message.confirmationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  🔐 Approve with Passkey
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+                <p className="text-xs text-yellow-700 mt-2">
+                  Correlation ID: <code className="bg-yellow-100 px-1 rounded">{message.correlationId}</code>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Role label for accessibility */}
         <div className={`text-xs text-gray-500 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
           {isUser ? 'You' : isTool ? 'Tool Result' : 'Assistant'}
