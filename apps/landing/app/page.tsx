@@ -27,6 +27,10 @@ function GovernsAIComingSoon() {
     };
 
     const playVideo = () => {
+      // Ensure video starts muted for autoplay compliance
+      video.muted = true;
+      setIsMuted(true);
+
       video.play().catch((e) => {
         console.log("Autoplay prevented:", e);
       });
@@ -36,9 +40,14 @@ function GovernsAIComingSoon() {
       if (!hasAutoToggled && video) {
         // Auto-toggle sound after a short delay
         setTimeout(() => {
-          video.muted = false;
-          setIsMuted(false);
-          setHasAutoToggled(true);
+          try {
+            video.muted = false;
+            setIsMuted(false);
+            setHasAutoToggled(true);
+            console.log("Auto-unmuted video");
+          } catch (error) {
+            console.log("Could not auto-unmute video:", error);
+          }
         }, 2000); // 2 second delay
       }
     };
@@ -52,6 +61,12 @@ function GovernsAIComingSoon() {
 
     const handleClick = () => {
       playVideo();
+      // Also try to unmute on user interaction
+      if (video && isMuted) {
+        video.muted = false;
+        setIsMuted(false);
+        setHasAutoToggled(true);
+      }
     };
 
     document.addEventListener("click", handleClick, { once: true });
