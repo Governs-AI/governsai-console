@@ -103,18 +103,24 @@ export async function POST(request: NextRequest) {
     const credentialPublicKey = verifiedCredential.publicKey;
     const counter = verifiedCredential.counter;
 
+
     // Auto-detect device name from user agent if not provided
     const userAgent = request.headers.get('user-agent') || '';
     const detectedDevice = detectDeviceName(userAgent);
     const finalDeviceName = deviceName || detectedDevice;
 
     // Store the passkey
+    // Convert credentialID to base64url string for storage
+    const credentialIdString = credentialID instanceof Uint8Array 
+      ? Buffer.from(credentialID).toString('base64url')
+      : credentialID;
+    
     const passkey = await prisma.passkey.create({
       data: {
         userId: keyRecord.user.id,
         orgId: keyRecord.org.id,
-        credentialId: Buffer.from(credentialID),
-        publicKey: Buffer.from(credentialPublicKey),
+        credentialId: credentialIdString,
+        publicKey: credentialPublicKey instanceof Uint8Array ? credentialPublicKey : Buffer.from(credentialPublicKey),
         counter: BigInt(counter),
         transports: credential.response.transports || [],
         deviceName: finalDeviceName,

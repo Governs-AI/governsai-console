@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       rpID: RP_ID,
       userVerification: 'required',
       allowCredentials: passkeys.map((passkey) => ({
-        id: passkey.credentialId,
+        id: passkey.credentialId, // credentialId is now stored as base64url string
         type: 'public-key',
         transports: passkey.transports as AuthenticatorTransport[],
       })),
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       where: { id: confirmation.id },
       data: { challenge: options.challenge },
     });
+
 
     return NextResponse.json({
       options,

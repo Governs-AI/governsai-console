@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       userDisplayName: user.name || user.email,
       attestationType: 'none',
       excludeCredentials: existingPasskeys.map((passkey) => ({
-        id: passkey.credentialId,
+        id: passkey.credentialId, // credentialId is now stored as base64url string
         type: 'public-key',
         transports: passkey.transports as AuthenticatorTransport[],
       })),

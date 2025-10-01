@@ -3,10 +3,12 @@ import { prisma } from '@governs-ai/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { correlationId: string } }
+  {params}: { params: Promise<{ correlationId: string }> }
 ) {
   try {
-    const { correlationId } = params;
+
+    const queryParams = await params;
+    const { correlationId } = queryParams;
 
     if (!correlationId) {
       return NextResponse.json(

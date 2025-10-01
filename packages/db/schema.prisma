@@ -95,7 +95,7 @@ model Passkey {
   id           String    @id @default(cuid())
   userId       String    @map("user_id")
   orgId        String    @map("org_id")
-  credentialId Bytes     @unique @map("credential_id") // Raw credential ID from WebAuthn
+  credentialId String    @unique @map("credential_id") // Base64url-encoded credential ID from WebAuthn
   publicKey    Bytes     @map("public_key") // Public key for verification
   counter      BigInt    @default(0) // Signature counter (replay protection)
   transports   String[]  @default([]) // ["usb", "nfc", "ble", "internal"]

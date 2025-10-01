@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthenticationResponse } from '@simplewebauthn/server';
+export const runtime = 'nodejs'; // <-- Ensure Node runtime, not Edge
+
+import {
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
+
+// ✅ Use official helpers to avoid subtle base64/base64url bugs
+// import {
+//   toBuffer,
+// } from '@simplewebauthn/server/helpers/iso/isoBase64URL';
+
 import type {
   AuthenticationResponseJSON,
   VerifiedAuthenticationResponse,
+  WebAuthnCredential,
+  AuthenticatorTransport,
 } from '@simplewebauthn/server';
+
 import { prisma } from '@governs-ai/db';
 import jwt from 'jsonwebtoken';
 
@@ -62,25 +75,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the passkey being used (from credential.id)
-    const credentialIdBuffer = Buffer.from(credential.id, 'base64url');
-
+    // 2) Look up passkey by credential.id (which is base64url per WebAuthn spec)
     const passkey = await prisma.passkey.findFirst({
       where: {
-        credentialId: credentialIdBuffer,
+        credentialId: credential.id,       // stored as base64url string
         userId: confirmation.userId,
         orgId: confirmation.orgId,
+      },
+      select: {
+        id: true,
+        credentialId: true,               // base64url string
+        publicKey: true,                  // bytes/BLOB (COSE)
+        counter: true,                    // bigint/number
+        transports: true,
+        deviceName: true,
       },
     });
 
     if (!passkey) {
       return NextResponse.json(
         { error: 'Passkey not found or does not belong to this user' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Verify the authentication
+    // 3) Hard guards before calling the lib
+    if (!passkey.credentialId || !passkey.publicKey) {
+      return NextResponse.json(
+        { error: 'Stored passkey is missing credentialId or publicKey' },
+        { status: 400 },
+      );
+    }
+
+    // 4) Build credential using proper format conversion
+    const webAuthnCredential: WebAuthnCredential = {
+      id: passkey.credentialId, // base64url string
+      publicKey: new Uint8Array(passkey.publicKey as unknown as ArrayBuffer),
+      counter: Number(passkey.counter ?? 0),
+      transports: (passkey.transports ?? []) as AuthenticatorTransport[],
+    };
+
+    // 5) Double-check object (optional debug)
+    // console.log({ webAuthnCredential });
+
+    // 6) Verify with strict inputs
     let verification: VerifiedAuthenticationResponse;
     try {
       verification = await verifyAuthenticationResponse({
@@ -88,21 +126,14 @@ export async function POST(request: NextRequest) {
         expectedChallenge: confirmation.challenge,
         expectedOrigin: ORIGIN,
         expectedRPID: RP_ID,
-        authenticator: {
-          credentialID: passkey.credentialId,
-          credentialPublicKey: passkey.publicKey,
-          counter: Number(passkey.counter),
-          transports: passkey.transports as AuthenticatorTransport[],
-        },
+        credential: webAuthnCredential, // <-- MUST be defined; helpers ensure proper shape
+        requireUserVerification: true,
       });
-    } catch (error) {
-      console.error('Authentication verification failed:', error);
+    } catch (err: any) {
+      // Most common cause: incorrect RPID/Origin or corrupt key formats
       return NextResponse.json(
-        {
-          error: 'Verification failed',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-        { status: 400 }
+        { error: 'Verification failed', details: err?.message ?? 'Unknown error' },
+        { status: 400 },
       );
     }
 
@@ -132,7 +163,7 @@ export async function POST(request: NextRequest) {
         type: 'confirmation',
       },
       JWT_SECRET,
-      { expiresIn: '10m' } // Token valid for 10 minutes
+      { expiresIn: '10m' }
     );
 
     // Mark confirmation as approved
