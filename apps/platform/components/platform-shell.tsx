@@ -25,14 +25,15 @@ interface PlatformShellProps {
 
 const getNavigation = (orgSlug: string) => [
   { name: 'Dashboard', href: `/o/${orgSlug}/dashboard`, icon: LayoutDashboard },
-  { name: 'Decisions', href: `/o/${orgSlug}/decisions`, icon: FileText },
+  // { name: 'Decisions', href: `/o/${orgSlug}/decisions`, icon: FileText },
   { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
-  { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
+  // { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
   { name: 'Spend', href: `/o/${orgSlug}/spend`, icon: DollarSign },
   { name: 'Manage Tools', href: `/o/${orgSlug}/tools`, icon: Activity },
   { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
   { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key },
-  { name: 'DLQ', href: `/o/${orgSlug}/dlq`, icon: AlertTriangle },
+  { name: 'Passkeys', href: `/o/${orgSlug}/settings/passkeys`, icon: Key },
+  // { name: 'DLQ', href: `/o/${orgSlug}/dlq`, icon: AlertTriangle },
   { name: 'Settings', href: `/o/${orgSlug}/settings`, icon: Settings },
 ];
 

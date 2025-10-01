@@ -39,6 +39,23 @@ export default function DashboardPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [dashboardData, setDashboardData] = useState({
+    decisions: {
+      total: 0,
+      allowed: 0,
+      denied: 0,
+      avgLatency: 0
+    },
+    toolCalls: {
+      total: 0,
+      byTool: {} as Record<string, number>
+    },
+    recentDecisions: [] as any[],
+    spend: {
+      current: 0,
+      monthly: 0
+    }
+  });
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
@@ -63,11 +80,58 @@ export default function DashboardPage() {
       const data = await response.json();
       setUser(data.user);
       setOrganizations(data.organizations || []);
+      
+      // Find the current organization
+      const currentOrg = data.organizations.find((org: any) => org.slug === orgSlug);
+      if (currentOrg) {
+        await fetchDashboardData(currentOrg.id);
+      }
+      
       setLoading(false);
     } catch (err) {
       console.error('Failed to fetch user data:', err);
       setError('Failed to load user data');
       setLoading(false);
+    }
+  };
+
+  const fetchDashboardData = async (orgId: string) => {
+    try {
+      // Fetch decisions data
+      const decisionsResponse = await fetch(`/api/decisions?orgId=${orgId}&includeStats=true&limit=10`, {
+        credentials: 'include',
+      });
+      
+      // Fetch tool calls data
+      const toolCallsResponse = await fetch(`/api/toolcalls?orgId=${orgId}&includeStats=true&limit=10`, {
+        credentials: 'include',
+      });
+
+      const [decisionsData, toolCallsData] = await Promise.all([
+        decisionsResponse.ok ? decisionsResponse.json() : { decisions: [], stats: null },
+        toolCallsResponse.ok ? toolCallsResponse.json() : { toolcalls: [], stats: null }
+      ]);
+
+      setDashboardData({
+        decisions: {
+          total: decisionsData.stats?.total || 0,
+          allowed: decisionsData.stats?.byDecision?.allow || 0,
+          denied: decisionsData.stats?.byDecision?.deny || 0,
+          avgLatency: 0 // This would need to be calculated from the data
+        },
+        toolCalls: {
+          total: toolCallsData.stats?.total || 0,
+          byTool: toolCallsData.stats?.byTool || {}
+        },
+        recentDecisions: decisionsData.decisions || [],
+        spend: {
+          current: 0, // This would need a separate API
+          monthly: 0
+        }
+      });
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+      // Don't set error here, just use default values
     }
   };
 
@@ -124,10 +188,33 @@ export default function DashboardPage() {
         
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KpiCard label="Total Decisions" value="1,204,332" delta="+3.1%" trend="up" />
-          <KpiCard label="Allow Rate" value="92.4%" delta="+0.7%" trend="up" />
-          <KpiCard label="Avg Latency" value="178 ms" delta="-12 ms" trend="down" />
-          <KpiCard label="Spend (MTD)" value="$4,230" delta="+$120" trend="up" />
+          <KpiCard 
+            label="Total Decisions" 
+            value={dashboardData.decisions.total.toLocaleString()} 
+            delta="+3.1%" 
+            trend="up" 
+          />
+          <KpiCard 
+            label="Allow Rate" 
+            value={dashboardData.decisions.total > 0 
+              ? `${((dashboardData.decisions.allowed / dashboardData.decisions.total) * 100).toFixed(1)}%` 
+              : "0%"
+            } 
+            delta="+0.7%" 
+            trend="up" 
+          />
+          <KpiCard 
+            label="Avg Latency" 
+            value={`${dashboardData.decisions.avgLatency} ms`} 
+            delta="-12 ms" 
+            trend="down" 
+          />
+          <KpiCard 
+            label="Tool Calls" 
+            value={dashboardData.toolCalls.total.toLocaleString()} 
+            delta="+5.2%" 
+            trend="up" 
+          />
         </div>
 
         {/* Quick Actions */}
@@ -205,39 +292,43 @@ export default function DashboardPage() {
               </DataTableRow>
             </DataTableHeader>
             <DataTableBody>
-              <DataTableRow>
-                <DataTableCell className="text-sm text-muted-foreground">2 min ago</DataTableCell>
-                <DataTableCell>gpt-4</DataTableCell>
-                <DataTableCell>ALLOW</DataTableCell>
-                <DataTableCell>$0.02</DataTableCell>
-                <DataTableCell>
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
-                    Success
-                  </span>
-                </DataTableCell>
-              </DataTableRow>
-              <DataTableRow>
-                <DataTableCell className="text-sm text-muted-foreground">5 min ago</DataTableCell>
-                <DataTableCell>claude-3</DataTableCell>
-                <DataTableCell>BLOCK</DataTableCell>
-                <DataTableCell>$0.00</DataTableCell>
-                <DataTableCell>
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-danger/10 text-danger">
-                    Blocked
-                  </span>
-                </DataTableCell>
-              </DataTableRow>
-              <DataTableRow>
-                <DataTableCell className="text-sm text-muted-foreground">8 min ago</DataTableCell>
-                <DataTableCell>gpt-3.5-turbo</DataTableCell>
-                <DataTableCell>ALLOW</DataTableCell>
-                <DataTableCell>$0.01</DataTableCell>
-                <DataTableCell>
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
-                    Success
-                  </span>
-                </DataTableCell>
-              </DataTableRow>
+              {dashboardData.recentDecisions.length === 0 ? (
+                <DataTableRow>
+                  <DataTableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No recent decisions found
+                  </DataTableCell>
+                </DataTableRow>
+              ) : (
+                dashboardData.recentDecisions.slice(0, 5).map((decision, index) => (
+                  <DataTableRow key={decision.id || index}>
+                    <DataTableCell className="text-sm text-muted-foreground">
+                      {new Date(decision.ts).toLocaleString()}
+                    </DataTableCell>
+                    <DataTableCell>{decision.tool || 'N/A'}</DataTableCell>
+                    <DataTableCell>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        decision.decision === 'allow' 
+                          ? 'bg-success/10 text-success' 
+                          : decision.decision === 'deny'
+                          ? 'bg-danger/10 text-danger'
+                          : 'bg-warning/10 text-warning'
+                      }`}>
+                        {decision.decision?.toUpperCase() || 'UNKNOWN'}
+                      </span>
+                    </DataTableCell>
+                    <DataTableCell>$0.00</DataTableCell>
+                    <DataTableCell>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        decision.decision === 'allow' 
+                          ? 'bg-success/10 text-success' 
+                          : 'bg-danger/10 text-danger'
+                      }`}>
+                        {decision.decision === 'allow' ? 'Success' : 'Blocked'}
+                      </span>
+                    </DataTableCell>
+                  </DataTableRow>
+                ))
+              )}
             </DataTableBody>
           </DataTable>
         </section>

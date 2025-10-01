@@ -211,7 +211,7 @@ export default function DecisionsPage() {
       <div className="space-y-6">
         <PageHeader
           title="AI Governance Decisions"
-          subtitle={`Monitor real-time decisions and WebSocket connections for ${orgSlug}`}
+          subtitle={`Monitor all AI governance decisions (precheck/postcheck) including tool calls, model usage, and policy enforcement for ${orgSlug}`}
           actions={
             <div className="flex gap-2">
               <Button
@@ -226,6 +226,22 @@ export default function DecisionsPage() {
             </div>
           }
         />
+
+        {/* Info Card */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <FileText className="h-5 w-5 text-blue-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-foreground mb-1">About Decisions</h3>
+                <p className="text-sm text-muted-foreground">
+                  This page shows <strong>all AI governance decisions</strong> including tool calls, model usage, and policy enforcement. 
+                  For tool-specific monitoring, see the <strong>Tool Calls</strong> page which shows only decisions involving tool execution.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         {stats && (

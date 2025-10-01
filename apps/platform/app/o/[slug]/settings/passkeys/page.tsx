@@ -1,12 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Button } from '@governs-ai/ui';
-import { Input } from '@governs-ai/ui';
-import { Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui';
+import { useParams } from 'next/navigation';
+import { 
+  Button, 
+  Input, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle,
+  Badge,
+  PageHeader
+} from '@governs-ai/ui';
+import {
+  Key,
+  Plus,
+  Trash2,
+  Edit,
+  CheckCircle,
+  AlertCircle,
+  Shield,
+  Smartphone,
+  Laptop,
+  Monitor
+} from 'lucide-react';
+// @ts-ignore - TypeScript has issues with this import in the workspace
 import { startRegistration } from '@simplewebauthn/browser';
-import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
+import PlatformShell from '@/components/platform-shell';
 
 interface Passkey {
   id: string;
@@ -26,9 +46,9 @@ export default function PasskeySettingsPage() {
   const [deviceName, setDeviceName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const params = useParams();
-  const router = useRouter();
   const orgSlug = params.slug as string;
 
   useEffect(() => {
@@ -38,7 +58,9 @@ export default function PasskeySettingsPage() {
   const fetchPasskeys = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/passkeys');
+      const response = await fetch('/api/passkeys', {
+        credentials: 'include',
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch passkeys');
@@ -57,135 +79,131 @@ export default function PasskeySettingsPage() {
   const handleAddPasskey = async () => {
     setError('');
     setSuccess('');
-    setIsRegistering(true);
+
+    if (!deviceName.trim()) {
+      setError('Please enter a device name');
+      return;
+    }
 
     try {
-      // Step 1: Get registration challenge from server
-      const challengeResponse = await fetch('/api/passkeys/challenge');
+      setIsRegistering(true);
 
-      if (!challengeResponse.ok) {
-        const errorData = await challengeResponse.json();
-        throw new Error(errorData.error || 'Failed to get registration challenge');
+      // Get registration options from server
+      const optionsResponse = await fetch('/api/passkeys/challenge', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!optionsResponse.ok) {
+        const errorData = await optionsResponse.json();
+        throw new Error(errorData.error || 'Failed to start registration');
       }
 
-      const { options } = await challengeResponse.json();
+      const { options } = await optionsResponse.json();
 
-      // Step 2: Start WebAuthn registration
-      const credential = await startRegistration(options as PublicKeyCredentialCreationOptionsJSON);
+      // Start WebAuthn registration
+      const credential = await startRegistration(options);
 
-      // Step 3: Send credential to server for verification
-      const registerResponse = await fetch('/api/passkeys/register', {
+      // Complete registration with server
+      const completeResponse = await fetch('/api/passkeys/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           credential,
-          deviceName: deviceName.trim() || undefined,
+          deviceName: deviceName.trim(),
         }),
       });
 
-      if (!registerResponse.ok) {
-        const errorData = await registerResponse.json();
-        throw new Error(errorData.error || 'Failed to register passkey');
+      if (!completeResponse.ok) {
+        const errorData = await completeResponse.json();
+        throw new Error(errorData.error || 'Failed to complete registration');
       }
 
-      const result = await registerResponse.json();
-      setSuccess(`Passkey "${result.deviceName}" registered successfully!`);
+      setSuccess('Passkey registered successfully!');
       setDeviceName('');
-
-      // Refresh the list
-      await fetchPasskeys();
-
+      setShowAddForm(false);
+      fetchPasskeys();
     } catch (err) {
       console.error('Error registering passkey:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to register passkey. Please try again.');
-      }
+      setError(err instanceof Error ? err.message : 'Failed to register passkey');
     } finally {
       setIsRegistering(false);
     }
   };
 
-  const handleRenamePasskey = async (passkeyId: string) => {
-    if (!editingName.trim()) {
-      setError('Device name cannot be empty');
+  const handleDeletePasskey = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this passkey?')) {
       return;
     }
 
-    setError('');
-    setSuccess('');
+    try {
+      const response = await fetch(`/api/passkeys/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete passkey');
+      }
+
+      setSuccess('Passkey deleted successfully!');
+      fetchPasskeys();
+    } catch (err) {
+      console.error('Error deleting passkey:', err);
+      setError('Failed to delete passkey');
+    }
+  };
+
+  const handleEditName = async (id: string) => {
+    if (!editingName.trim()) {
+      setError('Please enter a device name');
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/passkeys/${passkeyId}`, {
+      const response = await fetch(`/api/passkeys/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ deviceName: editingName.trim() }),
+        credentials: 'include',
+        body: JSON.stringify({
+          deviceName: editingName.trim(),
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to rename passkey');
+        throw new Error('Failed to update passkey name');
       }
 
-      setSuccess('Passkey renamed successfully!');
+      setSuccess('Passkey name updated successfully!');
       setEditingId(null);
       setEditingName('');
-
-      // Refresh the list
-      await fetchPasskeys();
-
+      fetchPasskeys();
     } catch (err) {
-      console.error('Error renaming passkey:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to rename passkey');
-      }
+      console.error('Error updating passkey:', err);
+      setError('Failed to update passkey name');
     }
   };
 
-  const handleDeletePasskey = async (passkeyId: string, deviceName: string) => {
-    if (!confirm(`Are you sure you want to delete "${deviceName}"?`)) {
-      return;
-    }
-
-    setError('');
-    setSuccess('');
-
-    try {
-      const response = await fetch(`/api/passkeys/${passkeyId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete passkey');
-      }
-
-      setSuccess('Passkey deleted successfully!');
-
-      // Refresh the list
-      await fetchPasskeys();
-
-    } catch (err) {
-      console.error('Error deleting passkey:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to delete passkey');
-      }
+  const getDeviceIcon = (deviceName: string) => {
+    const name = deviceName.toLowerCase();
+    if (name.includes('phone') || name.includes('mobile') || name.includes('iphone') || name.includes('android')) {
+      return <Smartphone className="h-5 w-5 text-blue-500" />;
+    } else if (name.includes('laptop') || name.includes('macbook') || name.includes('thinkpad')) {
+      return <Laptop className="h-5 w-5 text-green-500" />;
+    } else if (name.includes('desktop') || name.includes('monitor')) {
+      return <Monitor className="h-5 w-5 text-purple-500" />;
+    } else {
+      return <Key className="h-5 w-5 text-gray-500" />;
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -195,183 +213,236 @@ export default function PasskeySettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                Passkey Settings
-              </h1>
-              <span className="ml-4 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                {orgSlug}
-              </span>
-            </div>
+    <PlatformShell orgSlug={orgSlug}>
+      <div className="space-y-6">
+        <PageHeader
+          title="Passkey Settings"
+          subtitle="Manage passwordless authentication with passkeys for enhanced security"
+          actions={
+            <Button onClick={() => setShowAddForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Passkey
+            </Button>
+          }
+        />
+
+        {/* Status Messages */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <span className="text-red-700">{error}</span>
           </div>
-        </div>
-      </header>
+        )}
 
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Passkey Authentication</CardTitle>
-            <p className="text-gray-600">
-              Manage your passkeys for secure, passwordless authentication and confirmation of sensitive actions.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
-                {error}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <span className="text-green-700">{success}</span>
+          </div>
+        )}
+
+        {/* Add Passkey Form */}
+        {showAddForm && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Register New Passkey
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label htmlFor="deviceName" className="block text-sm font-medium text-foreground mb-2">
+                  Device Name
+                </label>
+                <Input
+                  id="deviceName"
+                  type="text"
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                  placeholder="e.g., iPhone 15 Pro, MacBook Pro, YubiKey"
+                  disabled={isRegistering}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose a descriptive name to identify this device
+                </p>
               </div>
-            )}
-
-            {success && (
-              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
-                {success}
-              </div>
-            )}
-
-            {/* Add New Passkey Section */}
-            <div className="border-b pb-6">
-              <h3 className="text-lg font-medium mb-4">Register New Passkey</h3>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="deviceName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Device Name (optional)
-                  </label>
-                  <Input
-                    id="deviceName"
-                    type="text"
-                    value={deviceName}
-                    onChange={(e) => setDeviceName(e.target.value)}
-                    placeholder="e.g., My iPhone, Work Laptop"
-                    className="max-w-md"
-                    disabled={isRegistering}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    If not provided, we'll auto-detect the device name
-                  </p>
-                </div>
-
-                <Button onClick={handleAddPasskey} disabled={isRegistering || loading}>
-                  {isRegistering ? 'Registering...' : 'Add Passkey'}
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleAddPasskey} 
+                  disabled={isRegistering || !deviceName.trim()}
+                >
+                  {isRegistering ? 'Registering...' : 'Register Passkey'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setDeviceName('');
+                    setError('');
+                  }}
+                >
+                  Cancel
                 </Button>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Existing Passkeys List */}
-            <div>
-              <h3 className="text-lg font-medium mb-4">Your Passkeys</h3>
-              {loading ? (
-                <div className="text-center py-8 text-gray-500">
-                  Loading passkeys...
-                </div>
-              ) : passkeys.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No passkeys registered yet. Add your first passkey above.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {passkeys.map((passkey) => (
-                    <div
-                      key={passkey.id}
-                      className="border rounded-lg p-4 hover:bg-gray-50"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
+        {/* Passkeys List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Registered Passkeys
+            </CardTitle>
+            <p className="text-muted-foreground">
+              {passkeys.length === 0 
+                ? 'No passkeys registered yet. Add your first passkey to enable passwordless authentication.'
+                : `You have ${passkeys.length} passkey${passkeys.length === 1 ? '' : 's'} registered.`
+              }
+            </p>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : passkeys.length === 0 ? (
+              <div className="text-center py-8">
+                <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No Passkeys Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Get started by registering your first passkey for secure, passwordless authentication.
+                </p>
+                <Button onClick={() => setShowAddForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Your First Passkey
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {passkeys.map((passkey) => (
+                  <div
+                    key={passkey.id}
+                    className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      {getDeviceIcon(passkey.deviceName)}
+                      <div>
+                        <div className="flex items-center gap-2">
                           {editingId === passkey.id ? (
-                            <div className="flex items-center space-x-2">
-                              <Input
-                                type="text"
-                                value={editingName}
-                                onChange={(e) => setEditingName(e.target.value)}
-                                className="max-w-xs"
-                                autoFocus
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleRenamePasskey(passkey.id)}
-                              >
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingId(null);
-                                  setEditingName('');
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
+                            <Input
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              className="h-8 w-48"
+                              autoFocus
+                            />
                           ) : (
-                            <h4 className="font-medium text-gray-900">
+                            <h3 className="font-medium text-foreground">
                               {passkey.deviceName}
-                            </h4>
+                            </h3>
                           )}
-                          <div className="mt-2 text-sm text-gray-600 space-y-1">
-                            <p>
-                              <span className="font-medium">Created:</span>{' '}
-                              {formatDate(passkey.createdAt)}
-                            </p>
-                            <p>
-                              <span className="font-medium">Last used:</span>{' '}
-                              {formatDate(passkey.lastUsedAt)}
-                            </p>
-                            {passkey.transports.length > 0 && (
-                              <p>
-                                <span className="font-medium">Transports:</span>{' '}
-                                {passkey.transports.join(', ')}
-                              </p>
-                            )}
-                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Active
+                          </Badge>
                         </div>
-                        {editingId !== passkey.id && (
-                          <div className="flex space-x-2 ml-4">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingId(passkey.id);
-                                setEditingName(passkey.deviceName);
-                              }}
-                            >
-                              Rename
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                handleDeletePasskey(passkey.id, passkey.deviceName)
-                              }
-                            >
-                              Delete
-                            </Button>
-                          </div>
+                        <p className="text-sm text-muted-foreground">
+                          Added {formatDate(passkey.createdAt)}
+                        </p>
+                        {passkey.lastUsedAt && (
+                          <p className="text-xs text-muted-foreground">
+                            Last used {formatDate(passkey.lastUsedAt)}
+                          </p>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <div className="flex items-center gap-2">
+                      {editingId === passkey.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleEditName(passkey.id)}
+                            disabled={!editingName.trim()}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditingName('');
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingId(passkey.id);
+                              setEditingName(passkey.deviceName);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeletePasskey(passkey.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-            {/* Info Section */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">What are passkeys?</h4>
-              <p className="text-sm text-blue-800">
-                Passkeys provide secure, passwordless authentication using your device's biometric sensors
-                (Face ID, Touch ID, Windows Hello) or security keys. They're more secure than passwords
-                and can be used to confirm sensitive actions in your applications.
-              </p>
+        {/* Info Section */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3">
+              <Shield className="h-5 w-5 text-blue-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-foreground mb-2">What are passkeys?</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Passkeys provide secure, passwordless authentication using your device's biometric sensors
+                  (Face ID, Touch ID, Windows Hello) or security keys. They're more secure than passwords
+                  and can be used to confirm sensitive actions in your applications.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>More secure than passwords</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Works across all your devices</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>No passwords to remember</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Resistant to phishing attacks</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </PlatformShell>
   );
 }

@@ -2,10 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Button } from '@governs-ai/ui';
-import { Input } from '@governs-ai/ui';
-import { Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui';
-import { Badge } from '@governs-ai/ui';
+import { 
+  Button, 
+  Input, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle,
+  Badge,
+  PageHeader
+} from '@governs-ai/ui';
+import {
+  Users,
+  Plus,
+  Trash2,
+  Mail,
+  Shield,
+  CheckCircle,
+  AlertCircle,
+  Clock
+} from 'lucide-react';
+import PlatformShell from '@/components/platform-shell';
 
 interface Member {
   id: string;
@@ -24,6 +41,7 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showInviteForm, setShowInviteForm] = useState(false);
   const params = useParams();
   const orgSlug = params.slug as string;
 
@@ -111,31 +129,42 @@ export default function MembersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                Team Members
-              </h1>
-              <span className="ml-4 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                {orgSlug}
-              </span>
-            </div>
+    <PlatformShell orgSlug={orgSlug}>
+      <div className="space-y-6">
+        <PageHeader
+          title="Team Members"
+          subtitle="Manage organization members, roles, and permissions"
+          actions={
+            <Button onClick={() => setShowInviteForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Invite Member
+            </Button>
+          }
+        />
+        {/* Status Messages */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <span className="text-red-700">{error}</span>
           </div>
-        </div>
-      </header>
+        )}
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {/* Invite New Member */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <span className="text-green-700">{success}</span>
+          </div>
+        )}
+
+        {/* Invite New Member Form */}
+        {showInviteForm && (
           <Card>
             <CardHeader>
-              <CardTitle>Invite New Member</CardTitle>
-              <p className="text-gray-600">
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Invite New Member
+              </CardTitle>
+              <p className="text-muted-foreground">
                 Send an invitation to join your organization
               </p>
             </CardHeader>
@@ -143,7 +172,7 @@ export default function MembersPage() {
               <form onSubmit={handleInvite} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="inviteEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="inviteEmail" className="block text-sm font-medium text-foreground mb-2">
                       Email Address
                     </label>
                     <Input
@@ -157,7 +186,7 @@ export default function MembersPage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="inviteRole" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="inviteRole" className="block text-sm font-medium text-foreground mb-2">
                       Role
                     </label>
                     <select
@@ -165,7 +194,7 @@ export default function MembersPage() {
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value)}
                       disabled={loading}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                       <option value="VIEWER">Viewer</option>
                       <option value="DEVELOPER">Developer</option>
@@ -174,80 +203,101 @@ export default function MembersPage() {
                   </div>
                 </div>
 
-                {error && (
-                  <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
-                    {error}
-                  </div>
-                )}
-
-                {success && (
-                  <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
-                    {success}
-                  </div>
-                )}
-
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Sending invitation...' : 'Send Invitation'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Sending invitation...' : 'Send Invitation'}
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={() => {
+                      setShowInviteForm(false);
+                      setInviteEmail('');
+                      setError('');
+                      setSuccess('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
+        )}
 
-          {/* Members List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Members</CardTitle>
-              <p className="text-gray-600">
-                Manage your organization's team members
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+        {/* Members List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Current Members
+            </CardTitle>
+            <p className="text-muted-foreground">
+              Manage your organization's team members and their roles
+            </p>
+          </CardHeader>
+          <CardContent>
+            {members.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No Members Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start building your team by inviting your first member.
+                </p>
+                <Button onClick={() => setShowInviteForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Invite First Member
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
                 {members.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                    className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-foreground">
                           {member.name?.charAt(0) || member.email.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-medium text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-foreground">
                             {member.name || member.email}
                           </h3>
                           {!member.emailVerified && (
                             <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+                              <Clock className="h-3 w-3 mr-1" />
                               Unverified
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">{member.email}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm text-muted-foreground">{member.email}</p>
+                        <p className="text-xs text-muted-foreground">
                           Joined {new Date(member.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Badge className={getRoleBadgeColor(member.role)}>
+                        <Shield className="h-3 w-3 mr-1" />
                         {member.role}
                       </Badge>
                       {member.role !== 'OWNER' && (
-                        <Button variant="outline" size="sm">
-                          Remove
+                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </PlatformShell>
   );
 }
