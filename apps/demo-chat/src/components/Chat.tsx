@@ -57,6 +57,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [provider, setProvider] = useState<Provider>('openai');
+  const [pendingConfirmations, setPendingConfirmations] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -72,6 +73,268 @@ export default function Chat() {
       textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
     }
   }, [input]);
+
+  // Poll for confirmation status
+  useEffect(() => {
+    if (pendingConfirmations.size === 0) return;
+
+    const checkConfirmations = async () => {
+      const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
+      
+      for (const correlationId of Array.from(pendingConfirmations)) {
+        try {
+          const response = await fetch(`${platformUrl}/api/v1/confirmation/${correlationId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.confirmation.status === 'approved') {
+              // Confirmation approved, resume the chat
+              setPendingConfirmations(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(correlationId);
+                return newSet;
+              });
+              
+              // Update the message to show it's been approved
+              setMessages(prev => prev.map(msg => 
+                msg.correlationId === correlationId 
+                  ? { ...msg, content: msg.content.replace('Confirmation required', 'Confirmation approved - resuming...') }
+                  : msg
+              ));
+              
+              // Resume the chat by sending the original request again
+              await resumeChatAfterConfirmation(correlationId);
+            } else if (data.confirmation.status === 'cancelled' || data.confirmation.status === 'expired') {
+              // Confirmation cancelled or expired, stop polling
+              setPendingConfirmations(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(correlationId);
+                return newSet;
+              });
+              
+              setMessages(prev => prev.map(msg => 
+                msg.correlationId === correlationId 
+                  ? { ...msg, content: msg.content.replace('Confirmation required', `Confirmation ${data.confirmation.status}`) }
+                  : msg
+              ));
+            }
+          }
+        } catch (error) {
+          console.error('Error checking confirmation status:', error);
+        }
+      }
+    };
+
+    const interval = setInterval(checkConfirmations, 2000); // Check every 2 seconds
+    return () => clearInterval(interval);
+  }, [pendingConfirmations]);
+
+  // Function to resume chat after confirmation approval
+  const resumeChatAfterConfirmation = async (correlationId: string) => {
+    try {
+      // Find the original message that was waiting for confirmation
+      const originalMessage = messages.find(msg => msg.correlationId === correlationId);
+      if (!originalMessage) return;
+
+      // Get the last user message before the confirmation
+      const userMessageIndex = messages.findIndex(msg => msg.role === 'user');
+      if (userMessageIndex === -1) return;
+
+      const userMessage = messages[userMessageIndex];
+      
+      // Create a new assistant message to show the resumed response
+      const resumedAssistantMessage: MessageType = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: '',
+        decision: 'allow',
+        reasons: ['Confirmation approved'],
+      };
+      
+      setMessages(prev => [...prev, resumedAssistantMessage]);
+      
+      // Instead of re-sending the original message, send a continuation request
+      // that indicates the confirmation was approved and includes the correlation ID
+      const continuationMessage = `[CONFIRMATION_APPROVED:${correlationId}] Please continue with the original request: ${userMessage.content}`;
+      await handleSubmitWithMessage(continuationMessage, resumedAssistantMessage.id);
+    } catch (error) {
+      console.error('Error resuming chat after confirmation:', error);
+    }
+  };
+
+  // Helper function to submit with a specific assistant message ID
+  const handleSubmitWithMessage = async (messageContent: string, assistantMessageId: string) => {
+    if (!messageContent.trim() || isLoading) return;
+
+    const userMessage: MessageType = {
+      id: uuidv4(),
+      role: 'user',
+      content: messageContent,
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+          provider,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response reader available');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+            const data = trimmed.slice(6);
+            if (!data) continue;
+
+            try {
+              const event: StreamEvent = JSON.parse(data);
+
+              if (event.type === 'decision') {
+                // Update assistant message with decision info
+                const decision = event.data?.decision;
+                const reasons = event.data?.reasons;
+                
+                if (decision && isValidDecision(decision)) {
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, decision, reasons }
+                      : msg
+                  ));
+                } else {
+                  console.warn('Invalid decision received:', decision);
+                }
+              } else if (event.type === 'content') {
+                // Append content to assistant message
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, content: msg.content + event.data }
+                    : msg
+                ));
+              } else if (event.type === 'tool_call') {
+                // Handle tool call
+                const toolCall = event.data;
+                setMessages(prev => prev.map(msg => 
+                  msg.id === assistantMessageId 
+                    ? { 
+                        ...msg, 
+                        tool_calls: [...(msg.tool_calls || []), toolCall]
+                      }
+                    : msg
+                ));
+              } else if (event.type === 'tool_result') {
+                // Handle tool result
+                const toolResult = event.data;
+                
+                // If confirmation is required, add to pending confirmations
+                if (toolResult.confirmationRequired && toolResult.correlationId) {
+                  setPendingConfirmations(prev => new Set(prev).add(toolResult.correlationId));
+                }
+                
+                const toolMessage: MessageType = {
+                  id: uuidv4(),
+                  role: 'tool',
+                  content: toolResult.success
+                    ? JSON.stringify(toolResult.data, null, 2)
+                    : `Error: ${toolResult.error}`,
+                  tool_call_id: toolResult.tool_call_id,
+                  decision: toolResult.decision,
+                  reasons: toolResult.reasons,
+                  confirmationRequired: toolResult.confirmationRequired,
+                  confirmationUrl: toolResult.confirmationUrl,
+                  correlationId: toolResult.correlationId,
+                };
+                setMessages(prev => [...prev, toolMessage]);
+              } else if (event.type === 'error') {
+                // Handle error
+                const errorContent = `Error: ${event.data}`;
+                
+                // Check if this is a confirmation required error
+                const confirmationMatch = event.data?.match(/Please visit: (https?:\/\/[^\s]+)/);
+                if (confirmationMatch) {
+                  const confirmationUrl = confirmationMatch[1];
+                  const correlationIdMatch = confirmationUrl.match(/\/confirm\/([^\/]+)/);
+                  if (correlationIdMatch) {
+                    const correlationId = correlationIdMatch[1];
+                    // Add to pending confirmations for polling
+                    setPendingConfirmations(prev => new Set(prev).add(correlationId));
+                    
+                    // Update message with correlation ID for tracking
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: errorContent, correlationId }
+                        : msg
+                    ));
+                  } else {
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: errorContent }
+                        : msg
+                    ));
+                  }
+                } else {
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, content: errorContent }
+                      : msg
+                  ));
+                }
+                break;
+              } else if (event.type === 'done') {
+                // Stream completed
+                break;
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse SSE event:', data);
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => prev.map(msg => 
+        msg.id === assistantMessageId 
+          ? { 
+              ...msg, 
+              content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+            }
+          : msg
+      ));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +451,12 @@ export default function Chat() {
               } else if (event.type === 'tool_result') {
                 // Handle tool result
                 const toolResult = event.data;
+                
+                // If confirmation is required, add to pending confirmations
+                if (toolResult.confirmationRequired && toolResult.correlationId) {
+                  setPendingConfirmations(prev => new Set(prev).add(toolResult.correlationId));
+                }
+                
                 const toolMessage: MessageType = {
                   id: uuidv4(),
                   role: 'tool',
@@ -204,11 +473,38 @@ export default function Chat() {
                 setMessages(prev => [...prev, toolMessage]);
               } else if (event.type === 'error') {
                 // Handle error
-                setMessages(prev => prev.map(msg => 
-                  msg.id === assistantMessage.id 
-                    ? { ...msg, content: `Error: ${event.data}` }
-                    : msg
-                ));
+                const errorContent = `Error: ${event.data}`;
+                
+                // Check if this is a confirmation required error
+                const confirmationMatch = event.data?.match(/Please visit: (https?:\/\/[^\s]+)/);
+                if (confirmationMatch) {
+                  const confirmationUrl = confirmationMatch[1];
+                  const correlationIdMatch = confirmationUrl.match(/\/confirm\/([^\/]+)/);
+                  if (correlationIdMatch) {
+                    const correlationId = correlationIdMatch[1];
+                    // Add to pending confirmations for polling
+                    setPendingConfirmations(prev => new Set(prev).add(correlationId));
+                    
+                    // Update message with correlation ID for tracking
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessage.id 
+                        ? { ...msg, content: errorContent, correlationId }
+                        : msg
+                    ));
+                  } else {
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessage.id 
+                        ? { ...msg, content: errorContent }
+                        : msg
+                    ));
+                  }
+                } else {
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessage.id 
+                      ? { ...msg, content: errorContent }
+                      : msg
+                  ));
+                }
                 break;
               } else if (event.type === 'done') {
                 // Stream completed

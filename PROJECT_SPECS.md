@@ -1038,6 +1038,36 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
     - Fixed data type conversions: `publicKey` to `Uint8Array`, `counter` to `Number`
   - **IMPACT**: Passkey authentication verification now works correctly without crashes
   - **VERIFICATION**: All passkey flows (registration → authentication → verification) now function properly
+
+- **2024-12-29**: Fixed Chat Confirmation Loop Issue
+  - **CRITICAL FIX**: Resolved infinite confirmation loop after passkey approval
+  - **ROOT CAUSE**: Chat was re-sending the same message that triggered confirmation, causing repeated confirmation requests
+  - **FILES FIXED**:
+    - `apps/demo-chat/src/components/Chat.tsx` - Added polling mechanism and continuation logic
+    - `apps/demo-chat/src/app/api/chat/route.ts` - Added confirmation approved token detection
+  - **SOLUTION**:
+    - Added automatic polling every 2 seconds to check confirmation status
+    - Implemented special `[CONFIRMATION_APPROVED:correlationId]` token to bypass precheck
+    - Modified chat API to detect continuation requests and skip confirmation requirement
+    - Added proper message state management to prevent infinite loops
+  - **IMPACT**: Chat now automatically resumes after confirmation approval without manual intervention
+  - **VERIFICATION**: Complete passkey authentication flow works seamlessly from registration to chat resumption
+
+- **2024-12-29**: Fixed CORS Policy for Cross-Origin Confirmation Polling
+  - **CRITICAL FIX**: Resolved CORS policy blocking demo chat from polling confirmation status
+  - **ROOT CAUSE**: Demo chat (localhost:3001) couldn't access platform API (localhost:3002) due to missing CORS headers
+  - **FILES FIXED**:
+    - `apps/platform/app/api/v1/confirmation/[correlationId]/route.ts` - Added CORS headers
+    - `apps/platform/app/api/v1/confirmation/create/route.ts` - Added CORS headers
+    - `apps/platform/app/api/v1/confirmation/verify/route.ts` - Added CORS headers
+    - `apps/platform/app/api/v1/confirmation/auth-challenge/route.ts` - Added CORS headers
+  - **SOLUTION**:
+    - Added `Access-Control-Allow-Origin: *` to all confirmation API responses
+    - Added `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers` headers
+    - Added OPTIONS handlers for CORS preflight requests
+    - Applied CORS headers to both success and error responses
+  - **IMPACT**: Demo chat can now successfully poll confirmation status and automatically resume after approval
+  - **VERIFICATION**: Cross-origin requests from demo chat to platform API now work without CORS errors
   - **VERIFICATION**: Credential ID format consistency between registration and authentication flows
 
 - **2024-12-29**: Major Passkey Authentication Fix - Database Schema Change

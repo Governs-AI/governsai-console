@@ -236,16 +236,41 @@ export async function POST(request: NextRequest) {
         
         // Step 2: Precheck with user context, policy, and tool metadata
         const chatToolMetadata = getToolMetadataFromPlatform('model.chat', platformToolMetadata) || getToolMetadata('model.chat');
-        const precheckRequest = createChatPrecheckRequest(
-          messages, 
-          provider, 
-          corrId, 
-          policy, 
-          chatToolMetadata
-        );
+        // Get user context for all flows
         const { userId, apiKey } = getPrecheckUserIdDetails();
+        
+        // Check if this is a confirmation approved continuation
+        const lastMessage = messages[messages.length - 1];
+        const confirmationApprovedMatch = lastMessage?.content?.match(/\[CONFIRMATION_APPROVED:([^\]]+)\]/);
+        
+        let precheckResponse;
+        if (confirmationApprovedMatch) {
+          // This is a continuation after confirmation approval, bypass precheck
+          const approvedCorrelationId = confirmationApprovedMatch[1];
+          console.log(`✅ CONFIRMATION APPROVED CONTINUATION: ${approvedCorrelationId}`);
+          
+          precheckResponse = {
+            decision: 'allow' as const,
+            reasons: ['Confirmation previously approved'],
+            content: {
+              messages: messages.map(msg => ({
+                ...msg,
+                content: msg.content.replace(/\[CONFIRMATION_APPROVED:[^\]]+\]\s*/, '') // Remove the token
+              }))
+            }
+          };
+        } else {
+          // Normal precheck flow
+          const precheckRequest = createChatPrecheckRequest(
+            messages, 
+            provider, 
+            corrId, 
+            policy, 
+            chatToolMetadata
+          );
 
-        const precheckResponse = await precheck(precheckRequest, userId, apiKey);
+          precheckResponse = await precheck(precheckRequest, userId, apiKey);
+        }
         // Send decision event
         writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 
