@@ -42,6 +42,17 @@ export async function GET(request: NextRequest) {
         // Find active org (from session or default to first)
         const activeOrg = memberships.find(m => m.orgId === session.orgId) || memberships[0];
 
+        // Get MFA status
+        const mfaTotp = await prisma.mfaTotp.findUnique({
+            where: { userId: user.id },
+            select: { enabled: true },
+        });
+
+        // Get passkeys count
+        const passkeysCount = await prisma.passkey.count({
+            where: { userId: user.id },
+        });
+
         return NextResponse.json({
             user: {
                 id: user.id,
@@ -49,6 +60,8 @@ export async function GET(request: NextRequest) {
                 name: user.name,
                 emailVerified: user.emailVerified,
                 createdAt: user.createdAt,
+                mfaEnabled: mfaTotp?.enabled || false,
+                passkeysCount,
             },
             organizations: memberships.map(m => ({
                 id: m.org.id,
@@ -67,6 +80,54 @@ export async function GET(request: NextRequest) {
         console.error("Profile API Error:", error);
         return NextResponse.json(
             { error: "Failed to fetch profile" },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PUT(request: NextRequest) {
+    try {
+        // Get session token from cookies
+        const sessionToken = request.cookies.get('session')?.value;
+        
+        if (!sessionToken) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Verify session token
+        const session = verifySessionToken(sessionToken);
+        
+        if (!session) {
+            return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const { name, email } = body;
+
+        // Update user data
+        const updatedUser = await prisma.user.update({
+            where: { id: session.sub },
+            data: {
+                name: name || null,
+                email: email || undefined,
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                emailVerified: true,
+                createdAt: true,
+            },
+        });
+
+        return NextResponse.json({
+            success: true,
+            user: updatedUser,
+        });
+    } catch (error) {
+        console.error("Profile Update Error:", error);
+        return NextResponse.json(
+            { error: "Failed to update profile" },
             { status: 500 }
         );
     }

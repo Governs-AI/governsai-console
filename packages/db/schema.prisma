@@ -21,6 +21,8 @@ model Org {
   sessions             WebSocketSession[]
   passkeys             Passkey[]
   pendingConfirmations PendingConfirmation[]
+  budgetLimits         BudgetLimit[]
+  tools                Tool[]
 }
 
 model User {
@@ -42,6 +44,7 @@ model User {
   sessions             WebSocketSession[]
   passkeys             Passkey[]
   pendingConfirmations PendingConfirmation[]
+  budgetLimits         BudgetLimit[]
 }
 
 model Credential {
@@ -207,6 +210,7 @@ model UsageRecord {
   apiKeyId         String?
   providerId       String
   model            String
+  toolName         String?    @map("tool_name")
   promptTokens     Int
   completionTokens Int
   totalTokens      Int
@@ -219,6 +223,7 @@ model UsageRecord {
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
   @@index([providerId, createdAt])
+  @@index([toolName])
 }
 
 model Budget {
@@ -236,6 +241,49 @@ model Budget {
 
   @@index([userId])
   @@index([orgId])
+}
+
+model BudgetLimit {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  userId       String?  @map("user_id")
+  type         String   // "organization" | "user"
+  monthlyLimit Float
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([type])
+  @@index([orgId, type, isActive])
+}
+
+model Tool {
+  id               String   @id @default(cuid())
+  orgId            String   @map("org_id")
+  name             String
+  displayName      String?  @map("display_name")
+  description      String?
+  category         String
+  riskLevel        String   @map("risk_level")
+  scope            String
+  direction        String   @default("both")
+  metadata         Json     @default("{}")
+  requiresApproval Boolean  @default(false) @map("requires_approval")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([category])
+  @@index([riskLevel])
+  @@index([scope])
+  @@index([isActive])
+  @@unique([orgId, name])
 }
 
 model AuditLog {

@@ -234,7 +234,7 @@ export default function ToolCallsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Tool Calls"
-          subtitle={`Monitor AI tool usage and governance decisions for ${orgSlug}`}
+          subtitle={`Monitor AI tool usage specifically - shows only decisions that involve tool execution (subset of all decisions) for ${orgSlug}`}
           actions={
             <div className="flex gap-2">
               <Button
@@ -249,6 +249,22 @@ export default function ToolCallsPage() {
             </div>
           }
         />
+
+        {/* Info Card */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Wrench className="h-5 w-5 text-purple-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-foreground mb-1">About Tool Calls</h3>
+                <p className="text-sm text-muted-foreground">
+                  This page shows <strong>only decisions involving tool execution</strong> (where the tool field is not null). 
+                  For a complete view of all governance decisions including model usage and policy enforcement, see the <strong>Decisions</strong> page.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         {stats && (

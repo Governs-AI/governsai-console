@@ -194,6 +194,37 @@ model Budget {
   // Relations
   user User @relation(fields: [userId], references: [id])
 }
+
+model BudgetLimit {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  userId       String?  @map("user_id")
+  type         String   // "organization" | "user"
+  monthlyLimit Float
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Tool {
+  id               String   @id @default(cuid())
+  orgId            String   @map("org_id")
+  name             String
+  displayName      String?  @map("display_name")
+  description      String?
+  category         String
+  riskLevel        String   @map("risk_level")
+  scope            String
+  direction        String   @default("both")
+  metadata         Json     @default("{}")
+  requiresApproval Boolean  @default(false) @map("requires_approval")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
 ```
 
 #### AuditLog Model
@@ -713,6 +744,127 @@ X-Governs-Key: <api-key>
 }
 ```
 
+### Spend Management API
+
+#### GET /api/spend
+
+**Purpose**: Get spend analytics and budget information
+
+**Query Parameters**:
+- `orgSlug` (required): Organization slug
+- `timeRange` (optional): Time range filter (7d, 30d, 90d, 1y)
+
+**Response**:
+```json
+{
+  "spend": {
+    "totalSpend": 1250.50,
+    "monthlySpend": 450.25,
+    "dailySpend": 15.75,
+    "toolSpend": {
+      "weather.current": 125.50,
+      "weather.forecast": 89.25
+    },
+    "modelSpend": {
+      "gpt-4": 800.00,
+      "gpt-3.5-turbo": 200.25
+    },
+    "userSpend": {
+      "user-123": 300.50,
+      "user-456": 149.75
+    },
+    "budgetLimit": 1000.00,
+    "remainingBudget": 549.75,
+    "isOverBudget": false
+  }
+}
+```
+
+#### GET /api/spend/budget-limits
+
+**Purpose**: Get all budget limits for organization
+
+**Query Parameters**:
+- `orgSlug` (required): Organization slug
+
+**Response**:
+```json
+{
+  "limits": [
+    {
+      "id": "budget-123",
+      "type": "organization",
+      "monthlyLimit": 1000.00,
+      "currentSpend": 450.25,
+      "isActive": true,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+#### POST /api/spend/budget-limits
+
+**Purpose**: Create new budget limit
+
+**Request Body**:
+```json
+{
+  "type": "organization" | "user",
+  "userId": "user-123", // Required for user type
+  "monthlyLimit": 500.00
+}
+```
+
+#### GET /api/spend/tool-costs
+
+**Purpose**: Get tool usage cost breakdown
+
+**Query Parameters**:
+- `orgSlug` (required): Organization slug
+- `timeRange` (optional): Time range filter
+
+**Response**:
+```json
+{
+  "costs": [
+    {
+      "toolName": "weather.current",
+      "totalCalls": 150,
+      "totalCost": 125.50,
+      "avgCostPerCall": 0.84,
+      "lastUsed": "2024-01-15T14:30:00Z",
+      "category": "Weather"
+    }
+  ]
+}
+```
+
+#### GET /api/spend/model-costs
+
+**Purpose**: Get model usage cost breakdown
+
+**Query Parameters**:
+- `orgSlug` (required): Organization slug
+- `timeRange` (optional): Time range filter
+
+**Response**:
+```json
+{
+  "costs": [
+    {
+      "modelName": "gpt-4",
+      "totalTokens": 50000,
+      "totalCost": 800.00,
+      "avgCostPerToken": 0.016,
+      "lastUsed": "2024-01-15T14:30:00Z",
+      "provider": "OpenAI"
+    }
+  ]
+}
+```
+
 ## 🎨 Frontend Components
 
 ### Core UI Components
@@ -880,6 +1032,37 @@ interface MessageType {
 4. Confirmation approved → Chat automatically resumes with tool execution
 5. Tool call executes → Results displayed to user
 
+#### Spend Management Page
+
+**Location**: `apps/platform/app/o/[slug]/spend/page.tsx`
+
+**Purpose**: Comprehensive spend tracking and budget management interface
+
+**Features**:
+- Real-time spend analytics dashboard
+- Budget limit management (organization & user level)
+- Tool usage cost breakdown
+- Model usage cost tracking (placeholder for future)
+- Time range filtering (7d, 30d, 90d, 1y)
+- Multiple view modes (overview, tools, models, users)
+- Budget progress visualization
+- Over-budget alerts and notifications
+- Historical cost analysis
+
+**Key Components**:
+- Spend overview cards (total, monthly, budget, remaining)
+- Budget progress bar with status indicators
+- Tool costs table with call counts and averages
+- Model costs table (placeholder for future implementation)
+- User spending breakdown
+- Budget limits management interface
+
+**API Integration**:
+- `/api/spend` - Main spend analytics
+- `/api/spend/budget-limits` - Budget management
+- `/api/spend/tool-costs` - Tool usage costs
+- `/api/spend/model-costs` - Model usage costs
+
 ## 🔐 Authentication & Authorization
 
 ### Authentication Methods
@@ -1001,10 +1184,15 @@ interface MessageType {
 **Features**:
 
 - Per-organization spending limits
+- Per-user spending limits
 - Real-time cost tracking
 - Automatic request blocking
 - Spending alerts and notifications
 - Historical cost analysis
+- Tool-specific cost breakdown
+- Model usage cost tracking
+- Monthly budget enforcement
+- Budget limit management UI
 
 ## 🛠️ Development Guidelines
 

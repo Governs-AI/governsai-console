@@ -123,9 +123,9 @@ function GovernsAIComingSoon() {
             />
           </span>
         </div>
-        <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+        {/* <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
           Coming Soon
-        </div>
+        </div> */}
       </div>
 
       <style jsx>{`

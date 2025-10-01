@@ -2,10 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Button } from '@governs-ai/ui';
-import { Input } from '@governs-ai/ui';
-import { Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui';
+import { 
+  Button, 
+  Input, 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle,
+  Badge,
+  PageHeader
+} from '@governs-ai/ui';
+import {
+  Shield,
+  CheckCircle,
+  AlertTriangle,
+  Smartphone,
+  Key,
+  RefreshCw
+} from 'lucide-react';
 import QRCode from 'qrcode';
+import PlatformShell from '@/components/platform-shell';
 
 interface TotpStatus {
   enabled: boolean;
@@ -18,6 +34,7 @@ export default function MfaSettingsPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const params = useParams();
@@ -30,11 +47,36 @@ export default function MfaSettingsPage() {
 
   const checkTotpStatus = async () => {
     try {
-      // This would be an API call to get current TOTP status
-      // For now, we'll simulate it
-      setTotpStatus({ enabled: false });
+      setInitialLoading(true);
+      const response = await fetch('/api/mfa/totp/status', {
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTotpStatus({ 
+          enabled: data.enabled || false,
+          secret: data.secret,
+          qrCodeUrl: data.qrCodeUrl
+        });
+      } else {
+        // If no status endpoint exists, check if user has TOTP enabled
+        const response = await fetch('/api/mfa/totp/check', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setTotpStatus({ enabled: data.enabled || false });
+        } else {
+          setTotpStatus({ enabled: false });
+        }
+      }
     } catch (err) {
       console.error('Failed to check TOTP status:', err);
+      setTotpStatus({ enabled: false });
+    } finally {
+      setInitialLoading(false);
     }
   };
 
@@ -103,6 +145,8 @@ export default function MfaSettingsPage() {
       setTotpStatus({ enabled: true });
       setVerificationCode('');
       setQrCodeDataUrl('');
+      // Refresh status to ensure UI is in sync
+      await checkTotpStatus();
     } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
@@ -139,6 +183,8 @@ export default function MfaSettingsPage() {
       setSuccess('TOTP disabled successfully!');
       setTotpStatus({ enabled: false });
       setVerificationCode('');
+      // Refresh status to ensure UI is in sync
+      await checkTotpStatus();
     } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
@@ -146,143 +192,266 @@ export default function MfaSettingsPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                Security Settings
-              </h1>
-              <span className="ml-4 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                {orgSlug}
-              </span>
-            </div>
-          </div>
+  if (initialLoading) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      </header>
+      </PlatformShell>
+    );
+  }
 
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  return (
+    <PlatformShell orgSlug={orgSlug}>
+      <div className="space-y-6">
+        <PageHeader
+          title="Multi-Factor Authentication"
+          subtitle="Add an extra layer of security to your account with TOTP (Time-based One-Time Password)"
+          actions={
+            <div className="flex items-center gap-2">
+              <Badge variant={totpStatus.enabled ? "default" : "secondary"}>
+                {totpStatus.enabled ? (
+                  <>
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Enabled
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Disabled
+                  </>
+                )}
+              </Badge>
+            </div>
+          }
+        />
+
+        {/* Status Messages */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <span className="text-red-700">{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <span className="text-green-700">{success}</span>
+          </div>
+        )}
+
+        {/* MFA Status Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Two-Factor Authentication (2FA)</CardTitle>
-            <p className="text-gray-600">
-              Add an extra layer of security to your account with TOTP (Time-based One-Time Password)
-            </p>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Two-Factor Authentication Status
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
-                {error}
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${totpStatus.enabled ? 'bg-green-100' : 'bg-gray-100'}`}>
+                  <Smartphone className={`h-6 w-6 ${totpStatus.enabled ? 'text-green-600' : 'text-gray-400'}`} />
+                </div>
+                <div>
+                  <p className="font-medium">
+                    {totpStatus.enabled ? '2FA is enabled' : '2FA is not enabled'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {totpStatus.enabled 
+                      ? 'Your account is protected with two-factor authentication'
+                      : 'Add an extra layer of security to your account'
+                    }
+                  </p>
+                </div>
               </div>
-            )}
-
-            {success && (
-              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md">
-                {success}
-              </div>
-            )}
-
-            {!totpStatus.enabled && !totpStatus.secret && (
-              <div className="text-center">
-                <p className="text-gray-600 mb-4">
-                  Two-factor authentication is not enabled for your account.
-                </p>
+              {!totpStatus.enabled && !totpStatus.secret && (
                 <Button onClick={handleSetup} disabled={loading}>
-                  {loading ? 'Setting up...' : 'Enable 2FA'}
-                </Button>
-              </div>
-            )}
-
-            {totpStatus.secret && !totpStatus.enabled && (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <h3 className="text-lg font-medium mb-4">Scan QR Code</h3>
-                  <p className="text-gray-600 mb-4">
-                    Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
-                  </p>
-                  {qrCodeDataUrl && (
-                    <div className="flex justify-center">
-                      <img src={qrCodeDataUrl} alt="QR Code" className="w-48 h-48" />
-                    </div>
+                  {loading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="h-4 w-4 mr-2" />
+                      Enable 2FA
+                    </>
                   )}
-                </div>
-
-                <div>
-                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-1">
-                    Verification Code
-                  </label>
-                  <Input
-                    id="verificationCode"
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="Enter 6-digit code from your app"
-                    maxLength={6}
-                    className="max-w-xs"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter the 6-digit code from your authenticator app
-                  </p>
-                </div>
-
-                <div className="flex space-x-4">
-                  <Button onClick={handleEnable} disabled={loading || !verificationCode}>
-                    {loading ? 'Enabling...' : 'Enable 2FA'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setTotpStatus({ enabled: false });
-                      setQrCodeDataUrl('');
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {totpStatus.enabled && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-green-600 font-medium">2FA is enabled</span>
-                </div>
-
-                <div>
-                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-1">
-                    Verification Code
-                  </label>
-                  <Input
-                    id="verificationCode"
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="Enter 6-digit code to disable"
-                    maxLength={6}
-                    className="max-w-xs"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter the 6-digit code from your authenticator app to disable 2FA
-                  </p>
-                </div>
-
-                <Button
-                  variant="destructive"
-                  onClick={handleDisable}
-                  disabled={loading || !verificationCode}
-                >
-                  {loading ? 'Disabling...' : 'Disable 2FA'}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+
+        {/* Setup Flow */}
+        {totpStatus.secret && !totpStatus.enabled && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Complete 2FA Setup</CardTitle>
+              <p className="text-muted-foreground">
+                Scan the QR code with your authenticator app and enter the verification code
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-lg font-medium mb-4">Scan QR Code</h3>
+                <p className="text-muted-foreground mb-6">
+                  Use your authenticator app (Google Authenticator, Authy, etc.) to scan this QR code
+                </p>
+                {qrCodeDataUrl && (
+                  <div className="flex justify-center">
+                    <div className="p-4 bg-white rounded-lg border-2 border-dashed border-border">
+                      <img src={qrCodeDataUrl} alt="QR Code" className="w-48 h-48" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="max-w-md mx-auto">
+                <label htmlFor="verificationCode" className="block text-sm font-medium mb-2">
+                  Verification Code
+                </label>
+                <Input
+                  id="verificationCode"
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  placeholder="Enter 6-digit code from your app"
+                  maxLength={6}
+                  className="text-center text-lg tracking-widest"
+                />
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Enter the 6-digit code from your authenticator app
+                </p>
+              </div>
+
+              <div className="flex gap-3 justify-center">
+                <Button 
+                  onClick={handleEnable} 
+                  disabled={loading || !verificationCode}
+                  className="min-w-32"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Enabling...
+                    </>
+                  ) : (
+                    'Enable 2FA'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTotpStatus({ enabled: false });
+                    setQrCodeDataUrl('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Disable Flow */}
+        {totpStatus.enabled && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-red-600">Disable 2FA</CardTitle>
+              <p className="text-muted-foreground">
+                Enter your verification code to disable two-factor authentication
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-md">
+                <label htmlFor="verificationCode" className="block text-sm font-medium mb-2">
+                  Verification Code
+                </label>
+                <Input
+                  id="verificationCode"
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  placeholder="Enter 6-digit code to disable"
+                  maxLength={6}
+                  className="text-center text-lg tracking-widest"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Enter the 6-digit code from your authenticator app to disable 2FA
+                </p>
+              </div>
+
+              <Button
+                variant="destructive"
+                onClick={handleDisable}
+                disabled={loading || !verificationCode}
+                className="min-w-32"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Disabling...
+                  </>
+                ) : (
+                  'Disable 2FA'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Security Tips */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Security Tips</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Keep your authenticator app secure</p>
+                  <p className="text-sm text-muted-foreground">
+                    Use a strong passcode or biometric lock on your device
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Backup your recovery codes</p>
+                  <p className="text-sm text-muted-foreground">
+                    Save recovery codes in a secure location
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Use a trusted authenticator app</p>
+                  <p className="text-sm text-muted-foreground">
+                    Google Authenticator, Authy, or Microsoft Authenticator
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Don't share your codes</p>
+                  <p className="text-sm text-muted-foreground">
+                    Never share your verification codes with anyone
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </PlatformShell>
   );
 }
