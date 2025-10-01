@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 function GovernsAIComingSoon() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false); // Default to unmuted
   const [showError, setShowError] = useState(false);
+  const [hasAutoToggled, setHasAutoToggled] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -27,27 +28,39 @@ function GovernsAIComingSoon() {
 
     const playVideo = () => {
       video.play().catch((e) => {
-        console.log('Autoplay prevented:', e);
+        console.log("Autoplay prevented:", e);
       });
     };
 
-    video.addEventListener('loadeddata', handleLoadedData);
-    video.addEventListener('error', handleError);
-    video.addEventListener('ended', handleEnded);
+    const autoToggleSound = () => {
+      if (!hasAutoToggled && video) {
+        // Auto-toggle sound after a short delay
+        setTimeout(() => {
+          video.muted = false;
+          setIsMuted(false);
+          setHasAutoToggled(true);
+        }, 2000); // 2 second delay
+      }
+    };
+
+    video.addEventListener("loadeddata", handleLoadedData);
+    video.addEventListener("error", handleError);
+    video.addEventListener("ended", handleEnded);
 
     playVideo();
+    autoToggleSound();
 
     const handleClick = () => {
       playVideo();
     };
 
-    document.addEventListener('click', handleClick, { once: true });
+    document.addEventListener("click", handleClick, { once: true });
 
     return () => {
-      video.removeEventListener('loadeddata', handleLoadedData);
-      video.removeEventListener('error', handleError);
-      video.removeEventListener('ended', handleEnded);
-      document.removeEventListener('click', handleClick);
+      video.removeEventListener("loadeddata", handleLoadedData);
+      video.removeEventListener("error", handleError);
+      video.removeEventListener("ended", handleEnded);
+      document.removeEventListener("click", handleClick);
     };
   }, []);
 
@@ -65,7 +78,7 @@ function GovernsAIComingSoon() {
         <video
           ref={videoRef}
           autoPlay
-          muted
+          muted={isMuted}
           loop
           playsInline
           className="h-screen w-screen opacity-[0.99]"
@@ -79,9 +92,13 @@ function GovernsAIComingSoon() {
       <div className="fixed inset-0 bg-black/20 pointer-events-none z-10" />
 
       {/* Gradient Overlay */}
-      <div className="fixed inset-0 pointer-events-none z-10" style={{
-        background: 'radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.4) 100%)'
-      }} />
+      <div
+        className="fixed inset-0 pointer-events-none z-10"
+        style={{
+          background:
+            "radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.4) 100%)",
+        }}
+      />
 
       {/* Loading Indicator */}
       {/* {!isLoaded && !showError && (
@@ -97,27 +114,31 @@ function GovernsAIComingSoon() {
       )}
 
       {/* Sound Toggle - Commented out as in original */}
-      {/* <button
+      <button
         onClick={toggleSound}
         className="fixed top-[5vh] right-[5vw] z-30 bg-white/10 border border-white/20 text-white px-4 py-3 rounded-full cursor-pointer text-sm tracking-wider transition-all duration-300 hover:bg-white/20 hover:scale-105 backdrop-blur-md md:top-[3vh] md:right-[3vw] md:px-3.5 md:py-2.5 md:text-xs"
       >
-        {isMuted ? '🔇 Unmute' : '🔊 Mute'}
-      </button> */}
+        {isMuted ? "🔇" : "🔊"}
+      </button>
 
       {/* Content */}
       <div className="fixed bottom-[5vh] left-1/2 -translate-x-1/2 z-20 text-center text-white opacity-0 animate-fadeInUp md:bottom-[10vh]">
         <div className="relative overflow-hidden text-[clamp(1.5rem,4vw,3rem)] font-light tracking-[0.2em] uppercase mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">
           <span className="relative">
             Governs AI
-            <span className="absolute top-0 left-0 w-full h-full animate-shine" style={{
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.4) 80%, transparent 100%)',
-              animationDelay: '6s'
-            }} />
+            <span
+              className="absolute top-0 left-0 w-full h-full animate-shine"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.4) 80%, transparent 100%)",
+                animationDelay: "6s",
+              }}
+            />
           </span>
         </div>
-        <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+        {/* <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
           Coming Soon
-        </div>
+        </div> */}
       </div>
 
       <style jsx>{`
@@ -164,7 +185,5 @@ function GovernsAIComingSoon() {
 }
 
 export default function LandingPage() {
-  return (
-    <GovernsAIComingSoon />
-  );
+  return <GovernsAIComingSoon />;
 }
