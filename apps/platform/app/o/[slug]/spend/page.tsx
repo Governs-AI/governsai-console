@@ -56,6 +56,13 @@ interface BudgetLimit {
   updatedAt: string;
 }
 
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface ToolCost {
   toolName: string;
   totalCalls: number;
@@ -89,11 +96,21 @@ export default function SpendPage() {
   const [budgetLimits, setBudgetLimits] = useState<BudgetLimit[]>([]);
   const [toolCosts, setToolCosts] = useState<ToolCost[]>([]);
   const [modelCosts, setModelCosts] = useState<ModelCost[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<BudgetLimit | null>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
   const [selectedView, setSelectedView] = useState('overview');
+  
+  // Budget form state
+  const [budgetType, setBudgetType] = useState<'organization' | 'user'>('organization');
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [monthlyLimit, setMonthlyLimit] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const params = useParams();
   const orgSlug = params.slug as string;
@@ -126,17 +143,24 @@ export default function SpendPage() {
         credentials: 'include',
       });
 
-      const [spendData, budgetData, toolCostsData, modelCostsData] = await Promise.all([
+      // Fetch members
+      const membersResponse = await fetch(`/api/spend/members?orgSlug=${orgSlug}`, {
+        credentials: 'include',
+      });
+
+      const [spendData, budgetData, toolCostsData, modelCostsData, membersData] = await Promise.all([
         spendResponse.ok ? spendResponse.json() : { spend: {} },
         budgetResponse.ok ? budgetResponse.json() : { limits: [] },
         toolCostsResponse.ok ? toolCostsResponse.json() : { costs: [] },
-        modelCostsResponse.ok ? modelCostsResponse.json() : { costs: [] }
+        modelCostsResponse.ok ? modelCostsResponse.json() : { costs: [] },
+        membersResponse.ok ? membersResponse.json() : { members: [] }
       ]);
 
       setSpendData(spendData.spend || {});
       setBudgetLimits(budgetData.limits || []);
       setToolCosts(toolCostsData.costs || []);
       setModelCosts(modelCostsData.costs || []);
+      setMembers(membersData.members || []);
     } catch (err) {
       console.error('Error fetching spend data:', err);
       setError('Failed to load spend data');
@@ -174,6 +198,146 @@ export default function SpendPage() {
     return { status: 'good', color: 'green' };
   };
 
+  const handleCreateBudget = async () => {
+    if (!monthlyLimit || parseFloat(monthlyLimit) <= 0) {
+      setError('Please enter a valid monthly limit');
+      return;
+    }
+
+    if (budgetType === 'user' && !selectedUserId) {
+      setError('Please select a user for user budget limit');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError('');
+      setSuccess('');
+
+      const response = await fetch(`/api/spend/budget-limits?orgSlug=${orgSlug}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          type: budgetType,
+          userId: budgetType === 'user' ? selectedUserId : undefined,
+          monthlyLimit: parseFloat(monthlyLimit),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create budget limit');
+      }
+
+      setSuccess('Budget limit created successfully!');
+      setShowBudgetForm(false);
+      resetBudgetForm();
+      await fetchSpendData();
+    } catch (err) {
+      console.error('Error creating budget limit:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create budget limit');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditBudget = (budget: BudgetLimit) => {
+    setEditingBudget(budget);
+    setBudgetType(budget.type);
+    setSelectedUserId(budget.userId || '');
+    setMonthlyLimit(budget.monthlyLimit.toString());
+    setIsActive(budget.isActive);
+    setShowBudgetForm(true);
+  };
+
+  const handleUpdateBudget = async () => {
+    if (!editingBudget) return;
+    if (!monthlyLimit || parseFloat(monthlyLimit) <= 0) {
+      setError('Please enter a valid monthly limit');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError('');
+      setSuccess('');
+
+      const response = await fetch(`/api/spend/budget-limits/${editingBudget.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          monthlyLimit: parseFloat(monthlyLimit),
+          isActive,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update budget limit');
+      }
+
+      setSuccess('Budget limit updated successfully!');
+      setShowBudgetForm(false);
+      setEditingBudget(null);
+      resetBudgetForm();
+      await fetchSpendData();
+    } catch (err) {
+      console.error('Error updating budget limit:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update budget limit');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBudget = async (budgetId: string) => {
+    if (!confirm('Are you sure you want to delete this budget limit?')) {
+      return;
+    }
+
+    try {
+      setError('');
+      setSuccess('');
+
+      const response = await fetch(`/api/spend/budget-limits/${budgetId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete budget limit');
+      }
+
+      setSuccess('Budget limit deleted successfully!');
+      await fetchSpendData();
+    } catch (err) {
+      console.error('Error deleting budget limit:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete budget limit');
+    }
+  };
+
+  const resetBudgetForm = () => {
+    setBudgetType('organization');
+    setSelectedUserId('');
+    setMonthlyLimit('');
+    setIsActive(true);
+    setEditingBudget(null);
+  };
+
+  const handleCloseBudgetForm = () => {
+    setShowBudgetForm(false);
+    setEditingBudget(null);
+    resetBudgetForm();
+    setError('');
+    setSuccess('');
+  };
+
   if (loading) {
     return (
       <PlatformShell orgSlug={orgSlug}>
@@ -196,7 +360,10 @@ export default function SpendPage() {
                 <Settings className="h-4 w-4 mr-2" />
                 Manage Budgets
               </Button>
-              <Button>
+              <Button onClick={() => {
+                resetBudgetForm();
+                setShowBudgetForm(true);
+              }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Budget Limit
               </Button>
@@ -204,11 +371,18 @@ export default function SpendPage() {
           }
         />
 
-        {/* Error Message */}
+        {/* Status Messages */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             <span className="text-red-700">{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <span className="text-green-700">{success}</span>
           </div>
         )}
 
@@ -506,10 +680,19 @@ export default function SpendPage() {
                           {formatPercentage(limit.currentSpend, limit.monthlyLimit)} used
                         </p>
                       </div>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleEditBudget(limit)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteBudget(limit.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -519,6 +702,110 @@ export default function SpendPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Budget Form Modal */}
+        {showBudgetForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">
+                  {editingBudget ? 'Edit Budget Limit' : 'Add Budget Limit'}
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCloseBudgetForm}
+                >
+                  ×
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Budget Type
+                  </label>
+                  <select
+                    value={budgetType}
+                    onChange={(e) => setBudgetType(e.target.value as 'organization' | 'user')}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={submitting}
+                  >
+                    <option value="organization">Organization</option>
+                    <option value="user">User</option>
+                  </select>
+                </div>
+
+                {budgetType === 'user' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      User
+                    </label>
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={submitting}
+                    >
+                      <option value="">Select a user</option>
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name} ({member.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Monthly Limit ($)
+                  </label>
+                  <Input
+                    type="number"
+                    value={monthlyLimit}
+                    onChange={(e) => setMonthlyLimit(e.target.value)}
+                    placeholder="Enter monthly limit"
+                    min="0"
+                    step="0.01"
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    disabled={submitting}
+                    className="rounded border-border"
+                  />
+                  <label htmlFor="isActive" className="text-sm font-medium">
+                    Active
+                  </label>
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={editingBudget ? handleUpdateBudget : handleCreateBudget}
+                    disabled={submitting}
+                    className="flex-1"
+                  >
+                    {submitting ? 'Saving...' : (editingBudget ? 'Update' : 'Create')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCloseBudgetForm}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PlatformShell>
   );
