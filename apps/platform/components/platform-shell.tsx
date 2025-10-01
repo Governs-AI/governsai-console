@@ -1,22 +1,24 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { cn, Button } from '@governs-ai/ui';
 import { 
   LayoutDashboard, 
-  FileText, 
   Activity, 
-  CheckCircle, 
   DollarSign, 
   Shield, 
   Key, 
-  AlertTriangle, 
   Settings,
   Search,
   Bell,
   User,
-  ChevronDown
+  ChevronDown,
+  MoreVertical,
+  LogOut,
+  UserCircle
 } from 'lucide-react';
+import { useUser } from '@/lib/user-context';
 
 interface PlatformShellProps {
   children: React.ReactNode;
@@ -39,7 +41,44 @@ const getNavigation = (orgSlug: string) => [
 
 export default function PlatformShell({ children, orgSlug = 'acme-inc' }: PlatformShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
+  const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const router = useRouter();
+  const { user, loading: userLoading } = useUser();
   const navigation = getNavigation(orgSlug);
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        router.push('/auth/login');
+      } else {
+        console.error('Logout failed');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Close user menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      if (userMenuOpen) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    if (userMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -80,11 +119,64 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
           <div className="border-t border-border p-4">
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                <User className="h-4 w-4" />
+                <UserCircle className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">John Doe</p>
-                <p className="text-xs text-muted-foreground truncate">john@acme.com</p>
+                {userLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-4 bg-muted rounded w-20 mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-24"></div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {user?.name || 'User'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user?.email || 'user@example.com'}
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+                
+                {userMenuOpen && (
+                  <div 
+                    className="absolute bottom-full right-0 mb-2 w-48 bg-card border border-border rounded-md shadow-lg z-50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          router.push('/profile');
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                      >
+                        <User className="h-4 w-4" />
+                        Profile
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          handleLogout();
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
