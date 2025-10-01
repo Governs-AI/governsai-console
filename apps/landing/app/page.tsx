@@ -5,9 +5,8 @@ import { useEffect, useRef, useState } from "react";
 function GovernsAIComingSoon() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isMuted, setIsMuted] = useState(false); // Default to unmuted
+  const [isMuted, setIsMuted] = useState(true);
   const [showError, setShowError] = useState(false);
-  const [hasAutoToggled, setHasAutoToggled] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -27,29 +26,9 @@ function GovernsAIComingSoon() {
     };
 
     const playVideo = () => {
-      // Ensure video starts muted for autoplay compliance
-      video.muted = true;
-      setIsMuted(true);
-
       video.play().catch((e) => {
         console.log("Autoplay prevented:", e);
       });
-    };
-
-    const autoToggleSound = () => {
-      if (!hasAutoToggled && video) {
-        // Auto-toggle sound after a short delay
-        setTimeout(() => {
-          try {
-            video.muted = false;
-            setIsMuted(false);
-            setHasAutoToggled(true);
-            console.log("Auto-unmuted video");
-          } catch (error) {
-            console.log("Could not auto-unmute video:", error);
-          }
-        }, 2000); // 2 second delay
-      }
     };
 
     video.addEventListener("loadeddata", handleLoadedData);
@@ -57,16 +36,9 @@ function GovernsAIComingSoon() {
     video.addEventListener("ended", handleEnded);
 
     playVideo();
-    autoToggleSound();
 
     const handleClick = () => {
       playVideo();
-      // Also try to unmute on user interaction
-      if (video && isMuted) {
-        video.muted = false;
-        setIsMuted(false);
-        setHasAutoToggled(true);
-      }
     };
 
     document.addEventListener("click", handleClick, { once: true });
@@ -93,7 +65,7 @@ function GovernsAIComingSoon() {
         <video
           ref={videoRef}
           autoPlay
-          muted={isMuted}
+          muted
           loop
           playsInline
           className="h-screen w-screen opacity-[0.99]"
@@ -151,9 +123,9 @@ function GovernsAIComingSoon() {
             />
           </span>
         </div>
-        {/* <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+        <div className="text-[clamp(0.8rem,2vw,1.2rem)] font-extralight tracking-[0.1em] opacity-80 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
           Coming Soon
-        </div> */}
+        </div>
       </div>
 
       <style jsx>{`
