@@ -154,6 +154,7 @@ export default function Chat() {
       
       // Instead of re-sending the original message, send a continuation request
       // that indicates the confirmation was approved and includes the correlation ID
+      // Include the original user message content so the LLM can generate the tool call again
       const continuationMessage = `[CONFIRMATION_APPROVED:${correlationId}] Please continue with the original request: ${userMessage.content}`;
       await handleSubmitWithMessage(continuationMessage, resumedAssistantMessage.id);
     } catch (error) {

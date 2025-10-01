@@ -11,7 +11,7 @@ import { getToolMetadata } from '@/lib/tool-metadata';
 import { fetchPoliciesFromPlatform, registerAgentTools, registerToolsWithMetadata, getToolMetadataFromPlatform } from '@/lib/platform-api';
 
 // Helper function to execute tool calls
-async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string, platformToolMetadata?: Record<string, any>) {
+async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string, platformToolMetadata?: Record<string, any>, skipPrecheck: boolean = false) {
   try {
     console.log('Executing tool call:', toolCall.function.name, 'with args:', toolCall.function.arguments);
 
@@ -41,15 +41,26 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
     const policy = platformData.policy;
     
     // Create MCP precheck request for the tool call with policy and tool config
-    const precheckRequest = createMCPPrecheckRequest(
-      toolCall.function.name, 
-      args, 
-      uuidv4(), 
-      policy, 
-      toolMetadata
-    );
+    let precheckResponse;
+    
+    if (skipPrecheck) {
+      console.log(`✅ SKIPPING PRECHECK FOR APPROVED REQUEST: ${toolCall.function.name}`);
+      precheckResponse = {
+        decision: 'allow' as const,
+        reasons: ['Request previously approved'],
+        content: { args }
+      };
+    } else {
+      const precheckRequest = createMCPPrecheckRequest(
+        toolCall.function.name, 
+        args, 
+        uuidv4(), 
+        policy, 
+        toolMetadata
+      );
 
-    const precheckResponse = await precheck(precheckRequest, userId, apiKey);
+      precheckResponse = await precheck(precheckRequest, userId, apiKey);
+    }
 
 
     // Send tool call decision
@@ -97,7 +108,7 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
           'X-Governs-Key': apiKey || '',
         },
         body: JSON.stringify({
-          correlationId: precheckRequest.corr_id || uuidv4(),
+          correlationId: uuidv4(),
           requestType: 'tool_call',
           requestDesc: `Execute tool: ${toolCall.function.name}`,
           requestPayload: {
@@ -249,14 +260,17 @@ export async function POST(request: NextRequest) {
           const approvedCorrelationId = confirmationApprovedMatch[1];
           console.log(`✅ CONFIRMATION APPROVED CONTINUATION: ${approvedCorrelationId}`);
           
+          // Clean up the messages by removing the confirmation token
+          const cleanedMessages = messages.map(msg => ({
+            ...msg,
+            content: msg.content.replace(/\[CONFIRMATION_APPROVED:[^\]]+\]\s*/, '') // Remove the token
+          }));
+          
           precheckResponse = {
             decision: 'allow' as const,
             reasons: ['Confirmation previously approved'],
             content: {
-              messages: messages.map(msg => ({
-                ...msg,
-                content: msg.content.replace(/\[CONFIRMATION_APPROVED:[^\]]+\]\s*/, '') // Remove the token
-              }))
+              messages: cleanedMessages
             }
           };
         } else {
@@ -388,7 +402,9 @@ When using tools, make the tool call directly. Don't explain beforehand.`,
               writer.writeToolCall(toolCall);
               
               // Execute the tool call with platform metadata
-              await executeToolCall(toolCall, writer, userId, apiKey, platformToolMetadata);
+              // Skip precheck if this is a confirmation approved continuation
+              const skipPrecheck = confirmationApprovedMatch !== null;
+              await executeToolCall(toolCall, writer, userId, apiKey, platformToolMetadata, skipPrecheck);
             }
           }
           
