@@ -7,7 +7,6 @@ import { SSEWriter } from '@/lib/sse';
 import { ChatRequest, Provider, Message, ToolCall } from '@/lib/types';
 import { getPrecheckUserIdDetails } from '@/lib/utils';
 import { AVAILABLE_TOOLS } from '@/lib/tools';
-import { DEFAULT_POLICY } from '@/lib/default-policy';
 import { getToolMetadata } from '@/lib/tool-metadata';
 import { fetchPoliciesFromPlatform, registerAgentTools, registerToolsWithMetadata, getToolMetadataFromPlatform } from '@/lib/platform-api';
 
@@ -15,18 +14,31 @@ import { fetchPoliciesFromPlatform, registerAgentTools, registerToolsWithMetadat
 async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string, platformToolMetadata?: Record<string, any>) {
   try {
     console.log('Executing tool call:', toolCall.function.name, 'with args:', toolCall.function.arguments);
-    
+
     // Parse tool arguments
     const args = JSON.parse(toolCall.function.arguments);
-    
+
     // Get tool metadata from platform or fallback to local
-    const toolMetadata = platformToolMetadata ? 
+    const toolMetadata = platformToolMetadata ?
       getToolMetadataFromPlatform(toolCall.function.name, platformToolMetadata) || getToolMetadata(toolCall.function.name) :
       getToolMetadata(toolCall.function.name);
-    
+
     // Fetch current policy from platform
     const platformData = await fetchPoliciesFromPlatform();
-    const policy = platformData.policy || DEFAULT_POLICY;
+
+    // If no policy found, block the tool call
+    if (!platformData.policy) {
+      writer.writeToolResult({
+        tool_call_id: toolCall.id,
+        success: false,
+        error: 'No governance policy configured. Tool calls blocked.',
+        decision: 'block',
+        reasons: ['No policy found in platform'],
+      });
+      return;
+    }
+
+    const policy = platformData.policy;
     
     // Create MCP precheck request for the tool call with policy and tool config
     const precheckRequest = createMCPPrecheckRequest(
@@ -38,36 +50,87 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
     );
 
     const precheckResponse = await precheck(precheckRequest, userId, apiKey);
-  
-    
+
+
     // Send tool call decision
     writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
-    
+
     // Handle precheck decision
     if (precheckResponse.decision === 'block') {
       console.log(`❌ TOOL CALL BLOCKED: ${toolCall.function.name}`);
-      
+
       // Clean up the error message to be more user-friendly
       let userFriendlyError = 'Policy violation';
       if (precheckResponse.reasons && precheckResponse.reasons.length > 0) {
         // Filter out technical precheck service messages
-        const cleanReasons = precheckResponse.reasons.filter(reason => 
-          !reason.includes('Precheck service') && 
+        const cleanReasons = precheckResponse.reasons.filter(reason =>
+          !reason.includes('Precheck service') &&
           !reason.includes('connection failed') &&
           !reason.includes('service not available')
         );
-        
+
         if (cleanReasons.length > 0) {
           userFriendlyError = cleanReasons.join(', ');
         }
       }
-      
+
       writer.writeToolResult({
         tool_call_id: toolCall.id,
         success: false,
         error: `Tool call blocked: ${userFriendlyError}`,
         decision: precheckResponse.decision,
         reasons: precheckResponse.reasons,
+      });
+      return;
+    }
+
+    // Handle confirmation requirement
+    if (precheckResponse.decision === 'confirm') {
+      console.log(`⏸️  TOOL CALL REQUIRES CONFIRMATION: ${toolCall.function.name}`);
+
+      // Create pending confirmation via platform API
+      const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
+      const confirmationResponse = await fetch(`${platformUrl}/api/v1/confirmation/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Governs-Key': apiKey || '',
+        },
+        body: JSON.stringify({
+          correlationId: precheckRequest.corr_id || uuidv4(),
+          requestType: 'tool_call',
+          requestDesc: `Execute tool: ${toolCall.function.name}`,
+          requestPayload: {
+            tool: toolCall.function.name,
+            args: JSON.parse(toolCall.function.arguments),
+          },
+          decision: precheckResponse.decision,
+          reasons: precheckResponse.reasons,
+        }),
+      });
+
+      if (!confirmationResponse.ok) {
+        writer.writeToolResult({
+          tool_call_id: toolCall.id,
+          success: false,
+          error: 'Failed to create confirmation request',
+          decision: precheckResponse.decision,
+          reasons: precheckResponse.reasons,
+        });
+        return;
+      }
+
+      const confirmationData = await confirmationResponse.json();
+
+      writer.writeToolResult({
+        tool_call_id: toolCall.id,
+        success: false,
+        error: 'Confirmation required',
+        decision: precheckResponse.decision,
+        reasons: precheckResponse.reasons,
+        confirmationRequired: true,
+        correlationId: confirmationData.confirmation.correlationId,
+        confirmationUrl: `${platformUrl}/confirm/${confirmationData.confirmation.correlationId}`,
       });
       return;
     }
@@ -151,8 +214,18 @@ export async function POST(request: NextRequest) {
       try {
         // Step 1: Fetch policies and tool metadata from platform
         const platformData = await fetchPoliciesFromPlatform();
-        const policy = platformData.policy || DEFAULT_POLICY;
         const platformToolMetadata = platformData.toolMetadata || {};
+
+        // If no policy found, block the request for security
+        if (!platformData.policy) {
+          writer.writeError(
+            'No governance policy configured. Please configure a policy in the platform or run the database seed script.'
+          );
+          writer.close();
+          return;
+        }
+
+        const policy = platformData.policy;
         
         // Register this agent's tools with the platform (with full metadata for auto-discovery)
         await registerToolsWithMetadata(AVAILABLE_TOOLS);
@@ -181,6 +254,47 @@ export async function POST(request: NextRequest) {
           console.log('❌ REQUEST BLOCKED BY PRECHECK');
           writer.writeError(
             `Request blocked: ${precheckResponse.reasons?.join(', ') || 'Policy violation'}`
+          );
+          writer.close();
+          return;
+        }
+
+        // Handle confirmation requirement for chat
+        if (precheckResponse.decision === 'confirm') {
+          console.log('⏸️  CHAT REQUEST REQUIRES CONFIRMATION');
+
+          // Create pending confirmation via platform API
+          const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
+          const confirmationResponse = await fetch(`${platformUrl}/api/v1/confirmation/create`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Governs-Key': apiKey || '',
+            },
+            body: JSON.stringify({
+              correlationId: corrId,
+              requestType: 'chat',
+              requestDesc: `Chat request with ${messages.length} message(s)`,
+              requestPayload: {
+                messages: messages.slice(-3), // Only send last 3 messages for context
+                provider,
+              },
+              decision: precheckResponse.decision,
+              reasons: precheckResponse.reasons,
+            }),
+          });
+
+          if (!confirmationResponse.ok) {
+            writer.writeError('Failed to create confirmation request');
+            writer.close();
+            return;
+          }
+
+          const confirmationData = await confirmationResponse.json();
+
+          writer.writeError(
+            `Confirmation required: ${precheckResponse.reasons?.join(', ') || 'User confirmation needed'}\n\n` +
+            `Please visit: ${platformUrl}/confirm/${confirmationData.confirmation.correlationId}`
           );
           writer.close();
           return;

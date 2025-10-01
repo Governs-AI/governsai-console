@@ -1,5 +1,16 @@
 import { PolicyConfig } from './types';
 
+/**
+ * ⚠️ DEPRECATED: These policies are kept for reference and testing only.
+ *
+ * In production, policies should be managed through the Platform API:
+ * - Create/update policies in the Platform UI or via API
+ * - Run `pnpm db:seed` to create default policies in the database
+ * - Policies are fetched from /api/agents/policies at runtime
+ *
+ * If no policy is found, requests will be BLOCKED for security.
+ */
+
 // Default policy configuration for governance
 export const DEFAULT_POLICY: PolicyConfig = {
   version: 'v1',
@@ -10,12 +21,12 @@ export const DEFAULT_POLICY: PolicyConfig = {
   tool_access: {
     'weather.current': {
       direction: 'ingress',
-      action: 'allow',
+      action: 'confirm',
       allow_pii: {},
     },
     'weather.forecast': {
       direction: 'ingress',
-      action: 'allow',
+      action: 'confirm',
       allow_pii: {},
     },
     'payment.process': {

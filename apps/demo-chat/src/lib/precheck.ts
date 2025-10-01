@@ -134,7 +134,7 @@ export function createMCPPrecheckRequest(
   const rawText = `MCP Tool Call: ${tool} with arguments: ${JSON.stringify(args)}`;
   
   return {
-    tool: `mcp.${tool}`,
+    tool: tool, // Use the actual tool name, not "mcp.${tool}"
     scope: toolConfig?.scope || 'net.external',
     raw_text: rawText,
     payload: {

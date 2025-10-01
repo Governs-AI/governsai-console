@@ -69,14 +69,14 @@ async function main() {
       toolAccess: {
         'weather.current': {
           direction: 'egress',
-          action: 'allow',
+          action: 'confirm',
           allow_pii: {
             'PII:location': 'pass_through',
           },
         },
         'weather.forecast': {
           direction: 'egress',
-          action: 'allow',
+          action: 'confirm',
           allow_pii: {
             'PII:location': 'pass_through',
           },
@@ -153,10 +153,12 @@ async function main() {
   ];
 
   for (const toolData of tools) {
-    const tool = await prisma.toolConfig.create({
-      data: toolData,
+    const tool = await prisma.toolConfig.upsert({
+      where: { toolName: toolData.toolName },
+      update: toolData,
+      create: toolData,
     });
-    console.log('✅ Created tool config:', { toolName: tool.toolName, category: tool.category });
+    console.log('✅ Created/updated tool config:', { toolName: tool.toolName, category: tool.category });
   }
 
   console.log('🎉 Database seeded successfully!');

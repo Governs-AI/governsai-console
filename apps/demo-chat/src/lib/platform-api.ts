@@ -33,8 +33,6 @@ export async function fetchPoliciesFromPlatform(): Promise<PlatformPolicyRespons
     url.searchParams.set('userId', userId);
     url.searchParams.set('apiKey', apiKey);
 
-    console.log(":::::::", url.toString())
-
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
@@ -47,13 +45,23 @@ export async function fetchPoliciesFromPlatform(): Promise<PlatformPolicyRespons
     }
 
     const data = await response.json();
+
+    // Warn if no policy found - this should be configured in the platform
+    if (!data.policy) {
+      console.error('❌ No policy found in platform database!');
+      console.error('   Please create a policy in the platform UI or run: pnpm db:seed');
+      console.error('   Blocking all requests for security.');
+    }
+
     return data;
   } catch (error) {
-    console.warn('⚠️  Platform API not available - using default policy');
+    console.error('❌ Platform API not available - BLOCKING all requests for security');
     if (error instanceof Error) {
-      console.warn('Error details:', error.message);
+      console.error('   Error details:', error.message);
     }
-    // Return default policy if platform is unavailable
+    console.error('   Please ensure platform is running at:', PLATFORM_BASE_URL);
+
+    // Return null policy if platform is unavailable - precheck will handle blocking
     return {
       policy: null,
       toolMetadata: {},
