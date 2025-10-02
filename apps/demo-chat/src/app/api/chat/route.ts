@@ -9,6 +9,41 @@ import { getPrecheckUserIdDetails } from '@/lib/utils';
 import { AVAILABLE_TOOLS } from '@/lib/tools';
 import { getToolMetadata } from '@/lib/tool-metadata';
 import { fetchPoliciesFromPlatform, registerAgentTools, registerToolsWithMetadata, getToolMetadataFromPlatform } from '@/lib/platform-api';
+import { calculateCost, getProvider, getCostType } from '@governs-ai/common-utils';
+
+// Helper function to record usage after AI call
+async function recordUsage(
+  userId: string,
+  orgId: string,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  tool?: string,
+  correlationId?: string,
+  metadata?: Record<string, any>
+) {
+  try {
+    const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
+    
+    await fetch(`${platformUrl}/api/usage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        orgId,
+        model,
+        inputTokens,
+        outputTokens,
+        tool,
+        correlationId,
+        metadata,
+      }),
+    });
+  } catch (error) {
+    console.error('Failed to record usage:', error);
+    // Don't throw - usage recording failure shouldn't break the chat
+  }
+}
 
 // Helper function to execute tool calls
 async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: string, apiKey?: string, platformToolMetadata?: Record<string, any>, skipPrecheck: boolean = false) {
@@ -237,6 +272,7 @@ export async function POST(request: NextRequest) {
         }
 
         const policy = platformData.policy;
+        const orgId = platformData.orgId || 'default-org'; // Get orgId from platform data
         
         // Register this agent's tools with the platform (with full metadata for auto-discovery)
         await registerToolsWithMetadata(AVAILABLE_TOOLS);
@@ -365,6 +401,14 @@ export async function POST(request: NextRequest) {
         // Step 4: Stream tokens with tool calling support
         const modelToUse = model || chatProvider.getDefaultModel();
         
+        // Track usage data for recording
+        let usageData: {
+          inputTokens: number;
+          outputTokens: number;
+          model: string;
+          provider: string;
+        } | null = null;
+        
         try {
           // Enable tools for both OpenAI and Ollama providers
           const tools = AVAILABLE_TOOLS;
@@ -405,10 +449,35 @@ When using tools, make the tool call directly. Don't explain beforehand.`,
               // Skip precheck if this is a confirmation approved continuation
               const skipPrecheck = confirmationApprovedMatch !== null;
               await executeToolCall(toolCall, writer, userId, apiKey, platformToolMetadata, skipPrecheck);
+            } else if (chunk.type === 'usage') {
+              // Capture usage data for recording
+              usageData = {
+                inputTokens: chunk.data.prompt_tokens || 0,
+                outputTokens: chunk.data.completion_tokens || 0,
+                model: modelToUse,
+                provider: provider,
+              };
             }
           }
           
           writer.writeDone();
+          
+          // Record usage after successful completion
+          if (usageData && userId && orgId) {
+            await recordUsage(
+              userId,
+              orgId,
+              usageData.model,
+              usageData.inputTokens,
+              usageData.outputTokens,
+              'chat',
+              corrId,
+              {
+                messageCount: processedMessages.length,
+                provider: usageData.provider,
+              }
+            );
+          }
         } catch (error) {
           writer.writeError(
             `Streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const usageRecords = await prisma.usageRecord.findMany({
       where: {
         orgId,
-        createdAt: {
+        timestamp: {
           gte: startDate,
           lte: now,
         },
@@ -68,26 +68,26 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Calculate spend data
-    const totalSpend = usageRecords.reduce((sum, record) => sum + (record.cost || 0), 0);
+    // Calculate spend data - convert Decimal to number
+    const totalSpend = usageRecords.reduce((sum, record) => sum + Number(record.cost || 0), 0);
     
     // Calculate monthly spend (last 30 days)
     const monthlyStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const monthlySpend = usageRecords
-      .filter(record => record.createdAt >= monthlyStartDate)
-      .reduce((sum, record) => sum + (record.cost || 0), 0);
+      .filter(record => record.timestamp >= monthlyStartDate)
+      .reduce((sum, record) => sum + Number(record.cost || 0), 0);
 
     // Calculate daily spend (today)
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dailySpend = usageRecords
-      .filter(record => record.createdAt >= todayStart)
-      .reduce((sum, record) => sum + (record.cost || 0), 0);
+      .filter(record => record.timestamp >= todayStart)
+      .reduce((sum, record) => sum + Number(record.cost || 0), 0);
 
     // Calculate tool spend
     const toolSpend: Record<string, number> = {};
     usageRecords.forEach(record => {
-      if (record.toolName) {
-        toolSpend[record.toolName] = (toolSpend[record.toolName] || 0) + (record.cost || 0);
+      if (record.tool) {
+        toolSpend[record.tool] = (toolSpend[record.tool] || 0) + Number(record.cost || 0);
       }
     });
 
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const modelSpend: Record<string, number> = {};
     usageRecords.forEach(record => {
       if (record.model) {
-        modelSpend[record.model] = (modelSpend[record.model] || 0) + (record.cost || 0);
+        modelSpend[record.model] = (modelSpend[record.model] || 0) + Number(record.cost || 0);
       }
     });
 
@@ -103,11 +103,11 @@ export async function GET(request: NextRequest) {
     const userSpend: Record<string, number> = {};
     usageRecords.forEach(record => {
       if (record.userId) {
-        userSpend[record.userId] = (userSpend[record.userId] || 0) + (record.cost || 0);
+        userSpend[record.userId] = (userSpend[record.userId] || 0) + Number(record.cost || 0);
       }
     });
 
-    const monthlyLimit = budgetLimit?.monthlyLimit || 0;
+    const monthlyLimit = Number(budgetLimit?.monthlyLimit || 0);
     const remainingBudget = monthlyLimit - monthlySpend;
     const isOverBudget = monthlySpend > monthlyLimit;
 
@@ -122,6 +122,16 @@ export async function GET(request: NextRequest) {
       remainingBudget,
       isOverBudget,
     };
+
+    console.log('Spend data calculated:', {
+      totalSpend,
+      monthlySpend,
+      dailySpend,
+      budgetLimit: monthlyLimit,
+      remainingBudget,
+      usageRecordsCount: usageRecords.length,
+      budgetLimitExists: !!budgetLimit
+    });
 
     return NextResponse.json({ spend: spendData });
 

@@ -100,6 +100,14 @@ export class SimpleWebSocketHandler {
           await this.handleIngest(connection, message);
           break;
           
+        case 'SUB':
+          await this.handleSubscribe(connection, message);
+          break;
+          
+        case 'UNSUB':
+          await this.handleUnsubscribe(connection, message);
+          break;
+          
         default:
           throw new Error(`Unknown message type: ${message.type}`);
       }
@@ -298,6 +306,82 @@ export class SimpleWebSocketHandler {
   sendMessage(ws, message) {
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify(message));
+    }
+  }
+
+  /**
+   * Handle subscription to channels
+   */
+  async handleSubscribe(connection, message) {
+    try {
+      const { channels } = message;
+      
+      if (!connection.authenticated) {
+        throw new Error('Must be authenticated to subscribe to channels');
+      }
+      
+      if (!channels || !Array.isArray(channels)) {
+        throw new Error('Channels array is required');
+      }
+      
+      for (const channel of channels) {
+        if (channel.startsWith('org:') && channel.endsWith(':budget')) {
+          const orgId = channel.split(':')[1];
+          if (orgId === connection.orgId) {
+            // Subscribe to budget updates
+            if (this.services.budgetService) {
+              this.services.budgetService.subscribe(orgId, connection);
+            }
+          }
+        }
+      }
+      
+      this.sendMessage(connection.ws, {
+        type: 'SUB_SUCCESS',
+        channels,
+        message: 'Successfully subscribed to channels',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error(`❌ Subscription error for ${connection.id}:`, error);
+      this.sendError(connection.ws, 'SUB_ERROR', error.message);
+    }
+  }
+
+  /**
+   * Handle unsubscription from channels
+   */
+  async handleUnsubscribe(connection, message) {
+    try {
+      const { channels } = message;
+      
+      if (!channels || !Array.isArray(channels)) {
+        throw new Error('Channels array is required');
+      }
+      
+      for (const channel of channels) {
+        if (channel.startsWith('org:') && channel.endsWith(':budget')) {
+          const orgId = channel.split(':')[1];
+          if (orgId === connection.orgId) {
+            // Unsubscribe from budget updates
+            if (this.services.budgetService) {
+              this.services.budgetService.unsubscribe(orgId, connection);
+            }
+          }
+        }
+      }
+      
+      this.sendMessage(connection.ws, {
+        type: 'UNSUB_SUCCESS',
+        channels,
+        message: 'Successfully unsubscribed from channels',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error(`❌ Unsubscription error for ${connection.id}:`, error);
+      this.sendError(connection.ws, 'UNSUB_ERROR', error.message);
     }
   }
 

@@ -44,7 +44,7 @@ export async function GET(
       where: {
         orgId,
         userId: budgetLimit.type === 'user' ? budgetLimit.userId : undefined,
-        createdAt: {
+        timestamp: {
           gte: monthStart,
           lte: now,
         },
@@ -60,8 +60,8 @@ export async function GET(
         type: budgetLimit.type,
         userId: budgetLimit.userId,
         userName: budgetLimit.user?.name || budgetLimit.user?.email,
-        monthlyLimit: budgetLimit.monthlyLimit,
-        currentSpend: currentSpend._sum.cost || 0,
+        monthlyLimit: Number(budgetLimit.monthlyLimit),
+        currentSpend: Number(currentSpend._sum.cost || 0),
         isActive: budgetLimit.isActive,
         createdAt: budgetLimit.createdAt.toISOString(),
         updatedAt: budgetLimit.updatedAt.toISOString(),
@@ -136,7 +136,7 @@ export async function PATCH(
         type: updatedBudgetLimit.type,
         userId: updatedBudgetLimit.userId,
         userName: updatedBudgetLimit.user?.name || updatedBudgetLimit.user?.email,
-        monthlyLimit: updatedBudgetLimit.monthlyLimit,
+        monthlyLimit: Number(updatedBudgetLimit.monthlyLimit),
         isActive: updatedBudgetLimit.isActive,
         createdAt: updatedBudgetLimit.createdAt.toISOString(),
         updatedAt: updatedBudgetLimit.updatedAt.toISOString(),

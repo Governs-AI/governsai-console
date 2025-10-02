@@ -28,7 +28,8 @@ import {
   Zap,
   Brain,
   Target,
-  CreditCard
+  CreditCard,
+  CheckCircle
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
 
@@ -156,7 +157,21 @@ export default function SpendPage() {
         membersResponse.ok ? membersResponse.json() : { members: [] }
       ]);
 
-      setSpendData(spendData.spend || {});
+      console.log('Fetched spend data:', spendData);
+      console.log('Fetched budget data:', budgetData);
+
+      setSpendData({
+        totalSpend: 0,
+        monthlySpend: 0,
+        dailySpend: 0,
+        toolSpend: {},
+        modelSpend: {},
+        userSpend: {},
+        budgetLimit: 0,
+        remainingBudget: 0,
+        isOverBudget: false,
+        ...(spendData.spend || {})
+      });
       setBudgetLimits(budgetData.limits || []);
       setToolCosts(toolCostsData.costs || []);
       setModelCosts(modelCostsData.costs || []);
@@ -169,7 +184,10 @@ export default function SpendPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined | null) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '$0.00';
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',

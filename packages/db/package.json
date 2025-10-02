@@ -15,7 +15,10 @@
   "dependencies": {
     "@prisma/client": "5.22.0",
     "@simplewebauthn/browser": "^13.2.0",
-    "jsonwebtoken": "^9.0.2"
+    "@types/ws": "^8.18.1",
+    "date-fns": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",

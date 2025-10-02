@@ -29,5 +29,17 @@ if (process.env.DATABASE_URL) {
 
 export * from '@prisma/client';
 
+// Budget functions
+export {
+  checkBudget,
+  recordUsage,
+  getBudgetStatus,
+  getBudgetAlerts,
+  markBudgetAlertAsRead,
+  getUsageRecords,
+  type BudgetStatus,
+  type BudgetCheckParams,
+} from './src/budget';
+
 export default prisma;
 export type { PrismaClient } from "@prisma/client";

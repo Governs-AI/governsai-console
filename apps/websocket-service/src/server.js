@@ -7,6 +7,7 @@ import { SimpleWebSocketHandler } from './websocket/simple-handler.js';
 import { AuthService } from './services/auth.js';
 import { DecisionService } from './services/decision.js';
 import { HealthService } from './services/health.js';
+import { BudgetService } from './services/budget.js';
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +30,7 @@ class GovernsWebSocketService {
     this.authService = new AuthService();
     this.decisionService = new DecisionService();
     this.healthService = new HealthService();
+    this.budgetService = new BudgetService();
   }
 
   /**
@@ -179,7 +181,8 @@ class GovernsWebSocketService {
     this.wsHandler = new SimpleWebSocketHandler({
       authService: this.authService,
       decisionService: this.decisionService,
-      healthService: this.healthService
+      healthService: this.healthService,
+      budgetService: this.budgetService
     });
 
     // Handle new WebSocket connections

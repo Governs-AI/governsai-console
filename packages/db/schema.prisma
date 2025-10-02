@@ -14,6 +14,9 @@ model Org {
   slug                 String                @unique
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+  // Budget configuration
+  budgetEnabled        Boolean               @default(true)
+  budgetOnError        String                @default("block") // "block" | "pass"
   apiKeys              APIKey[]
   networkRules         NetworkAccessRule[]
   memberships          OrgMembership[]
@@ -22,6 +25,8 @@ model Org {
   passkeys             Passkey[]
   pendingConfirmations PendingConfirmation[]
   budgetLimits         BudgetLimit[]
+  budgetAlerts         BudgetAlert[]
+  usageRecords         UsageRecord[]
   tools                Tool[]
 }
 
@@ -45,6 +50,7 @@ model User {
   passkeys             Passkey[]
   pendingConfirmations PendingConfirmation[]
   budgetLimits         BudgetLimit[]
+  budgetAlerts         BudgetAlert[]
 }
 
 model Credential {
@@ -204,26 +210,33 @@ model AIProvider {
 }
 
 model UsageRecord {
-  id               String     @id @default(cuid())
-  userId           String
-  orgId            String     @map("org_id")
-  apiKeyId         String?
-  providerId       String
-  model            String
-  toolName         String?    @map("tool_name")
-  promptTokens     Int
-  completionTokens Int
-  totalTokens      Int
-  cost             Float
-  createdAt        DateTime   @default(now())
-  apiKey           APIKey?    @relation(fields: [apiKeyId], references: [id])
-  provider         AIProvider @relation(fields: [providerId], references: [id])
-  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String
+  orgId         String   @map("org_id")
+  provider      String   // "openai", "anthropic", "ollama", "local"
+  model         String   // "gpt-4", "claude-3-opus", "llama2"
+  inputTokens   Int      @map("input_tokens")
+  outputTokens  Int      @map("output_tokens")
+  cost          Decimal  @db.Decimal(10, 6) // Supports $0.000001 precision
+  costType      String   @default("external") @map("cost_type") // "external", "internal", "free"
+  tool          String?  // Tool name if this was a tool call
+  correlationId String?  @map("correlation_id")
+  timestamp     DateTime @default(now())
+  metadata      Json     @default("{}") // Additional context
+  apiKeyId      String?  @map("api_key_id")
+  providerId    String?  @map("provider_id") // Optional relation to AIProvider
 
-  @@index([userId, createdAt])
-  @@index([orgId, createdAt])
-  @@index([providerId, createdAt])
-  @@index([toolName])
+  // Relations
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  apiKey    APIKey?     @relation(fields: [apiKeyId], references: [id])
+  aiProvider AIProvider? @relation(fields: [providerId], references: [id])
+
+  @@index([orgId, timestamp(sort: Desc)])
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([provider])
+  @@index([tool])
+  @@index([correlationId])
 }
 
 model Budget {
@@ -248,17 +261,34 @@ model BudgetLimit {
   orgId        String   @map("org_id")
   userId       String?  @map("user_id")
   type         String   // "organization" | "user"
-  monthlyLimit Float
+  monthlyLimit Decimal  @db.Decimal(10, 2) // Monthly spending limit in dollars
+  alertAt      Decimal? @db.Decimal(10, 2) @map("alert_at") // Send alert when this amount is reached
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([orgId, userId]) // One limit per org-user combination
   @@index([orgId])
   @@index([userId])
-  @@index([type])
-  @@index([orgId, type, isActive])
+}
+
+model BudgetAlert {
+  id        String   @id @default(cuid())
+  orgId     String   @map("org_id")
+  userId    String?  @map("user_id")
+  type      String   // "threshold_reached" | "budget_exceeded" | "unusual_spike"
+  message   String
+  threshold Decimal? @db.Decimal(10, 2)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  org  Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, isRead])
+  @@index([userId, isRead])
 }
 
 model Tool {

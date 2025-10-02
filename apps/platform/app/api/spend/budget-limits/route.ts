@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           where: {
             orgId,
             userId: limit.type === 'user' ? limit.userId : undefined,
-            createdAt: {
+            timestamp: {
               gte: monthStart,
               lte: now,
             },
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
           type: limit.type,
           userId: limit.userId,
           userName: limit.user?.name || limit.user?.email,
-          monthlyLimit: limit.monthlyLimit,
-          currentSpend: currentSpend._sum.cost || 0,
+          monthlyLimit: Number(limit.monthlyLimit),
+          currentSpend: Number(currentSpend._sum.cost || 0),
           isActive: limit.isActive,
           createdAt: limit.createdAt.toISOString(),
           updatedAt: limit.updatedAt.toISOString(),
@@ -118,33 +118,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if budget limit already exists
+    // Check if budget limit already exists (active or inactive)
     const existingLimit = await prisma.budgetLimit.findFirst({
       where: {
         orgId,
         type,
         userId: type === 'user' ? targetUserId : null,
-        isActive: true,
       },
     });
 
+    let budgetLimit;
     if (existingLimit) {
-      return NextResponse.json(
-        { error: 'Budget limit already exists for this scope' },
-        { status: 400 }
-      );
+      // Update existing limit
+      budgetLimit = await prisma.budgetLimit.update({
+        where: { id: existingLimit.id },
+        data: {
+          monthlyLimit,
+          isActive: true,
+        },
+      });
+    } else {
+      // Create new budget limit
+      budgetLimit = await prisma.budgetLimit.create({
+        data: {
+          orgId,
+          userId: type === 'user' ? targetUserId : null,
+          type,
+          monthlyLimit,
+          isActive: true,
+        },
+      });
     }
-
-    // Create budget limit
-    const budgetLimit = await prisma.budgetLimit.create({
-      data: {
-        orgId,
-        userId: type === 'user' ? targetUserId : null,
-        type,
-        monthlyLimit,
-        isActive: true,
-      },
-    });
 
     return NextResponse.json({ 
       success: true, 
