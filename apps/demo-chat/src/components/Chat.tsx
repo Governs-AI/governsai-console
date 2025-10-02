@@ -275,7 +275,7 @@ export default function Chat() {
                 };
                 setMessages(prev => [...prev, toolMessage]);
               } else if (event.type === 'error') {
-                // Handle error
+                // Handle error - preserve decision and reasons if they exist
                 const errorContent = `Error: ${event.data}`;
                 
                 // Check if this is a confirmation required error
@@ -288,7 +288,7 @@ export default function Chat() {
                     // Add to pending confirmations for polling
                     setPendingConfirmations(prev => new Set(prev).add(correlationId));
                     
-                    // Update message with correlation ID for tracking
+                    // Update message with correlation ID for tracking - preserve decision/reasons
                     setMessages(prev => prev.map(msg => 
                       msg.id === assistantMessageId 
                         ? { ...msg, content: errorContent, correlationId }
@@ -302,6 +302,7 @@ export default function Chat() {
                     ));
                   }
                 } else {
+                  // Preserve decision and reasons when updating error content
                   setMessages(prev => prev.map(msg => 
                     msg.id === assistantMessageId 
                       ? { ...msg, content: errorContent }
