@@ -12,27 +12,22 @@ import {
   PageHeader,
   Input
 } from '@governs-ai/ui';
+import { Label } from '@/components/ui/label';
 import { 
-  Label,
-  Alert,
-  AlertDescription,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
-} from '@/components/ui';
+} from '@/components/ui/select';
 import {
   DollarSign,
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   Settings,
   Plus,
   Edit,
   Trash2,
   BarChart3,
-  PieChart,
   Calendar,
   Users,
   Zap,
@@ -92,6 +87,25 @@ interface ModelCost {
   provider: string;
 }
 
+interface CallRecord {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  model: string;
+  provider: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cost: number;
+  tool?: string;
+  correlationId?: string;
+  metadata?: any;
+  decision?: string;
+  direction?: string;
+}
+
 export default function SpendPage() {
   const [spendData, setSpendData] = useState<SpendData>({
     totalSpend: 0,
@@ -108,13 +122,15 @@ export default function SpendPage() {
   const [toolCosts, setToolCosts] = useState<ToolCost[]>([]);
   const [modelCosts, setModelCosts] = useState<ModelCost[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [callRecords, setCallRecords] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetLimit | null>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
-  const [selectedView, setSelectedView] = useState('overview');
+  const [selectedView, setSelectedView] = useState('calls');
+  const [callRecordsLoading, setCallRecordsLoading] = useState(false);
   
   // Budget form state
   const [budgetType, setBudgetType] = useState<'organization' | 'user'>('organization');
@@ -129,6 +145,12 @@ export default function SpendPage() {
   useEffect(() => {
     fetchSpendData();
   }, [selectedTimeRange]);
+
+  useEffect(() => {
+    if (selectedView === 'calls') {
+      fetchCallRecords();
+    }
+  }, [selectedView, selectedTimeRange]);
 
   const fetchSpendData = async () => {
     try {
@@ -194,6 +216,106 @@ export default function SpendPage() {
     }
   };
 
+  const fetchCallRecords = async () => {
+    try {
+      setCallRecordsLoading(true);
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (selectedTimeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      // First get the organization ID from the slug
+      const orgResponse = await fetch(`/api/orgs?slug=${orgSlug}`, {
+        credentials: 'include',
+      });
+      
+      if (!orgResponse.ok) {
+        throw new Error('Failed to fetch organization');
+      }
+      
+      const orgData = await orgResponse.json();
+      const orgId = orgData.org?.id || orgSlug; // Fallback to slug if no org found
+
+      // Fetch usage records
+      const usageResponse = await fetch(`/api/usage?orgId=${orgId}&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}&limit=1000`, {
+        credentials: 'include',
+      });
+
+      // Fetch decisions for additional context
+      const decisionsResponse = await fetch(`/api/decisions?orgId=${orgId}&startTime=${startDate.toISOString()}&endTime=${now.toISOString()}&limit=1000`, {
+        credentials: 'include',
+      });
+
+      const [usageData, decisionsData] = await Promise.all([
+        usageResponse.ok ? usageResponse.json() : { records: [] },
+        decisionsResponse.ok ? decisionsResponse.json() : { decisions: [] }
+      ]);
+
+      console.log('Call records debug:', {
+        orgId,
+        usageData,
+        decisionsData,
+        usageRecordsCount: usageData.records?.length || 0,
+        decisionsCount: decisionsData.decisions?.length || 0
+      });
+
+      // Create a map of decisions by correlationId for quick lookup
+      const decisionsMap = new Map();
+      decisionsData.decisions?.forEach((decision: any) => {
+        if (decision.correlationId) {
+          decisionsMap.set(decision.correlationId, decision);
+        }
+      });
+
+      // Transform usage records into call records
+      const records: CallRecord[] = usageData.records?.map((record: any) => {
+        const decision = decisionsMap.get(record.correlationId);
+        return {
+          id: record.id,
+          timestamp: record.timestamp || record.createdAt,
+          userId: record.userId,
+          userName: record.user?.name,
+          userEmail: record.user?.email,
+          model: record.model,
+          provider: record.provider,
+          inputTokens: record.inputTokens || 0,
+          outputTokens: record.outputTokens || 0,
+          totalTokens: record.totalTokens || (record.inputTokens || 0) + (record.outputTokens || 0),
+          cost: Number(record.cost || 0),
+          tool: record.tool,
+          correlationId: record.correlationId,
+          metadata: record.metadata,
+          decision: decision?.decision,
+          direction: decision?.direction,
+        };
+      }) || [];
+
+      setCallRecords(records);
+    } catch (err) {
+      console.error('Error fetching call records:', err);
+      setError('Failed to load call records');
+    } finally {
+      setCallRecordsLoading(false);
+    }
+  };
+
   const formatCurrency = (amount: number | undefined | null) => {
     if (amount === undefined || amount === null || isNaN(amount)) {
       return '$0.00';
@@ -209,22 +331,6 @@ export default function SpendPage() {
     return `${((value / total) * 100).toFixed(1)}%`;
   };
 
-  const getSpendTrend = (current: number, previous: number) => {
-    if (previous === 0) return { trend: 'up', percentage: 0 };
-    const percentage = ((current - previous) / previous) * 100;
-    return {
-      trend: percentage >= 0 ? 'up' : 'down',
-      percentage: Math.abs(percentage)
-    };
-  };
-
-  const getBudgetStatus = (current: number, limit: number) => {
-    if (limit === 0) return { status: 'no-limit', color: 'gray' };
-    const percentage = (current / limit) * 100;
-    if (percentage >= 100) return { status: 'over', color: 'red' };
-    if (percentage >= 80) return { status: 'warning', color: 'yellow' };
-    return { status: 'good', color: 'green' };
-  };
 
   const handleCreateBudget = async () => {
     if (!monthlyLimit || parseFloat(monthlyLimit) <= 0) {
@@ -436,6 +542,7 @@ export default function SpendPage() {
             <option value="tools">Tool Costs</option>
             <option value="models">Model Costs</option>
             <option value="users">User Spending</option>
+            <option value="calls">Call History</option>
           </select>
         </div>
 
@@ -659,6 +766,155 @@ export default function SpendPage() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Call History View */}
+        {selectedView === 'calls' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Call History
+                {callRecordsLoading && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2"></div>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {callRecordsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-sm text-muted-foreground">Loading call records...</span>
+                </div>
+              ) : callRecords.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium mb-2">No Call Records Found</h3>
+                  <p className="text-muted-foreground">
+                    No API calls were made during the selected time range.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2 font-medium">Timestamp</th>
+                        <th className="text-left p-2 font-medium">User</th>
+                        <th className="text-left p-2 font-medium">Model</th>
+                        <th className="text-left p-2 font-medium">Tool</th>
+                        <th className="text-right p-2 font-medium">Input Tokens</th>
+                        <th className="text-right p-2 font-medium">Output Tokens</th>
+                        <th className="text-right p-2 font-medium">Total Tokens</th>
+                        <th className="text-right p-2 font-medium">Cost</th>
+                        <th className="text-left p-2 font-medium">Decision</th>
+                        <th className="text-left p-2 font-medium">Direction</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {callRecords.map((record) => (
+                        <tr key={record.id} className="border-b hover:bg-gray-50">
+                          <td className="p-2 text-xs text-muted-foreground">
+                            {new Date(record.timestamp).toLocaleString()}
+                          </td>
+                          <td className="p-2">
+                            <div>
+                              <div className="font-medium">
+                                {record.userName || `User ${record.userId.slice(0, 8)}...`}
+                              </div>
+                              {record.userEmail && (
+                                <div className="text-xs text-muted-foreground">
+                                  {record.userEmail}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            <div>
+                              <div className="font-medium">{record.model}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {record.provider}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            {record.tool ? (
+                              <Badge variant="secondary" className="text-xs">
+                                {record.tool}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="p-2 text-right font-mono text-xs">
+                            {record.inputTokens.toLocaleString()}
+                          </td>
+                          <td className="p-2 text-right font-mono text-xs">
+                            {record.outputTokens.toLocaleString()}
+                          </td>
+                          <td className="p-2 text-right font-mono text-xs font-medium">
+                            {record.totalTokens.toLocaleString()}
+                          </td>
+                          <td className="p-2 text-right font-mono text-xs font-medium">
+                            {formatCurrency(record.cost)}
+                          </td>
+                          <td className="p-2">
+                            {record.decision ? (
+                              <Badge 
+                                variant={record.decision === 'allow' ? 'default' : record.decision === 'deny' ? 'destructive' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {record.decision}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {record.direction ? (
+                              <Badge variant="outline" className="text-xs">
+                                {record.direction}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {/* Summary Stats */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Total Calls</p>
+                        <p className="text-lg font-semibold">{callRecords.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Total Tokens</p>
+                        <p className="text-lg font-semibold">
+                          {callRecords.reduce((sum, r) => sum + r.totalTokens, 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Total Cost</p>
+                        <p className="text-lg font-semibold">
+                          {formatCurrency(callRecords.reduce((sum, r) => sum + r.cost, 0))}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Avg Cost/Call</p>
+                        <p className="text-lg font-semibold">
+                          {formatCurrency(callRecords.length > 0 ? callRecords.reduce((sum, r) => sum + r.cost, 0) / callRecords.length : 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
