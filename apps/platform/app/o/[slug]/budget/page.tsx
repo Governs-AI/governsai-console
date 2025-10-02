@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { BudgetStatus } from '@/components/budget-status';
-import { Button } from '@governs-ai/ui/button';
-import { Input } from '@governs-ai/ui/input';
-import { Label } from '@governs-ai/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui/card';
-import { Alert, AlertDescription } from '@governs-ai/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@governs-ai/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus, AlertTriangle, DollarSign, Users, Building } from 'lucide-react';
 
 interface BudgetLimit {

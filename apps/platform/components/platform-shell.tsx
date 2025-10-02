@@ -17,7 +17,8 @@ import {
   ChevronDown,
   MoreVertical,
   LogOut,
-  UserCircle
+  UserCircle,
+  CreditCard
 } from 'lucide-react';
 import { useUser } from '@/lib/user-context';
 
@@ -31,7 +32,7 @@ const getNavigation = (orgSlug: string) => [
   // { name: 'Decisions', href: `/o/${orgSlug}/decisions`, icon: FileText },
   { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
   // { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
-  { name: 'Spend', href: `/o/${orgSlug}/spend`, icon: DollarSign },
+  { name: 'Spend & Budget', href: `/o/${orgSlug}/spend`, icon: DollarSign },
   { name: 'Manage Tools', href: `/o/${orgSlug}/tools`, icon: Activity },
   { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
   { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key },

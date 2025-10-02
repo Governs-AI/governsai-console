@@ -123,15 +123,34 @@ export async function GET(request: NextRequest) {
       isOverBudget,
     };
 
-    console.log('Spend data calculated:', {
+    console.log('📊 Spend data calculated:', {
+      orgId,
       totalSpend,
       monthlySpend,
       dailySpend,
       budgetLimit: monthlyLimit,
       remainingBudget,
       usageRecordsCount: usageRecords.length,
-      budgetLimitExists: !!budgetLimit
+      budgetLimitExists: !!budgetLimit,
+      dateRange: {
+        start: startDate.toISOString(),
+        end: now.toISOString()
+      }
     });
+
+    // Log individual usage records for debugging
+    if (usageRecords.length > 0) {
+      console.log('📋 Usage records found:', usageRecords.map(record => ({
+        id: record.id,
+        model: record.model,
+        cost: Number(record.cost),
+        timestamp: record.timestamp,
+        tool: record.tool,
+        userId: record.userId
+      })));
+    } else {
+      console.log('⚠️ No usage records found for orgId:', orgId);
+    }
 
     return NextResponse.json({ spend: spendData });
 

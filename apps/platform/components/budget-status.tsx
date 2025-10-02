@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Progress } from '@governs-ai/ui/progress';
-import { Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui/card';
-import { Alert, AlertDescription } from '@governs-ai/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface BudgetStatus {

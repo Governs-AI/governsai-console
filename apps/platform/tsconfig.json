@@ -22,7 +22,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
-      "@/components/ui/*": ["../../packages/ui/src/*"]
+      "@/components/ui/*": ["./components/ui/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,

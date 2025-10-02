@@ -19,8 +19,25 @@ export async function POST(req: NextRequest) {
       apiKeyId,
     } = body;
 
+    console.log('📊 Usage API received:', {
+      userId,
+      orgId,
+      model,
+      inputTokens,
+      outputTokens,
+      tool,
+      correlationId
+    });
+
     // Validate required fields
     if (!userId || !orgId || !model || inputTokens === undefined || outputTokens === undefined) {
+      console.error('❌ Missing required fields:', {
+        hasUserId: !!userId,
+        hasOrgId: !!orgId,
+        hasModel: !!model,
+        inputTokens,
+        outputTokens
+      });
       return NextResponse.json(
         { error: 'Missing required fields: userId, orgId, model, inputTokens, outputTokens' },
         { status: 400 }
@@ -30,6 +47,15 @@ export async function POST(req: NextRequest) {
     const provider = getProvider(model);
     const cost = calculateCost(model, inputTokens, outputTokens);
     const costType = getCostType(provider);
+
+    console.log('💰 Calculated cost:', {
+      provider,
+      model,
+      inputTokens,
+      outputTokens,
+      cost,
+      costType
+    });
 
     await recordUsage({
       userId,
@@ -46,6 +72,8 @@ export async function POST(req: NextRequest) {
       apiKeyId,
     });
 
+    console.log('✅ Usage recorded successfully in database');
+
     return NextResponse.json({
       success: true,
       cost,
@@ -53,7 +81,7 @@ export async function POST(req: NextRequest) {
       provider,
     });
   } catch (error) {
-    console.error('Usage recording error:', error);
+    console.error('❌ Usage recording error:', error);
     return NextResponse.json(
       { error: 'Failed to record usage' },
       { status: 500 }

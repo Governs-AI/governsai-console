@@ -468,6 +468,16 @@ When using tools, make the tool call directly. Don't explain beforehand.`,
           
           // Record usage after successful completion
           if (usageData && userId && orgId) {
+            console.log('📊 Recording usage:', {
+              userId,
+              orgId,
+              model: usageData.model,
+              inputTokens: usageData.inputTokens,
+              outputTokens: usageData.outputTokens,
+              provider: usageData.provider,
+              correlationId: corrId
+            });
+            
             try {
               await recordUsage(
                 userId,
@@ -482,10 +492,20 @@ When using tools, make the tool call directly. Don't explain beforehand.`,
                   provider: usageData.provider,
                 }
               );
+              console.log('✅ Usage recorded successfully');
             } catch (error) {
-              console.error('Failed to record usage (non-critical):', error);
+              console.error('❌ Failed to record usage:', error);
               // Don't throw - usage recording failure shouldn't break the chat
             }
+          } else {
+            console.warn('⚠️ Usage recording skipped:', {
+              hasUsageData: !!usageData,
+              hasUserId: !!userId,
+              hasOrgId: !!orgId,
+              usageData,
+              userId,
+              orgId
+            });
           }
         } catch (error) {
           writer.writeError(

@@ -12,6 +12,16 @@ import {
   PageHeader,
   Input
 } from '@governs-ai/ui';
+import { 
+  Label,
+  Alert,
+  AlertDescription,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui';
 import {
   DollarSign,
   TrendingUp,
@@ -824,6 +834,124 @@ export default function SpendPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Budget Management Section */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <CreditCard className="h-6 w-6" />
+            Budget Management
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Budget Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Current Budget Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Monthly Spend</span>
+                  <span className="text-lg font-bold">
+                    {formatCurrency(spendData.monthlySpend)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Budget Limit</span>
+                  <span className="text-lg font-bold">
+                    {formatCurrency(spendData.budgetLimit)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Remaining</span>
+                  <span className={`text-lg font-bold ${spendData.remainingBudget < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {formatCurrency(spendData.remainingBudget)}
+                  </span>
+                </div>
+                {spendData.budgetLimit > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Usage</span>
+                      <span>{Math.round((spendData.monthlySpend / spendData.budgetLimit) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${spendData.monthlySpend > spendData.budgetLimit ? 'bg-red-500' : 'bg-blue-500'}`}
+                        style={{ width: `${Math.min((spendData.monthlySpend / spendData.budgetLimit) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Budget Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Budget Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Budget management helps you control spending by setting monthly limits and receiving alerts when approaching those limits.
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="budgetEnabled">Enable Budget Tracking</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="budgetEnabled"
+                    checked={true}
+                    disabled
+                    className="rounded border-border"
+                  />
+                  <span className="text-sm text-muted-foreground">Currently enabled</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="budgetOnError">Error Handling</Label>
+                <Select defaultValue="block" disabled>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="block">Block requests when budget check fails</SelectItem>
+                    <SelectItem value="pass">Allow requests when budget check fails</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Debug Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Debug Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              <div><strong>Organization ID:</strong> {params.slug}</div>
+              <div><strong>Usage Records Found:</strong> {spendData ? Object.keys(spendData.toolSpend).length : 0} tools</div>
+              <div><strong>Total Records:</strong> {spendData ? Object.values(spendData.toolSpend).reduce((a, b) => a + b, 0) : 0} calls</div>
+              <div className="text-muted-foreground">
+                If you're not seeing usage data, check the browser console and platform logs for detailed debugging information.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </PlatformShell>
   );
