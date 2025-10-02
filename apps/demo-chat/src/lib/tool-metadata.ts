@@ -30,6 +30,7 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       category: 'financial',
       risk_level: 'critical',
       requires_approval: true,
+      // Purchase amount will be extracted from args.amount
     },
   },
   'payment_refund': {

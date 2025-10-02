@@ -63,6 +63,7 @@ export interface PrecheckRequest {
   corr_id?: string;
   policy_config?: PolicyConfig;
   tool_config?: ToolConfigMetadata;
+  budget_context?: any; // ← Add budget context
 }
 
 export interface PrecheckResponse {

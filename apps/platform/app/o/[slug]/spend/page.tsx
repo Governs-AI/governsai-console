@@ -45,9 +45,12 @@ interface SpendData {
   toolSpend: Record<string, number>;
   modelSpend: Record<string, number>;
   userSpend: Record<string, number>;
+  purchaseSpend: Record<string, number>;
   budgetLimit: number;
   remainingBudget: number;
   isOverBudget: boolean;
+  llmSpend: number;
+  purchaseSpendTotal: number;
 }
 
 interface BudgetLimit {
@@ -114,9 +117,12 @@ export default function SpendPage() {
     toolSpend: {},
     modelSpend: {},
     userSpend: {},
+    purchaseSpend: {},
     budgetLimit: 0,
     remainingBudget: 0,
-    isOverBudget: false
+    isOverBudget: false,
+    llmSpend: 0,
+    purchaseSpendTotal: 0
   });
   const [budgetLimits, setBudgetLimits] = useState<BudgetLimit[]>([]);
   const [toolCosts, setToolCosts] = useState<ToolCost[]>([]);
@@ -181,16 +187,31 @@ export default function SpendPage() {
         credentials: 'include',
       });
 
-      const [spendData, budgetData, toolCostsData, modelCostsData, membersData] = await Promise.all([
+      // Fetch purchase data
+      const purchasesResponse = await fetch(`/api/purchases?orgId=${orgSlug}&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}&limit=1000`, {
+        credentials: 'include',
+      });
+
+      const [spendData, budgetData, toolCostsData, modelCostsData, membersData, purchasesData] = await Promise.all([
         spendResponse.ok ? spendResponse.json() : { spend: {} },
         budgetResponse.ok ? budgetResponse.json() : { limits: [] },
         toolCostsResponse.ok ? toolCostsResponse.json() : { costs: [] },
         modelCostsResponse.ok ? modelCostsResponse.json() : { costs: [] },
-        membersResponse.ok ? membersResponse.json() : { members: [] }
+        membersResponse.ok ? membersResponse.json() : { members: [] },
+        purchasesResponse.ok ? purchasesResponse.json() : { purchases: [] }
       ]);
 
       console.log('Fetched spend data:', spendData);
       console.log('Fetched budget data:', budgetData);
+
+      // Process purchase data
+      const purchases = purchasesData.purchases || [];
+      const purchaseSpend: Record<string, number> = {};
+      const purchaseSpendTotal = purchases.reduce((sum: number, purchase: any) => {
+        const tool = purchase.tool || 'unknown';
+        purchaseSpend[tool] = (purchaseSpend[tool] || 0) + Number(purchase.amount || 0);
+        return sum + Number(purchase.amount || 0);
+      }, 0);
 
       setSpendData({
         totalSpend: 0,
@@ -199,10 +220,16 @@ export default function SpendPage() {
         toolSpend: {},
         modelSpend: {},
         userSpend: {},
+        purchaseSpend: {},
         budgetLimit: 0,
         remainingBudget: 0,
         isOverBudget: false,
-        ...(spendData.spend || {})
+        llmSpend: 0,
+        purchaseSpendTotal: 0,
+        ...(spendData.spend || {}),
+        purchaseSpend,
+        purchaseSpendTotal,
+        llmSpend: (spendData.spend?.monthlySpend || 0) - purchaseSpendTotal
       });
       setBudgetLimits(budgetData.limits || []);
       setToolCosts(toolCostsData.costs || []);
@@ -542,6 +569,7 @@ export default function SpendPage() {
             <option value="tools">Tool Costs</option>
             <option value="models">Model Costs</option>
             <option value="users">User Spending</option>
+            <option value="purchases">Purchase Spending</option>
             <option value="calls">Call History</option>
           </select>
         </div>
@@ -579,10 +607,22 @@ export default function SpendPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-green-600" />
+                    <Zap className="h-4 w-4 text-green-600" />
                     <div>
-                      <p className="text-sm font-medium">Monthly Spend</p>
-                      <p className="text-2xl font-bold">{formatCurrency(spendData.monthlySpend)}</p>
+                      <p className="text-sm font-medium">LLM Costs</p>
+                      <p className="text-2xl font-bold">{formatCurrency(spendData.llmSpend)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-orange-600" />
+                    <div>
+                      <p className="text-sm font-medium">Purchases</p>
+                      <p className="text-2xl font-bold">{formatCurrency(spendData.purchaseSpendTotal)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -595,20 +635,6 @@ export default function SpendPage() {
                     <div>
                       <p className="text-sm font-medium">Budget Limit</p>
                       <p className="text-2xl font-bold">{formatCurrency(spendData.budgetLimit)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-orange-600" />
-                    <div>
-                      <p className="text-sm font-medium">Remaining</p>
-                      <p className={`text-2xl font-bold ${spendData.remainingBudget < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(spendData.remainingBudget)}
-                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -766,6 +792,91 @@ export default function SpendPage() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Purchase Spending View */}
+        {selectedView === 'purchases' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Purchase Spending
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(spendData.purchaseSpend).length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium mb-2">No Purchase Records</h3>
+                  <p className="text-muted-foreground">
+                    No tool-based purchases were made during the selected time range.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">Total Purchases</p>
+                          <p className="text-2xl font-bold text-blue-600">
+                            {formatCurrency(spendData.purchaseSpendTotal)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-green-900">LLM Costs</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {formatCurrency(spendData.llmSpend)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-purple-900">Total Spend</p>
+                          <p className="text-2xl font-bold text-purple-600">
+                            {formatCurrency(spendData.purchaseSpendTotal + spendData.llmSpend)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Purchase by Tool */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-medium">Purchases by Tool</h3>
+                    {Object.entries(spendData.purchaseSpend).map(([tool, amount]) => (
+                      <div key={tool} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-orange-100 rounded-lg">
+                            <CreditCard className="h-5 w-5 text-orange-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium">{tool}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {formatPercentage(amount, spendData.purchaseSpendTotal)} of total purchases
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{formatCurrency(amount)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

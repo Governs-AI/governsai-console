@@ -16,6 +16,7 @@ export interface BudgetCheckParams {
   orgId: string;
   userId: string;
   estimatedCost: number;
+  estimatedPurchaseAmount?: number; // For real-world purchases
 }
 
 /**
@@ -23,7 +24,7 @@ export interface BudgetCheckParams {
  * Checks both org-level and user-level budgets
  */
 export async function checkBudget(params: BudgetCheckParams): Promise<BudgetStatus> {
-  const { orgId, userId, estimatedCost } = params;
+  const { orgId, userId, estimatedCost, estimatedPurchaseAmount = 0 } = params;
   
   // Get organization budget settings
   const org = await prisma.org.findUnique({
@@ -42,8 +43,8 @@ export async function checkBudget(params: BudgetCheckParams): Promise<BudgetStat
     };
   }
   
-  // Skip budget check for free/local models
-  if (estimatedCost === 0) {
+  // Skip budget check for free/local models and no purchases
+  if (estimatedCost === 0 && estimatedPurchaseAmount === 0) {
     return {
       allowed: true,
       currentSpend: 0,
@@ -68,7 +69,8 @@ export async function checkBudget(params: BudgetCheckParams): Promise<BudgetStat
 
   if (orgBudget) {
     const orgSpend = await getCurrentSpend(orgId, null, monthStart, monthEnd);
-    const projectedSpend = orgSpend + estimatedCost;
+    const totalEstimatedCost = estimatedCost + estimatedPurchaseAmount;
+    const projectedSpend = orgSpend + totalEstimatedCost;
 
     if (projectedSpend > Number(orgBudget.monthlyLimit)) {
       return {
@@ -77,7 +79,7 @@ export async function checkBudget(params: BudgetCheckParams): Promise<BudgetStat
         limit: Number(orgBudget.monthlyLimit),
         remaining: Number(orgBudget.monthlyLimit) - orgSpend,
         percentUsed: (orgSpend / Number(orgBudget.monthlyLimit)) * 100,
-        reason: 'organization_budget_exceeded',
+        reason: estimatedPurchaseAmount > 0 ? 'organization_purchase_budget_exceeded' : 'organization_budget_exceeded',
       };
     }
 
@@ -104,7 +106,8 @@ export async function checkBudget(params: BudgetCheckParams): Promise<BudgetStat
 
   if (userBudget) {
     const userSpend = await getCurrentSpend(orgId, userId, monthStart, monthEnd);
-    const projectedSpend = userSpend + estimatedCost;
+    const totalEstimatedCost = estimatedCost + estimatedPurchaseAmount;
+    const projectedSpend = userSpend + totalEstimatedCost;
 
     if (projectedSpend > Number(userBudget.monthlyLimit)) {
       return {
@@ -113,7 +116,7 @@ export async function checkBudget(params: BudgetCheckParams): Promise<BudgetStat
         limit: Number(userBudget.monthlyLimit),
         remaining: Number(userBudget.monthlyLimit) - userSpend,
         percentUsed: (userSpend / Number(userBudget.monthlyLimit)) * 100,
-        reason: 'user_budget_exceeded',
+        reason: estimatedPurchaseAmount > 0 ? 'user_purchase_budget_exceeded' : 'user_budget_exceeded',
       };
     }
 
@@ -151,7 +154,8 @@ async function getCurrentSpend(
   startDate: Date,
   endDate: Date
 ): Promise<number> {
-  const where: Prisma.UsageRecordWhereInput = {
+  // Get LLM usage costs
+  const usageWhere: Prisma.UsageRecordWhereInput = {
     orgId,
     timestamp: {
       gte: startDate,
@@ -160,17 +164,40 @@ async function getCurrentSpend(
   };
 
   if (userId) {
-    where.userId = userId;
+    usageWhere.userId = userId;
   }
 
-  const result = await prisma.usageRecord.aggregate({
-    where,
+  const usageResult = await prisma.usageRecord.aggregate({
+    where: usageWhere,
     _sum: {
       cost: true,
     },
   });
 
-  return Number(result._sum.cost || 0);
+  // Get purchase costs
+  const purchaseWhere: Prisma.PurchaseRecordWhereInput = {
+    orgId,
+    timestamp: {
+      gte: startDate,
+      lte: endDate,
+    },
+  };
+
+  if (userId) {
+    purchaseWhere.userId = userId;
+  }
+
+  const purchaseResult = await prisma.purchaseRecord.aggregate({
+    where: purchaseWhere,
+    _sum: {
+      amount: true,
+    },
+  });
+
+  const usageCost = Number(usageResult._sum.cost || 0);
+  const purchaseCost = Number(purchaseResult._sum.amount || 0);
+
+  return usageCost + purchaseCost;
 }
 
 /**
@@ -205,6 +232,39 @@ export async function recordUsage(params: {
     cost: params.cost,
     provider: params.provider,
     model: params.model,
+  });
+}
+
+/**
+ * Record purchase after tool makes a purchase
+ */
+export async function recordPurchase(params: {
+  userId: string;
+  orgId: string;
+  tool: string;
+  amount: number;
+  currency?: string;
+  description?: string;
+  vendor?: string;
+  category?: string;
+  correlationId?: string;
+  metadata?: Record<string, any>;
+  apiKeyId?: string;
+}): Promise<void> {
+  await prisma.purchaseRecord.create({
+    data: {
+      ...params,
+      metadata: params.metadata || {},
+    },
+  });
+
+  // Emit WebSocket event for real-time dashboard update
+  await emitUsageEvent({
+    orgId: params.orgId,
+    userId: params.userId,
+    cost: params.amount,
+    provider: 'purchase',
+    model: params.tool,
   });
 }
 

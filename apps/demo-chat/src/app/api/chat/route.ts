@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { precheck, createChatPrecheckRequest, createMCPPrecheckRequest } from '@/lib/precheck';
+import { precheck, createChatPrecheckRequest, createMCPPrecheckRequest, fetchBudgetContext } from '@/lib/precheck';
 import { OpenAIProvider } from '@/lib/providers/openai';
 import { OllamaProvider } from '@/lib/providers/ollama';
 import { SSEWriter } from '@/lib/sse';
@@ -86,12 +86,16 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
         content: { args }
       };
     } else {
+      // Fetch budget context for budget-aware precheck
+      const budgetContext = await fetchBudgetContext(apiKey);
+      
       const precheckRequest = createMCPPrecheckRequest(
         toolCall.function.name, 
         args, 
         uuidv4(), 
         policy, 
-        toolMetadata
+        toolMetadata,
+        budgetContext // ← Pass budget context
       );
 
       precheckResponse = await precheck(precheckRequest, userId, apiKey);
@@ -102,7 +106,7 @@ async function executeToolCall(toolCall: ToolCall, writer: SSEWriter, userId?: s
     writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 
     // Handle precheck decision
-    if (precheckResponse.decision === 'block') {
+    if (precheckResponse.decision === 'block' || precheckResponse.decision === 'deny') {
       console.log(`❌ TOOL CALL BLOCKED: ${toolCall.function.name}`);
 
       // Clean up the error message to be more user-friendly
@@ -329,7 +333,7 @@ export async function POST(request: NextRequest) {
         writer.writeDecision(precheckResponse.decision, precheckResponse.reasons);
 
         // Step 2: Handle precheck decision
-        if (precheckResponse.decision === 'block') {
+        if (precheckResponse.decision === 'block' || precheckResponse.decision === 'deny') {
           console.log('❌ REQUEST BLOCKED BY PRECHECK');
           writer.writeError(
             `Request blocked: ${precheckResponse.reasons?.join(', ') || 'Policy violation'}`

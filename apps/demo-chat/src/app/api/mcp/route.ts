@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import FirecrawlApp from '@mendable/firecrawl-js';
-import { precheck, createMCPPrecheckRequest } from '@/lib/precheck';
+import { precheck, createMCPPrecheckRequest, fetchBudgetContext } from '@/lib/precheck';
 import { MCPRequest, MCPResponse } from '@/lib/types';
 import { getPrecheckUserIdDetails } from '@/lib/utils';
 
@@ -487,16 +487,17 @@ export async function POST(request: NextRequest) {
 
     const corrId = uuidv4();
 
-    // Step 1: Precheck the MCP call with user context
-    const precheckRequest = createMCPPrecheckRequest(tool, args || {}, corrId);
-
+    // Step 1: Fetch budget context and precheck the MCP call
     const { userId, apiKey } = getPrecheckUserIdDetails();
+    const budgetContext = await fetchBudgetContext(apiKey);
+    
+    const precheckRequest = createMCPPrecheckRequest(tool, args || {}, corrId, undefined, undefined, budgetContext);
     
     try {
       const precheckResponse = await precheck(precheckRequest, userId, apiKey);
 
       // Step 2: Handle precheck decision
-      if (precheckResponse.decision === 'block') {
+      if (precheckResponse.decision === 'block' || precheckResponse.decision === 'deny') {
         return Response.json({
           success: false,
           error: 'MCP call blocked by policy',

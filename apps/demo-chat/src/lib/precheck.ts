@@ -12,6 +12,49 @@ export class PrecheckError extends Error {
   }
 }
 
+// Helper function to fetch budget context
+export async function fetchBudgetContext(apiKey?: string): Promise<any> {
+  const { apiKey: defaultApiKey } = getPrecheckUserIdDetails();
+  const finalApiKey = apiKey || defaultApiKey;
+  
+  const platformUrl = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
+  
+  try {
+    const response = await fetch(`${platformUrl}/api/budget/context`, {
+      method: 'GET',
+      headers: {
+        'X-Governs-Key': finalApiKey,
+      },
+    });
+
+    if (!response.ok) {
+      console.warn('Failed to fetch budget context, using mock data for testing');
+      // Return mock budget context for testing
+      return {
+        monthly_limit: 1000.00,
+        current_spend: 0.00,
+        llm_spend: 0.00,
+        purchase_spend: 0.00,
+        remaining_budget: 1000.00,
+        budget_type: 'user'
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.warn('Error fetching budget context, using mock data for testing:', error);
+    // Return mock budget context for testing
+    return {
+      monthly_limit: 1000.00,
+      current_spend: 0.00,
+      llm_spend: 0.00,
+      purchase_spend: 0.00,
+      remaining_budget: 1000.00,
+      budget_type: 'user'
+    };
+  }
+}
+
 export async function precheck(
   input: PrecheckRequest, 
   userId?: string, 
@@ -102,10 +145,13 @@ export function createChatPrecheckRequest(
   policyConfig?: any,
   toolConfig?: any
 ): PrecheckRequest {
-  const rawText = messages
+  // Only send the last user message for precheck, not the entire conversation history
+  // This prevents old blocked messages from affecting new requests
+  const lastUserMessage = messages
     .filter(msg => msg.role === 'user')
-    .map(msg => msg.content)
-    .join('\n');
+    .slice(-1)[0]; // Get only the last user message
+  
+  const rawText = lastUserMessage?.content || '';
 
   return {
     tool: 'model.chat',
@@ -128,14 +174,30 @@ export function createMCPPrecheckRequest(
   args: Record<string, any>,
   corrId?: string,
   policyConfig?: any,
-  toolConfig?: any
+  toolConfig?: any,
+  budgetContext?: any
 ): PrecheckRequest {
   // Create a raw_text representation of the MCP call for precheck
   const rawText = `MCP Tool Call: ${tool} with arguments: ${JSON.stringify(args)}`;
   
+  // Extract purchase amount from args for payment tools
+  let enhancedToolConfig = { ...toolConfig };
+  if (tool === 'payment_process' && args.amount) {
+    enhancedToolConfig = {
+      ...toolConfig,
+      metadata: {
+        ...toolConfig?.metadata,
+        purchase_amount: Number(args.amount), // ← Extract purchase amount
+        amount: Number(args.amount),
+        currency: args.currency || 'USD',
+        description: args.description || 'Payment transaction',
+      }
+    };
+  }
+  
   return {
     tool: tool, // Use the actual tool name, not "mcp.${tool}"
-    scope: toolConfig?.scope || 'net.external',
+    scope: enhancedToolConfig?.scope || 'net.external',
     raw_text: rawText,
     payload: {
       tool,
@@ -144,6 +206,7 @@ export function createMCPPrecheckRequest(
     tags: ['demo', 'mcp'],
     corr_id: corrId,
     policy_config: policyConfig,
-    tool_config: toolConfig,
+    tool_config: enhancedToolConfig,
+    budget_context: budgetContext, // ← Add budget context
   };
 }

@@ -28,6 +28,7 @@ model Org {
   budgetAlerts         BudgetAlert[]
   usageRecords         UsageRecord[]
   tools                Tool[]
+  purchaseRecords      PurchaseRecord[]
 }
 
 model User {
@@ -51,6 +52,7 @@ model User {
   pendingConfirmations PendingConfirmation[]
   budgetLimits         BudgetLimit[]
   budgetAlerts         BudgetAlert[]
+  purchaseRecords      PurchaseRecord[]
 }
 
 model Credential {
@@ -171,6 +173,7 @@ model APIKey {
   usageRecords         UsageRecord[]
   channels             WebSocketChannel[]
   pendingConfirmations PendingConfirmation[]
+  purchaseRecords      PurchaseRecord[]
 
   @@index([key])
   @@index([keyHash])
@@ -272,6 +275,33 @@ model BudgetLimit {
   @@unique([orgId, userId]) // One limit per org-user combination
   @@index([orgId])
   @@index([userId])
+}
+
+model PurchaseRecord {
+  id            String   @id @default(cuid())
+  userId        String
+  orgId         String   @map("org_id")
+  tool          String   // Tool that made the purchase
+  amount        Decimal  @db.Decimal(10, 2) // Purchase amount in dollars
+  currency      String   @default("USD")
+  description   String?  // What was purchased
+  vendor        String?  // Who was paid
+  category      String?  // Purchase category (software, hardware, services, etc.)
+  correlationId String?  @map("correlation_id")
+  timestamp     DateTime @default(now())
+  metadata      Json     @default("{}") // Additional context
+  apiKeyId      String?  @map("api_key_id")
+
+  // Relations
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org    Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  apiKey APIKey? @relation(fields: [apiKeyId], references: [id])
+
+  @@index([orgId, timestamp(sort: Desc)])
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([tool])
+  @@index([correlationId])
+  @@index([category])
 }
 
 model BudgetAlert {
