@@ -995,18 +995,21 @@ interface ToolAccessMatrix {
 
 **Key Components**:
 
-- **Chat.tsx**: Main chat interface with confirmation handling
-- **Message.tsx**: Message display with decision badges and confirmation UI
+- **Chat.tsx**: Main chat interface with confirmation handling and budget context integration
+- **Message.tsx**: Message display with consistent error styling and decision badges
 - **DecisionBadge.tsx**: Visual indicators for allow/block/confirm decisions
 
 **Features**:
 
 - **Real-time Streaming**: Server-sent events for responsive chat
 - **Confirmation Flow**: Automatic polling and resumption after approval
-- **Decision Visualization**: Color-coded badges for governance decisions
-- **Tool Call Support**: MCP tool integration with governance
+- **Decision Visualization**: Color-coded badges for governance decisions with consistent error styling
+- **Tool Call Support**: MCP tool integration with governance and budget awareness
 - **Multi-provider**: OpenAI and Ollama support with runtime switching
 - **Example Prompts**: Built-in examples for testing different scenarios
+- **Budget Integration**: Automatic budget context fetching for all precheck requests
+- **Consistent UI**: Unified error styling for both chat-level and tool-level blocks
+- **Independent Precheck**: Each message evaluated independently without conversation history interference
 
 **State Management**:
 
@@ -1116,11 +1119,15 @@ interface MessageType {
 
 **Features**:
 
-- Budget enforcement
-- PII detection
-- Policy compliance checking
-- Rate limiting
-- Request logging
+- **Budget Enforcement**: Real-time budget checking with purchase amount support
+- **PII Detection**: Comprehensive personal information detection and blocking
+- **Policy Compliance**: Tool access control and policy-based blocking
+- **Rate Limiting**: Request throttling and abuse prevention
+- **Request Logging**: Complete audit trail of all precheck decisions
+- **Stateless Design**: Database-independent policy engine for scalability
+- **Budget Context**: Automatic budget information integration for all requests
+- **Consistent Decisions**: Standardized `deny` decision format for all blocking scenarios
+- **Independent Evaluation**: Each message evaluated separately without conversation history interference
 
 ### Postcheck System
 
@@ -1503,6 +1510,61 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 
 ## 📝 Recent Changes Log
 
+- **2025-01-02**: Fixed Inconsistent Error Styling for Blocked Messages
+  - **CRITICAL FIX**: Resolved inconsistent UI representation between chat-level and tool-level blocked messages
+  - **ROOT CAUSE**: Chat-level blocks showed as gray assistant messages while tool-level blocks showed as red error boxes
+  - **FILES FIXED**:
+    - `apps/demo-chat/src/components/Message.tsx` - Added consistent red error styling for all blocked messages
+    - `apps/demo-chat/src/components/Chat.tsx` - Preserved decision/reasons fields when updating error content
+  - **SOLUTION**:
+    - Added `isBlocked` logic to apply red error styling (`bg-red-100 text-red-900 border border-red-300`) to both assistant and tool messages with `deny`/`block` decisions
+    - Modified error event handling to preserve `decision` and `reasons` fields that were set by earlier decision events
+    - Ensured both chat-level and tool-level blocks show with identical visual styling
+  - **IMPACT**: All blocked messages now have consistent red error styling regardless of when they were blocked
+  - **VERIFICATION**: Both payment request blocks (chat-level) and tool call blocks (tool-level) now display identically
+
+- **2025-01-02**: Fixed Persistent Blocked State Issue in Demo Chat
+  - **CRITICAL FIX**: Resolved issue where subsequent unrelated requests were blocked after an initial block
+  - **ROOT CAUSE**: `createChatPrecheckRequest` was sending entire conversation history instead of just the last user message
+  - **FILES FIXED**:
+    - `apps/demo-chat/src/lib/precheck.ts` - Modified `createChatPrecheckRequest` to only send last user message
+  - **SOLUTION**:
+    - Changed precheck logic to filter for only the last user message: `messages.filter(msg => msg.role === 'user').slice(-1)[0]`
+    - This prevents old blocked messages from affecting new requests
+    - Each message is now evaluated independently for precheck decisions
+  - **IMPACT**: Chat now properly handles individual message prechecks without persistent blocking
+  - **VERIFICATION**: After a message is blocked, subsequent unrelated messages are processed normally
+
+- **2025-01-02**: Enhanced Budget Context Integration for Tool Calls
+  - **NEW FEATURE**: Added comprehensive budget context to all precheck requests for both chat and tool calls
+  - **FILES UPDATED**:
+    - `apps/demo-chat/src/lib/precheck.ts` - Added `fetchBudgetContext` function and budget context parameter
+    - `apps/demo-chat/src/app/api/chat/route.ts` - Integrated budget context fetching for tool calls
+    - `apps/demo-chat/src/app/api/mcp/route.ts` - Added budget context to MCP tool calls
+    - `apps/demo-chat/src/lib/types.ts` - Added `budget_context` to `PrecheckRequest` interface
+  - **FEATURES**:
+    - Automatic budget context fetching from `/api/budget/context` endpoint
+    - Mock budget data fallback for testing when API is unavailable
+    - Purchase amount extraction from tool arguments for payment tools
+    - Enhanced tool metadata with purchase information
+  - **IMPACT**: All tool calls now include budget information for comprehensive spending control
+  - **VERIFICATION**: Payment tools and other expensive operations are properly budget-aware
+
+- **2025-01-02**: Standardized Precheck Decision Format
+  - **CRITICAL FIX**: Unified decision format to consistently return `deny` for all blocking scenarios
+  - **ROOT CAUSE**: Precheck API was returning both `block` and `deny` decisions, causing confusion in demo chat
+  - **FILES FIXED**:
+    - `apps/platform/app/api/v1/precheck/route.ts` - Updated all blocking scenarios to return `decision: 'deny'`
+    - `apps/demo-chat/src/app/api/chat/route.ts` - Updated to handle both `block` and `deny` decisions
+    - `apps/demo-chat/src/app/api/mcp/route.ts` - Updated to handle both `block` and `deny` decisions
+    - `apps/demo-chat/src/components/Message.tsx` - Updated styling to handle both decision types
+  - **SOLUTION**:
+    - Changed tool denial, policy blocking, and budget exceeded responses to consistently return `deny`
+    - Updated demo chat to treat both `block` and `deny` as equivalent blocking states
+    - Maintained backward compatibility while standardizing the decision format
+  - **IMPACT**: Consistent decision handling across all blocking scenarios
+  - **VERIFICATION**: All blocked requests now show consistent UI and behavior
+
 - **2025-01-01**: Fixed CORS Policy and Confirmation Flow Issues
   - **CRITICAL FIX**: Resolved CORS policy blocking demo chat from accessing platform API
   - **ROOT CAUSE**: Demo chat (localhost:3001) couldn't access platform API (localhost:3002) due to missing CORS headers
@@ -1741,6 +1803,7 @@ GovernsAI uses a **standalone WebSocket service** for real-time AI governance de
 | 2.0.0   | 2024-04-XX | Enterprise features and compliance |
 | 2.1.0   | 2024-12-XX | Passkey authentication and confirmation system |
 | 2.2.0   | 2025-01-01 | CORS fixes and demo chat enhancements |
+| 2.3.0   | 2025-01-02 | UI consistency fixes and budget integration improvements |
 
 ---
 
