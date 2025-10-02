@@ -16,6 +16,7 @@ export interface PlatformPolicyResponse {
   policyId?: string;
   policyName?: string;
   lastUpdated?: string;
+  orgId?: string;
 }
 
 export interface AgentToolsResponse {
@@ -65,6 +66,7 @@ export async function fetchPoliciesFromPlatform(): Promise<PlatformPolicyRespons
     return {
       policy: null,
       toolMetadata: {},
+      orgId: undefined,
     };
   }
 }

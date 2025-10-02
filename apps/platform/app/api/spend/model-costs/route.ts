@@ -41,20 +41,21 @@ export async function GET(request: NextRequest) {
       by: ['model'],
       where: {
         orgId,
-        createdAt: {
+        timestamp: {
           gte: startDate,
           lte: now,
         },
       },
       _sum: {
         cost: true,
-        totalTokens: true,
+        inputTokens: true,
+        outputTokens: true,
       },
       _count: {
         id: true,
       },
       _max: {
-        createdAt: true,
+        timestamp: true,
       },
     });
 
@@ -62,10 +63,12 @@ export async function GET(request: NextRequest) {
     const modelCosts = modelUsage
       .filter(usage => usage.model !== null)
       .map(usage => {
-        const totalCost = usage._sum.cost || 0;
-        const totalTokens = usage._sum.totalTokens || 0;
+        const totalCost = Number(usage._sum.cost || 0);
+        const inputTokens = Number(usage._sum.inputTokens || 0);
+        const outputTokens = Number(usage._sum.outputTokens || 0);
+        const totalTokens = inputTokens + outputTokens;
         const avgCostPerToken = totalTokens > 0 ? totalCost / totalTokens : 0;
-        const lastUsed = usage._max.createdAt || new Date();
+        const lastUsed = usage._max.timestamp || new Date();
 
         // Determine provider from model name
         const modelName = usage.model!;

@@ -5,9 +5,11 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create a test organization
-  const org = await prisma.org.create({
-    data: {
+  // Create or get test organization
+  const org = await prisma.org.upsert({
+    where: { name: 'Demo Organization' },
+    update: {},
+    create: {
       name: 'Demo Organization',
       slug: 'demo-org',
     },
@@ -15,9 +17,11 @@ async function main() {
 
   console.log('✅ Created organization:', { id: org.id, name: org.name, slug: org.slug });
 
-  // Create a test user
-  const user = await prisma.user.create({
-    data: {
+  // Create or get test user
+  const user = await prisma.user.upsert({
+    where: { email: 'demo@example.com' },
+    update: {},
+    create: {
       email: 'demo@example.com',
       name: 'Demo User',
     },
@@ -25,9 +29,16 @@ async function main() {
 
   console.log('✅ Created user:', { id: user.id, email: user.email });
 
-  // Create user membership
-  const membership = await prisma.orgMembership.create({
-    data: {
+  // Create or get user membership
+  const membership = await prisma.orgMembership.upsert({
+    where: { 
+      orgId_userId: {
+        orgId: org.id,
+        userId: user.id,
+      }
+    },
+    update: {},
+    create: {
       userId: user.id,
       orgId: org.id,
       role: 'ADMIN',
@@ -36,9 +47,11 @@ async function main() {
 
   console.log('✅ Created membership:', { userId: user.id, orgId: org.id, role: membership.role });
 
-  // Create an API key for the user
-  const apiKey = await prisma.aPIKey.create({
-    data: {
+  // Create or get API key for the user
+  const apiKey = await prisma.aPIKey.upsert({
+    where: { key: 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e' },
+    update: {},
+    create: {
       key: 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e',
       name: 'Demo API Key',
       userId: user.id,

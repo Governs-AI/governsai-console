@@ -88,34 +88,34 @@ export default function MCPToolTester() {
   const getExampleArgs = (toolName: string): string => {
     const examples: Record<string, any> = {
       // Weather tools - should be allowed
-      'weather.current': { latitude: 37.7749, longitude: -122.4194, location_name: 'San Francisco' },
-      'weather.forecast': { latitude: 40.7128, longitude: -74.0060, location_name: 'New York', days: 5 },
+      'weather_current': { latitude: 37.7749, longitude: -122.4194, location_name: 'San Francisco' },
+      'weather_forecast': { latitude: 40.7128, longitude: -74.0060, location_name: 'New York', days: 5 },
       
       // Payment tools - should trigger confirm or block
-      'payment.process': { amount: '99.99', currency: 'USD', description: 'Demo purchase' },
-      'payment.refund': { transaction_id: 'txn_demo123', amount: '50.00', reason: 'Customer request' },
+      'payment_process': { amount: '99.99', currency: 'USD', description: 'Demo purchase' },
+      'payment_refund': { transaction_id: 'txn_demo123', amount: '50.00', reason: 'Customer request' },
       
       // Database tools - should be allowed
-      'db.query': { query: 'SELECT * FROM users', table: 'users' },
+      'db_query': { query: 'SELECT * FROM users', table: 'users' },
       
       // File tools - should be allowed
-      'file.read': { path: '/demo/sample.txt' },
-      'file.write': { path: '/demo/output.txt', content: 'Hello, world!' },
-      'file.list': { path: '/demo' },
+      'file_read': { path: '/demo/sample.txt' },
+      'file_write': { path: '/demo/output.txt', content: 'Hello, world!' },
+      'file_list': { path: '/demo' },
       
       // Web tools - should be allowed
-      'web.search': { query: 'AI governance best practices', limit: 5 },
-      'web.scrape': { url: 'https://example.com', formats: ['markdown', 'html'] },
+      'web_search': { query: 'AI governance best practices', limit: 5 },
+      'web_scrape': { url: 'https://example.com', formats: ['markdown', 'html'] },
       
       // Email tools - should trigger confirm or redact
-      'email.send': { to: 'user@example.com', subject: 'Test Email', body: 'Hello!' },
+      'email_send': { to: 'user@example.com', subject: 'Test Email', body: 'Hello!' },
       
       // Calendar tools - should be allowed
-      'calendar.create_event': { title: 'Team Meeting', start_time: '2024-12-30T10:00:00Z' },
+      'calendar_create_event': { title: 'Team Meeting', start_time: '2024-12-30T10:00:00Z' },
       
       // KV store tools - should be allowed
-      'kv.get': { key: 'user_preferences' },
-      'kv.set': { key: 'demo_key', value: 'demo_value', ttl: 3600 },
+      'kv_get': { key: 'user_preferences' },
+      'kv_set': { key: 'demo_key', value: 'demo_value', ttl: 3600 },
     };
 
     return JSON.stringify(examples[toolName] || {}, null, 2);
@@ -124,22 +124,22 @@ export default function MCPToolTester() {
   // Additional examples that trigger different precheck decisions
   const getPrecheckExamples = (toolName: string): Array<{label: string, args: any, expectedDecision: string}> => {
     const examples: Record<string, Array<{label: string, args: any, expectedDecision: string}>> = {
-      'payment.process': [
+      'payment_process': [
         { label: 'Normal Payment', args: { amount: '25.00', currency: 'USD', description: 'Coffee purchase' }, expectedDecision: 'confirm' },
         { label: 'High Value Payment', args: { amount: '9999.99', currency: 'USD', description: 'Enterprise license' }, expectedDecision: 'confirm' },
         { label: 'PII in Description', args: { amount: '100.00', currency: 'USD', description: 'Payment for john.doe@company.com account' }, expectedDecision: 'redact' },
       ],
-      'email.send': [
+      'email_send': [
         { label: 'Normal Email', args: { to: 'colleague@company.com', subject: 'Meeting Notes', body: 'Here are the meeting notes from today.' }, expectedDecision: 'confirm' },
         { label: 'PII in Body', args: { to: 'hr@company.com', subject: 'Employee Info', body: 'John Doe, SSN: 123-45-6789, needs vacation approval.' }, expectedDecision: 'redact' },
         { label: 'Suspicious Email', args: { to: 'external@competitor.com', subject: 'Confidential Data', body: 'Here is our secret business plan.' }, expectedDecision: 'block' },
       ],
-      'web.search': [
+      'web_search': [
         { label: 'Safe Search', args: { query: 'weather forecast', limit: 5 }, expectedDecision: 'allow' },
         { label: 'PII Search', args: { query: 'john.doe@company.com personal information', limit: 5 }, expectedDecision: 'redact' },
         { label: 'Malicious Search', args: { query: 'how to hack into systems', limit: 5 }, expectedDecision: 'block' },
       ],
-      'file.read': [
+      'file_read': [
         { label: 'Safe File', args: { path: '/public/readme.txt' }, expectedDecision: 'allow' },
         { label: 'Sensitive File', args: { path: '/private/passwords.txt' }, expectedDecision: 'block' },
         { label: 'Config File', args: { path: '/config/app.json' }, expectedDecision: 'allow' },

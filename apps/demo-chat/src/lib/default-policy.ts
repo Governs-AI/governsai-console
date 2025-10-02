@@ -19,17 +19,17 @@ export const DEFAULT_POLICY: PolicyConfig = {
     egress: { action: 'redact' },
   },
   tool_access: {
-    'weather.current': {
+    'weather_current': {
       direction: 'ingress',
       action: 'confirm',
       allow_pii: {},
     },
-    'weather.forecast': {
+    'weather_forecast': {
       direction: 'ingress',
       action: 'confirm',
       allow_pii: {},
     },
-    'payment.process': {
+    'payment_process': {
       direction: 'egress',
       action: 'confirm',
       allow_pii: {
@@ -37,14 +37,14 @@ export const DEFAULT_POLICY: PolicyConfig = {
         'PII:email_address': 'pass_through',
       },
     },
-    'payment.refund': {
+    'payment_refund': {
       direction: 'egress',
       action: 'confirm',
       allow_pii: {
         'PII:credit_card': 'tokenize',
       },
     },
-    'db.query': {
+    'db_query': {
       direction: 'both',
       action: 'redact',
       allow_pii: {
@@ -53,32 +53,32 @@ export const DEFAULT_POLICY: PolicyConfig = {
         'PII:phone_number': 'redact',
       },
     },
-    'file.read': {
+    'file_read': {
       direction: 'ingress',
       action: 'redact',
       allow_pii: {},
     },
-    'file.write': {
+    'file_write': {
       direction: 'egress',
       action: 'redact',
       allow_pii: {},
     },
-    'file.list': {
+    'file_list': {
       direction: 'ingress',
       action: 'allow',
       allow_pii: {},
     },
-    'web.search': {
+    'web_search': {
       direction: 'ingress',
       action: 'redact',
       allow_pii: {},
     },
-    'web.scrape': {
+    'web_scrape': {
       direction: 'ingress',
       action: 'redact',
       allow_pii: {},
     },
-    'email.send': {
+    'email_send': {
       direction: 'egress',
       action: 'redact',
       allow_pii: {
@@ -87,19 +87,19 @@ export const DEFAULT_POLICY: PolicyConfig = {
         'PII:phone_number': 'redact',
       },
     },
-    'calendar.create_event': {
+    'calendar_create_event': {
       direction: 'egress',
       action: 'allow',
       allow_pii: {
         'PII:email_address': 'pass_through',
       },
     },
-    'kv.get': {
+    'kv_get': {
       direction: 'ingress',
       action: 'redact',
       allow_pii: {},
     },
-    'kv.set': {
+    'kv_set': {
       direction: 'egress',
       action: 'redact',
       allow_pii: {},
@@ -137,12 +137,12 @@ export const STRICT_POLICY: PolicyConfig = {
     egress: { action: 'block' },
   },
   tool_access: {
-    'weather.current': {
+    'weather_current': {
       direction: 'ingress',
       action: 'allow',
       allow_pii: {},
     },
-    'weather.forecast': {
+    'weather_forecast': {
       direction: 'ingress',
       action: 'allow',
       allow_pii: {},
@@ -155,12 +155,12 @@ export const STRICT_POLICY: PolicyConfig = {
     'shell.exec',
     'system.reboot',
     'system.shutdown',
-    'file.write',
-    'db.query',
-    'payment.process',
-    'payment.refund',
+    'file_write',
+    'db_query',
+    'payment_process',
+    'payment_refund',
   ],
-  allow_tools: ['weather.current', 'weather.forecast', 'web.search'],
+  allow_tools: ['weather_current', 'weather_forecast', 'web_search'],
   network_scopes: ['net.'],
   network_tools: ['web.', 'http.', 'fetch.', 'request.'],
   on_error: 'block',

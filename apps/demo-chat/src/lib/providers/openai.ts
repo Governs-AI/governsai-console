@@ -9,7 +9,7 @@ export class OpenAIProvider implements ChatProvider {
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+      throw new Error('OPENAI_API_KEY environment variable is required. Please set it in your .env.local file. See env.example for reference.');
     }
     
     this.client = new OpenAI({
@@ -17,7 +17,7 @@ export class OpenAIProvider implements ChatProvider {
     });
   }
 
-  async* stream(messages: Message[], model?: string, tools?: Tool[]): AsyncGenerator<{ type: 'content' | 'tool_call', data: any }> {
+  async* stream(messages: Message[], model?: string, tools?: Tool[]): AsyncGenerator<{ type: 'content' | 'tool_call' | 'usage', data: any }> {
     const modelToUse = model || this.defaultModel;
     
     // Convert our Message format to OpenAI format
@@ -68,6 +68,8 @@ export class OpenAIProvider implements ChatProvider {
       }
 
       const stream = await this.client.chat.completions.create(requestOptions);
+      let hasToolCalls = false;
+      let accumulatedContent = '';
 
       for await (const chunk of stream as any) {
         const choice = chunk.choices[0];
@@ -77,26 +79,72 @@ export class OpenAIProvider implements ChatProvider {
 
         // Handle content
         if (delta.content) {
+          accumulatedContent += delta.content;
           yield { type: 'content', data: delta.content };
         }
 
-        // Handle tool calls
+        // Handle tool calls - stop streaming and handle synchronously
         if (delta.tool_calls) {
-          console.log('Tool calls detected in delta:', delta.tool_calls);
-          for (const toolCall of delta.tool_calls) {
+          console.log('Tool calls detected, stopping stream to handle synchronously');
+          hasToolCalls = true;
+          break; // Stop streaming when tool calls are detected
+        }
+
+        // Handle usage data
+        if (chunk.usage) {
+          console.log('Usage data received:', chunk.usage);
+          yield { 
+            type: 'usage', 
+            data: {
+              prompt_tokens: chunk.usage.prompt_tokens || 0,
+              completion_tokens: chunk.usage.completion_tokens || 0,
+              total_tokens: chunk.usage.total_tokens || 0
+            }
+          };
+        }
+      }
+
+      // If tool calls were detected, make a non-streaming request to get complete tool calls
+      if (hasToolCalls) {
+        console.log('Making non-streaming request to get complete tool calls');
+        
+        const nonStreamingOptions = {
+          ...requestOptions,
+          stream: false,
+        };
+
+        const response = await this.client.chat.completions.create(nonStreamingOptions);
+        const choice = response.choices[0];
+
+        if (choice.message.tool_calls) {
+          console.log('Complete tool calls received:', choice.message.tool_calls);
+          
+          for (const toolCall of choice.message.tool_calls) {
             if (toolCall.function) {
               const toolCallData: ToolCall = {
-                id: toolCall.id || '',
+                id: toolCall.id,
                 type: 'function',
                 function: {
-                  name: toolCall.function.name || '',
-                  arguments: toolCall.function.arguments || '',
+                  name: toolCall.function.name,
+                  arguments: toolCall.function.arguments,
                 }
               };
-              console.log('Yielding tool call:', toolCallData);
+              console.log('Yielding complete tool call:', toolCallData);
               yield { type: 'tool_call', data: toolCallData };
             }
           }
+        }
+
+        // Yield usage data from the non-streaming response
+        if (response.usage) {
+          yield { 
+            type: 'usage', 
+            data: {
+              prompt_tokens: response.usage.prompt_tokens || 0,
+              completion_tokens: response.usage.completion_tokens || 0,
+              total_tokens: response.usage.total_tokens || 0
+            }
+          };
         }
       }
     } catch (error) {

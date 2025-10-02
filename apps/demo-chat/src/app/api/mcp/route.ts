@@ -8,7 +8,7 @@ import { getPrecheckUserIdDetails } from '@/lib/utils';
 // Mock MCP tool implementations with realistic data
 const mockTools = {
   // Weather Tools - Using Open-Meteo API
-  'weather.current': async (args: Record<string, any>) => {
+  'weather_current': async (args: Record<string, any>) => {
     const { latitude, longitude, location_name } = args;
     
     if (!latitude || !longitude) {
@@ -83,7 +83,7 @@ const mockTools = {
     }
   },
 
-  'weather.forecast': async (args: Record<string, any>) => {
+  'weather_forecast': async (args: Record<string, any>) => {
     const { latitude, longitude, location_name, days = 3 } = args;
     const forecastDays = Math.min(days, 7); // Max 7 days
     
@@ -162,7 +162,7 @@ const mockTools = {
   },
 
   // Payment Tools
-  'payment.process': async (args: Record<string, any>) => {
+  'payment_process': async (args: Record<string, any>) => {
     const { amount, currency = 'USD', method = 'credit_card', description } = args;
     
     // Simulate processing delay
@@ -181,7 +181,7 @@ const mockTools = {
     };
   },
 
-  'payment.refund': async (args: Record<string, any>) => {
+  'payment_refund': async (args: Record<string, any>) => {
     const { transaction_id, amount, reason } = args;
     
     return {
@@ -196,7 +196,7 @@ const mockTools = {
   },
 
   // Database Tools
-  'db.query': async (args: Record<string, any>) => {
+  'db_query': async (args: Record<string, any>) => {
     const { query, table = 'users' } = args;
     
     const mockData = {
@@ -225,7 +225,7 @@ const mockTools = {
   },
 
   // File Operations
-  'file.read': async (args: Record<string, any>) => {
+  'file_read': async (args: Record<string, any>) => {
     const path = args.path || '/demo/sample.txt';
     const mockFiles = {
       '/demo/sample.txt': 'This is a sample text file for demonstration purposes.',
@@ -243,7 +243,7 @@ const mockTools = {
     };
   },
 
-  'file.write': async (args: Record<string, any>) => {
+  'file_write': async (args: Record<string, any>) => {
     const { path, content, mode = 'w' } = args;
     
     return {
@@ -256,7 +256,7 @@ const mockTools = {
     };
   },
 
-  'file.list': async (args: Record<string, any>) => {
+  'file_list': async (args: Record<string, any>) => {
     const directory = args.path || '/demo';
     
     const mockDirectories = {
@@ -283,7 +283,7 @@ const mockTools = {
   },
 
   // Web Search Tools - Using Firecrawl API
-  'web.search': async (args: Record<string, any>) => {
+  'web_search': async (args: Record<string, any>) => {
     const { query, limit = 10 } = args;
     
     if (!query) {
@@ -339,7 +339,7 @@ const mockTools = {
     }
   },
 
-  'web.scrape': async (args: Record<string, any>) => {
+  'web_scrape': async (args: Record<string, any>) => {
     const { url, formats = ['markdown', 'html'] } = args;
     
     if (!url) {
@@ -407,7 +407,7 @@ const mockTools = {
   },
 
   // Email Tools
-  'email.send': async (args: Record<string, any>) => {
+  'email_send': async (args: Record<string, any>) => {
     const { to, subject, body, from = 'demo@example.com' } = args;
     
     return {
@@ -422,7 +422,7 @@ const mockTools = {
   },
 
   // Calendar Tools
-  'calendar.create_event': async (args: Record<string, any>) => {
+  'calendar_create_event': async (args: Record<string, any>) => {
     const { title, start_time, end_time, description, attendees = [] } = args;
     
     return {
@@ -439,7 +439,7 @@ const mockTools = {
   },
 
   // Key-Value Store
-  'kv.get': async (args: Record<string, any>) => {
+  'kv_get': async (args: Record<string, any>) => {
     const key = args.key || 'default_key';
     const mockStore = {
       'user_preferences': '{"theme": "dark", "notifications": true}',
@@ -456,7 +456,7 @@ const mockTools = {
     };
   },
 
-  'kv.set': async (args: Record<string, any>) => {
+  'kv_set': async (args: Record<string, any>) => {
     const { key, value, ttl = 3600 } = args;
     
     return {
@@ -560,20 +560,20 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   // Return available tools with detailed descriptions
   const toolDescriptions = {
-    'weather.current': 'Get current weather conditions using latitude and longitude coordinates',
-    'weather.forecast': 'Get weather forecast for multiple days using coordinates',
-    'payment.process': 'Process a payment transaction',
-    'payment.refund': 'Process a refund for a transaction',
-    'db.query': 'Execute database queries on mock tables',
-    'file.read': 'Read contents of a file',
-    'file.write': 'Write content to a file',
-    'file.list': 'List files and directories',
-    'web.search': 'Search the web for information using Firecrawl API',
-    'web.scrape': 'Scrape and extract content from webpages using Firecrawl API',
-    'email.send': 'Send an email message',
-    'calendar.create_event': 'Create a calendar event',
-    'kv.get': 'Get value from key-value store',
-    'kv.set': 'Set value in key-value store',
+    'weather_current': 'Get current weather conditions using latitude and longitude coordinates',
+    'weather_forecast': 'Get weather forecast for multiple days using coordinates',
+    'payment_process': 'Process a payment transaction',
+    'payment_refund': 'Process a refund for a transaction',
+    'db_query': 'Execute database queries on mock tables',
+    'file_read': 'Read contents of a file',
+    'file_write': 'Write content to a file',
+    'file_list': 'List files and directories',
+    'web_search': 'Search the web for information using Firecrawl API',
+    'web_scrape': 'Scrape and extract content from webpages using Firecrawl API',
+    'email_send': 'Send an email message',
+    'calendar_create_event': 'Create a calendar event',
+    'kv_get': 'Get value from key-value store',
+    'kv_set': 'Set value in key-value store',
   };
   
   return Response.json({
@@ -583,14 +583,14 @@ export async function GET() {
       category: tool.split('.')[0],
     })),
     categories: {
-      weather: ['weather.current', 'weather.forecast'],
-      payment: ['payment.process', 'payment.refund'],
-      db: ['db.query'],
-      file: ['file.read', 'file.write', 'file.list'],
-      web: ['web.search', 'web.scrape'],
-      email: ['email.send'],
-      calendar: ['calendar.create_event'],
-      kv: ['kv.get', 'kv.set'],
+      weather: ['weather_current', 'weather_forecast'],
+      payment: ['payment_process', 'payment_refund'],
+      db: ['db_query'],
+      file: ['file_read', 'file_write', 'file_list'],
+      web: ['web_search', 'web_scrape'],
+      email: ['email_send'],
+      calendar: ['calendar_create_event'],
+      kv: ['kv_get', 'kv_set'],
     },
   });
 }

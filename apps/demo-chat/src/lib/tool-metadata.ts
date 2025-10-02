@@ -2,8 +2,8 @@ import { ToolConfigMetadata } from './types';
 
 // Tool metadata configuration for governance and policy enforcement
 export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
-  'weather.current': {
-    tool_name: 'weather.current',
+  'weather_current': {
+    tool_name: 'weather_current',
     scope: 'net.external',
     direction: 'both',
     metadata: {
@@ -12,8 +12,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'weather.forecast': {
-    tool_name: 'weather.forecast',
+  'weather_forecast': {
+    tool_name: 'weather_forecast',
     scope: 'net.external',
     direction: 'both',
     metadata: {
@@ -22,8 +22,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'payment.process': {
-    tool_name: 'payment.process',
+  'payment_process': {
+    tool_name: 'payment_process',
     scope: 'net.external',
     direction: 'egress',
     metadata: {
@@ -32,8 +32,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: true,
     },
   },
-  'payment.refund': {
-    tool_name: 'payment.refund',
+  'payment_refund': {
+    tool_name: 'payment_refund',
     scope: 'net.external',
     direction: 'egress',
     metadata: {
@@ -42,8 +42,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: true,
     },
   },
-  'db.query': {
-    tool_name: 'db.query',
+  'db_query': {
+    tool_name: 'db_query',
     scope: 'local',
     direction: 'both',
     metadata: {
@@ -52,8 +52,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'file.read': {
-    tool_name: 'file.read',
+  'file_read': {
+    tool_name: 'file_read',
     scope: 'local',
     direction: 'ingress',
     metadata: {
@@ -62,8 +62,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'file.write': {
-    tool_name: 'file.write',
+  'file_write': {
+    tool_name: 'file_write',
     scope: 'local',
     direction: 'egress',
     metadata: {
@@ -72,8 +72,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'file.list': {
-    tool_name: 'file.list',
+  'file_list': {
+    tool_name: 'file_list',
     scope: 'local',
     direction: 'ingress',
     metadata: {
@@ -82,8 +82,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'web.search': {
-    tool_name: 'web.search',
+  'web_search': {
+    tool_name: 'web_search',
     scope: 'net.external',
     direction: 'ingress',
     metadata: {
@@ -92,8 +92,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'web.scrape': {
-    tool_name: 'web.scrape',
+  'web_scrape': {
+    tool_name: 'web_scrape',
     scope: 'net.external',
     direction: 'ingress',
     metadata: {
@@ -102,8 +102,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'email.send': {
-    tool_name: 'email.send',
+  'email_send': {
+    tool_name: 'email_send',
     scope: 'net.external',
     direction: 'egress',
     metadata: {
@@ -112,8 +112,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: true,
     },
   },
-  'calendar.create_event': {
-    tool_name: 'calendar.create_event',
+  'calendar_create_event': {
+    tool_name: 'calendar_create_event',
     scope: 'net.external',
     direction: 'egress',
     metadata: {
@@ -122,8 +122,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'kv.get': {
-    tool_name: 'kv.get',
+  'kv_get': {
+    tool_name: 'kv_get',
     scope: 'local',
     direction: 'ingress',
     metadata: {
@@ -132,8 +132,8 @@ export const TOOL_METADATA: Record<string, ToolConfigMetadata> = {
       requires_approval: false,
     },
   },
-  'kv.set': {
-    tool_name: 'kv.set',
+  'kv_set': {
+    tool_name: 'kv_set',
     scope: 'local',
     direction: 'egress',
     metadata: {

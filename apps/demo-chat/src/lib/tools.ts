@@ -6,7 +6,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "weather.current",
+      name: "weather_current",
       description: "Get current weather conditions using latitude and longitude coordinates",
       parameters: {
         type: "object",
@@ -31,7 +31,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "weather.forecast",
+      name: "weather_forecast",
       description: "Get weather forecast for multiple days using coordinates",
       parameters: {
         type: "object",
@@ -62,7 +62,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "payment.process",
+      name: "payment_process",
       description: "Process a payment transaction (requires confirmation)",
       parameters: {
         type: "object",
@@ -91,7 +91,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "payment.refund",
+      name: "payment_refund",
       description: "Process a refund for a transaction",
       parameters: {
         type: "object",
@@ -118,7 +118,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "db.query",
+      name: "db_query",
       description: "Execute database queries on mock tables (users, orders, products)",
       parameters: {
         type: "object",
@@ -141,7 +141,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "file.read",
+      name: "file_read",
       description: "Read contents of a file",
       parameters: {
         type: "object",
@@ -158,7 +158,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "file.write",
+      name: "file_write",
       description: "Write content to a file",
       parameters: {
         type: "object",
@@ -183,7 +183,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "file.list",
+      name: "file_list",
       description: "List files and directories",
       parameters: {
         type: "object",
@@ -202,7 +202,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "web.search",
+      name: "web_search",
       description: "Search the web for information using Firecrawl API",
       parameters: {
         type: "object",
@@ -223,7 +223,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "web.scrape",
+      name: "web_scrape",
       description: "Scrape and extract content from webpages using Firecrawl API",
       parameters: {
         type: "object",
@@ -247,7 +247,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "email.send",
+      name: "email_send",
       description: "Send an email message (requires confirmation)",
       parameters: {
         type: "object",
@@ -278,7 +278,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "calendar.create_event",
+      name: "calendar_create_event",
       description: "Create a calendar event",
       parameters: {
         type: "object",
@@ -314,7 +314,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "kv.get",
+      name: "kv_get",
       description: "Get value from key-value store",
       parameters: {
         type: "object",
@@ -331,7 +331,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
   {
     type: "function",
     function: {
-      name: "kv.set",
+      name: "kv_set",
       description: "Set value in key-value store",
       parameters: {
         type: "object",

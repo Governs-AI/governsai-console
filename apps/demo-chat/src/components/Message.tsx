@@ -10,9 +10,9 @@ interface MessageProps {
 
 export default function Message({ message, className = '' }: MessageProps) {
   const isUser = message.role === 'user';
-  const isTool = message.role === 'tool';
-  
-  return (
+    const isTool = message.role === 'tool';
+    
+    return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} ${className}`}>
       <div className={`max-w-[80%] ${isUser ? 'order-2' : 'order-1'}`}>
         <div
@@ -43,7 +43,14 @@ export default function Message({ message, className = '' }: MessageProps) {
                   </span>
                 </div>
                 <div className="text-xs text-blue-700 font-mono">
-                  {JSON.stringify(JSON.parse(toolCall.function.arguments), null, 2)}
+                  {(() => {
+                    try {
+                      return JSON.stringify(JSON.parse(toolCall.function.arguments), null, 2);
+                    } catch (error) {
+                      // If JSON parsing fails, show the raw arguments
+                      return toolCall.function.arguments;
+                    }
+                  })()}
                 </div>
               </div>
             ))}

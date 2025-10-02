@@ -272,7 +272,11 @@ export async function POST(request: NextRequest) {
         }
 
         const policy = platformData.policy;
-        const orgId = platformData.orgId || 'default-org'; // Get orgId from platform data
+        // Use the seeded organization ID from the database
+        const orgId = platformData.orgId || 'cmg83v4ki00005q6app5ouwrw'; // Get orgId from platform data or use seeded org
+        
+        console.log('Platform data orgId:', platformData.orgId);
+        console.log('Using orgId for usage recording:', orgId);
         
         // Register this agent's tools with the platform (with full metadata for auto-discovery)
         await registerToolsWithMetadata(AVAILABLE_TOOLS);
@@ -422,7 +426,7 @@ export async function POST(request: NextRequest) {
 
 RULES:
 - For simple greetings, jokes, or general questions: Answer directly without tools
-- For weather requests: Use weather.current or weather.forecast with coordinates
+- For weather requests: Use weather_current or weather_forecast with coordinates
 - For other specific tasks: Use the appropriate tool
 
 Common coordinates:
@@ -464,19 +468,24 @@ When using tools, make the tool call directly. Don't explain beforehand.`,
           
           // Record usage after successful completion
           if (usageData && userId && orgId) {
-            await recordUsage(
-              userId,
-              orgId,
-              usageData.model,
-              usageData.inputTokens,
-              usageData.outputTokens,
-              'chat',
-              corrId,
-              {
-                messageCount: processedMessages.length,
-                provider: usageData.provider,
-              }
-            );
+            try {
+              await recordUsage(
+                userId,
+                orgId,
+                usageData.model,
+                usageData.inputTokens,
+                usageData.outputTokens,
+                'chat',
+                corrId,
+                {
+                  messageCount: processedMessages.length,
+                  provider: usageData.provider,
+                }
+              );
+            } catch (error) {
+              console.error('Failed to record usage (non-critical):', error);
+              // Don't throw - usage recording failure shouldn't break the chat
+            }
           }
         } catch (error) {
           writer.writeError(

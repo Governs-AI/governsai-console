@@ -38,10 +38,10 @@ export async function GET(request: NextRequest) {
 
     // Get tool usage data
     const toolUsage = await prisma.usageRecord.groupBy({
-      by: ['toolName'],
+      by: ['tool'],
       where: {
         orgId,
-        createdAt: {
+        timestamp: {
           gte: startDate,
           lte: now,
         },
@@ -53,42 +53,42 @@ export async function GET(request: NextRequest) {
         id: true,
       },
       _max: {
-        createdAt: true,
+        timestamp: true,
       },
     });
 
     // Get tool metadata for categories
-    const toolMetadata = await prisma.tool.findMany({
+    const toolMetadata = await prisma.toolConfig.findMany({
       where: {
-        orgId,
+        isActive: true,
       },
       select: {
-        name: true,
+        toolName: true,
         category: true,
       },
     });
 
     const toolCategoryMap = toolMetadata.reduce((acc, tool) => {
-      acc[tool.name] = tool.category || 'General';
+      acc[tool.toolName] = tool.category || 'General';
       return acc;
     }, {} as Record<string, string>);
 
     // Transform data
     const toolCosts = toolUsage
-      .filter(usage => usage.toolName !== null)
+      .filter(usage => usage.tool !== null)
       .map(usage => {
-        const totalCost = usage._sum.cost || 0;
+        const totalCost = Number(usage._sum.cost || 0);
         const totalCalls = usage._count.id;
         const avgCostPerCall = totalCalls > 0 ? totalCost / totalCalls : 0;
-        const lastUsed = usage._max.createdAt || new Date();
+        const lastUsed = usage._max.timestamp || new Date();
 
         return {
-          toolName: usage.toolName!,
+          toolName: usage.tool!,
           totalCalls,
           totalCost,
           avgCostPerCall,
           lastUsed: lastUsed.toISOString(),
-          category: toolCategoryMap[usage.toolName!] || 'General',
+          category: toolCategoryMap[usage.tool!] || 'General',
         };
       })
       .sort((a, b) => b.totalCost - a.totalCost);

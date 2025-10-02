@@ -108,6 +108,19 @@ export class OllamaProvider implements ChatProvider {
                   }
                 }
               }
+
+              // Handle usage data
+              if (parsed.usage) {
+                console.log('Usage data received from Ollama:', parsed.usage);
+                yield { 
+                  type: 'usage', 
+                  data: {
+                    prompt_tokens: parsed.usage.prompt_tokens || 0,
+                    completion_tokens: parsed.usage.completion_tokens || 0,
+                    total_tokens: parsed.usage.total_tokens || 0
+                  }
+                };
+              }
             } catch (parseError) {
               // Ignore malformed JSON chunks
               console.warn('Failed to parse SSE chunk:', data);

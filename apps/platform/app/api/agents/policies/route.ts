@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
         policy: null,
         toolMetadata,
         message: 'No active policies found',
+        orgId: orgId, // Add orgId to the response
       });
     }
 
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
       policyId: activePolicy.id,
       policyName: activePolicy.name,
       lastUpdated: activePolicy.updatedAt,
+      orgId: orgId, // Add orgId to the response
     });
   } catch (error) {
     console.error('Error fetching agent policies:', error);
