@@ -7,6 +7,7 @@ import {
   generateOrgSlug 
 } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
+import { syncUserToKeycloak } from '@/lib/keycloak-admin';
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -67,6 +68,20 @@ export async function POST(request: NextRequest) {
     } else {
       org = await createOrganization(finalOrgName, orgSlug, user.id);
     }
+
+    // Sync user to Keycloak (non-blocking)
+    syncUserToKeycloak({
+      userId: user.id,
+      email: user.email,
+      name: user.name || undefined,
+      emailVerified: !!user.emailVerified,
+      orgId: org.id,
+      orgSlug: org.slug,
+      role: 'OWNER',
+    }).catch((error) => {
+      // Log but don't block signup if Keycloak sync fails
+      console.error('Keycloak sync failed during signup:', error);
+    });
 
     return NextResponse.json({
       success: true,

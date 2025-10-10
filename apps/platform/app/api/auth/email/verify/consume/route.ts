@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { consumeVerificationToken, markEmailVerified } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
+import { updateEmailVerificationInKeycloak } from '@/lib/keycloak-admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,6 +38,11 @@ export async function GET(request: NextRequest) {
 
     // Mark email as verified
     await markEmailVerified(user.id);
+
+    // Sync email verification to Keycloak (non-blocking)
+    updateEmailVerificationInKeycloak(user.email, true).catch((error) => {
+      console.error('Keycloak email verification sync failed:', error);
+    });
 
     // Get user's organizations to redirect to their dashboard
     const memberships = await prisma.orgMembership.findMany({

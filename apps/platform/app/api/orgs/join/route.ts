@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { consumeVerificationToken, addUserToOrganization } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
+import { syncUserToKeycloak } from '@/lib/keycloak-admin';
 
 const joinSchema = z.object({
   token: z.string(),
@@ -71,6 +72,21 @@ export async function POST(request: NextRequest) {
     const org = await prisma.org.findUnique({
       where: { id: orgId },
     });
+
+    // Sync user to Keycloak with new org (non-blocking)
+    if (org) {
+      syncUserToKeycloak({
+        userId: user.id,
+        email: user.email,
+        name: user.name || undefined,
+        emailVerified: !!user.emailVerified,
+        orgId: org.id,
+        orgSlug: org.slug,
+        role: membership.role,
+      }).catch((error) => {
+        console.error('Keycloak sync failed during org join:', error);
+      });
+    }
 
     return NextResponse.json({
       success: true,
