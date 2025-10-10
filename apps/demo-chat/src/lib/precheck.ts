@@ -62,7 +62,7 @@ export async function precheck(
 ): Promise<PrecheckResponse> {
   const { userId: defaultUserId, apiKey: defaultApiKey } = getPrecheckUserIdDetails();
 
-  const baseUrl = process.env.PRECHECK_URL || 'http://172.16.10.121:8080';
+  const baseUrl = process.env.PRECHECK_URL || 'http://localhost:8080';
   
   // Use provided userId/apiKey or fall back to defaults
   const finalUserId = userId || defaultUserId;

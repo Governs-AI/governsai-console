@@ -78,7 +78,7 @@ export default function Dashboard() {
   };
 
   const getPrecheckUrl = (userId: string, apiKey: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_PRECHECK_URL || 'http://172.16.10.121:8080';
+    const baseUrl = process.env.NEXT_PUBLIC_PRECHECK_URL || 'http://localhost:8080';
     return `${baseUrl}/v1/u/${userId}/precheck?api_key=${apiKey}`;
   };
 
@@ -115,7 +115,7 @@ export default function Dashboard() {
               </label>
               <input
                 type="text"
-                value={process.env.NEXT_PUBLIC_PRECHECK_URL || 'http://172.16.10.121:8080'}
+                value={process.env.NEXT_PUBLIC_PRECHECK_URL || 'http://localhost:8080'}
                 disabled
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
               />

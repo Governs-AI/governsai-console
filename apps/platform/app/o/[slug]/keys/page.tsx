@@ -53,7 +53,7 @@ export default function KeysPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
   // Fixed values for precheck integration
-  const PRECHECK_BASE = 'http://172.16.10.121:8080';
+  const PRECHECK_BASE = 'http://localhost:8080';
   const PRECHECK_USER_ID = 'cmfzriaip0000fyp81gjfkri9';
   const DEFAULT_API_KEY = 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e';
 
