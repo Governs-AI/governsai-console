@@ -224,9 +224,7 @@ pnpm run check-types
 ```
 governs-ai/
 ├── apps/                    # Applications
-│   ├── landing/             # Marketing & Landing Page (Port 3000)
 │   ├── platform/            # Main Platform App (Port 3002)
-│   └── docs/                # Documentation Site (Port 3001)
 ├── packages/                # Shared Packages
 │   ├── ui/                  # UI Components
 │   ├── layout/              # Layout Components

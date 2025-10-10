@@ -28,7 +28,7 @@ importers:
         specifier: 5.8.2
         version: 5.8.2
 
-  apps/demo-chat:
+  external-chat-app:
     dependencies:
       '@mendable/firecrawl-js':
         specifier: ^4.3.6

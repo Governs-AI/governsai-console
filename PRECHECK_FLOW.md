@@ -136,7 +136,7 @@ This document explains how precheck decisions are enforced in the GovernsAI demo
 ## 📍 Code Locations
 
 ### 1. Chat Message Precheck
-**File**: `apps/demo-chat/src/app/api/chat/route.ts`
+**File**: `external-chat-app/src/app/api/chat/route.ts`
 **Lines**: 145-174
 
 ```typescript
@@ -172,7 +172,7 @@ const processedMessages = precheckResponse.content?.messages || messages;
 ```
 
 ### 2. Tool Call Precheck
-**File**: `apps/demo-chat/src/app/api/chat/route.ts`
+**File**: `external-chat-app/src/app/api/chat/route.ts`
 **Function**: `executeToolCall()`
 **Lines**: 32-66
 
@@ -390,7 +390,7 @@ LLM → Precheck → [block? error : continue] → Tool → Result → LLM
 1. **Check Console Logs**:
    ```bash
    # Start demo-chat
-   cd apps/demo-chat && npm run dev
+   cd external-chat-app && npm run dev
    
    # Send a message
    # Look for:
