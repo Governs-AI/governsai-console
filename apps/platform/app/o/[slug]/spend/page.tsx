@@ -162,6 +162,26 @@ export default function SpendPage() {
     try {
       setLoading(true);
       
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (selectedTimeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      
       // Fetch spend data
       const spendResponse = await fetch(`/api/spend?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
         credentials: 'include',
