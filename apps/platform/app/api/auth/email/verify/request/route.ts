@@ -38,7 +38,21 @@ export async function POST(request: NextRequest) {
       'email-verify'
     );
 
-    // TODO: Send verification email
+    // Send verification email
+    const { sendVerificationEmail } = await import('@/lib/email');
+    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${verificationToken}`;
+
+    const emailResult = await sendVerificationEmail({
+      to: email,
+      userName: user.name || email.split('@')[0],
+      verifyUrl,
+    });
+
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+      // Don't fail the request, but log the error
+    }
+
     console.log(`Email verification token for ${email}: ${verificationToken}`);
 
     return NextResponse.json({
@@ -48,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Email verification request error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid input', details: error.errors },

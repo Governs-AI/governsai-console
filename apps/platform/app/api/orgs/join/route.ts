@@ -37,12 +37,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      // User doesn't exist, they need to sign up first
+      // User doesn't exist, redirect to invitation signup
       return NextResponse.json(
-        { 
+        {
           error: 'User not found. Please sign up first.',
           requiresSignup: true,
           email: email,
+          redirectUrl: `/auth/signup/invited?token=${token}`,
         },
         { status: 400 }
       );
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Join organization error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid input', details: error.errors },

@@ -14,6 +14,10 @@ KEYCLOAK_REALM="governs-ai"
 # Create a client with service account enabled and manage-users permissions
 KEYCLOAK_ADMIN_CLIENT_ID="admin-sync-client"
 KEYCLOAK_ADMIN_CLIENT_SECRET="your-admin-client-secret"
+
+# Email Configuration (Resend)
+RESEND_API_KEY="re_your-resend-api-key-here"
+NEXT_PUBLIC_APP_URL="http://localhost:3002"
 ```
 
 ## Setup Instructions
