@@ -26,6 +26,7 @@ import {
   Code
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { RoleGuard, useRoleCheck } from '@/components/role-guard';
 
 interface ToolCall {
   id: string;
@@ -56,6 +57,7 @@ interface ToolCallStats {
 export default function ToolCallsPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { canManageTools, canAccessAdmin } = useRoleCheck();
 
   const [toolcalls, setToolcalls] = useState<ToolCall[]>([]);
   const [stats, setStats] = useState<ToolCallStats | null>(null);
@@ -231,7 +233,8 @@ export default function ToolCallsPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <div className="space-y-6">
+      <RoleGuard requiredPermission="canManageTools">
+        <div className="space-y-6">
         <PageHeader
           title="Tool Calls"
           subtitle={`Monitor AI tool usage specifically - shows only decisions that involve tool execution (subset of all decisions) for ${orgSlug}`}
@@ -524,7 +527,8 @@ export default function ToolCallsPage() {
               </div>
             )}
           </div>
-      </div>
+        </div>
+      </RoleGuard>
     </PlatformShell>
   );
 }

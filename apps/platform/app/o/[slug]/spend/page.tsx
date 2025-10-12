@@ -28,7 +28,6 @@ import {
   Edit,
   Trash2,
   BarChart3,
-  Calendar,
   Users,
   Zap,
   Brain,
@@ -37,6 +36,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { RoleGuard, useRoleCheck } from '@/components/role-guard';
 
 interface SpendData {
   totalSpend: number;
@@ -110,6 +110,7 @@ interface CallRecord {
 }
 
 export default function SpendPage() {
+  const { canAccessAdmin } = useRoleCheck();
   const [spendData, setSpendData] = useState<SpendData>({
     totalSpend: 0,
     monthlySpend: 0,
@@ -240,16 +241,13 @@ export default function SpendPage() {
         toolSpend: {},
         modelSpend: {},
         userSpend: {},
-        purchaseSpend: {},
+        purchaseSpend,
         budgetLimit: 0,
         remainingBudget: 0,
         isOverBudget: false,
-        llmSpend: 0,
-        purchaseSpendTotal: 0,
-        ...(spendData.spend || {}),
-        purchaseSpend,
         purchaseSpendTotal,
-        llmSpend: (spendData.spend?.monthlySpend || 0) - purchaseSpendTotal
+        llmSpend: (spendData.spend?.monthlySpend || 0) - purchaseSpendTotal,
+        ...(spendData.spend || {})
       });
       setBudgetLimits(budgetData.limits || []);
       setToolCosts(toolCostsData.costs || []);
@@ -531,24 +529,27 @@ export default function SpendPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <div className="space-y-6">
+      <RoleGuard requiredPermission="canViewSpend">
+        <div className="space-y-6">
         <PageHeader
           title="Spend Management"
           subtitle="Track AI tool usage costs and manage budget limits for your organization"
           actions={
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowBudgetForm(true)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Manage Budgets
-              </Button>
-              <Button onClick={() => {
-                resetBudgetForm();
-                setShowBudgetForm(true);
-              }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Budget Limit
-              </Button>
-            </div>
+            canAccessAdmin() && (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowBudgetForm(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Budgets
+                </Button>
+                <Button onClick={() => {
+                  resetBudgetForm();
+                  setShowBudgetForm(true);
+                }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Budget Limit
+                </Button>
+              </div>
+            )
           }
         />
 
@@ -1339,7 +1340,8 @@ export default function SpendPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </RoleGuard>
     </PlatformShell>
   );
 }
