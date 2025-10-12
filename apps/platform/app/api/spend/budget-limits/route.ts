@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { requireAuth } from '@/lib/session';
+import { requireAuth, requireRole } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,8 +11,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Organization slug required' }, { status: 400 });
     }
 
-    // Get user from session
+    // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
+
+    // Check if user has admin permissions for budget management
+    const userMembership = await prisma.membership.findFirst({
+      where: {
+        userId,
+        orgId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!userMembership || !['OWNER', 'ADMIN'].includes(userMembership.role)) {
+      return NextResponse.json(
+        { error: 'Admin permissions required to manage budgets' },
+        { status: 403 }
+      );
+    }
 
     // Get all budget limits for the organization
     const budgetLimits = await prisma.budgetLimit.findMany({
@@ -38,7 +56,7 @@ export async function GET(request: NextRequest) {
       budgetLimits.map(async (limit) => {
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        
+
         const currentSpend = await prisma.usageRecord.aggregate({
           where: {
             orgId,
@@ -71,7 +89,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching budget limits:', error);
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -98,8 +116,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Organization slug required' }, { status: 400 });
     }
 
-    // Get user from session
+    // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
+
+    // Check if user has admin permissions for budget management
+    const userMembership = await prisma.membership.findFirst({
+      where: {
+        userId,
+        orgId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!userMembership || !['OWNER', 'ADMIN'].includes(userMembership.role)) {
+      return NextResponse.json(
+        { error: 'Admin permissions required to manage budgets' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const { type, userId: targetUserId, monthlyLimit } = body;
@@ -150,8 +186,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       budgetLimit: {
         id: budgetLimit.id,
         type: budgetLimit.type,
@@ -165,7 +201,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error creating budget limit:', error);
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json(
         { error: 'Authentication required' },

@@ -9,8 +9,26 @@ export async function GET(
   try {
     const { id } = params;
 
-    // Get user from session
+    // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
+
+    // Check if user has admin permissions for budget management
+    const userMembership = await prisma.membership.findFirst({
+      where: {
+        userId,
+        orgId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!userMembership || !['OWNER', 'ADMIN'].includes(userMembership.role)) {
+      return NextResponse.json(
+        { error: 'Admin permissions required to manage budgets' },
+        { status: 403 }
+      );
+    }
 
     // Get budget limit
     const budgetLimit = await prisma.budgetLimit.findFirst({
@@ -39,7 +57,7 @@ export async function GET(
     // Calculate current spend
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     const currentSpend = await prisma.usageRecord.aggregate({
       where: {
         orgId,
@@ -70,7 +88,7 @@ export async function GET(
 
   } catch (error) {
     console.error('Error fetching budget limit:', error);
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -95,8 +113,26 @@ export async function PATCH(
   try {
     const { id } = params;
 
-    // Get user from session
+    // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
+
+    // Check if user has admin permissions for budget management
+    const userMembership = await prisma.membership.findFirst({
+      where: {
+        userId,
+        orgId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!userMembership || !['OWNER', 'ADMIN'].includes(userMembership.role)) {
+      return NextResponse.json(
+        { error: 'Admin permissions required to manage budgets' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const { monthlyLimit, isActive } = body;
@@ -145,7 +181,7 @@ export async function PATCH(
 
   } catch (error) {
     console.error('Error updating budget limit:', error);
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -170,8 +206,26 @@ export async function DELETE(
   try {
     const { id } = params;
 
-    // Get user from session
+    // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
+
+    // Check if user has admin permissions for budget management
+    const userMembership = await prisma.membership.findFirst({
+      where: {
+        userId,
+        orgId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!userMembership || !['OWNER', 'ADMIN'].includes(userMembership.role)) {
+      return NextResponse.json(
+        { error: 'Admin permissions required to manage budgets' },
+        { status: 403 }
+      );
+    }
 
     // Delete budget limit
     await prisma.budgetLimit.delete({
@@ -185,7 +239,7 @@ export async function DELETE(
 
   } catch (error) {
     console.error('Error deleting budget limit:', error);
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json(
         { error: 'Authentication required' },

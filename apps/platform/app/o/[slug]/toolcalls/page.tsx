@@ -233,8 +233,7 @@ export default function ToolCallsPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <RoleGuard requiredPermission="canManageTools">
-        <div className="space-y-6">
+      <div className="space-y-6">
         <PageHeader
           title="Tool Calls"
           subtitle={`Monitor AI tool usage specifically - shows only decisions that involve tool execution (subset of all decisions) for ${orgSlug}`}
@@ -527,8 +526,7 @@ export default function ToolCallsPage() {
               </div>
             )}
           </div>
-        </div>
-      </RoleGuard>
+      </div>
     </PlatformShell>
   );
 }

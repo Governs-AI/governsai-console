@@ -1067,10 +1067,12 @@ export default function SpendPage() {
                 <p className="text-muted-foreground mb-4">
                   Set monthly spending limits for your organization and individual users.
                 </p>
-                <Button onClick={() => setShowBudgetForm(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Set Budget Limit
-                </Button>
+                {canAccessAdmin() && (
+                  <Button onClick={() => setShowBudgetForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Set Budget Limit
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -1096,21 +1098,27 @@ export default function SpendPage() {
                           {formatPercentage(limit.currentSpend, limit.monthlyLimit)} used
                         </p>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEditBudget(limit)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteBudget(limit.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canAccessAdmin() ? (
+                        <>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEditBudget(limit)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteBudget(limit.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">View Only</span>
+                      )}
                     </div>
                   </div>
                 ))}
