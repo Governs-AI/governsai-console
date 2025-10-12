@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
 import { useUser } from '@/lib/user-context';
+import { RoleGuard } from '@/components/role-guard';
 
 interface User {
   id: string;
@@ -258,7 +259,8 @@ export default function AdminUsersPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <div className="space-y-6">
+      <RoleGuard requiredPermission="canManageUsers">
+        <div className="space-y-6">
         <PageHeader
           title="User Management"
           subtitle="Manage organization members, roles, and permissions"
@@ -518,6 +520,7 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+      </RoleGuard>
     </PlatformShell>
   );
 }

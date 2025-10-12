@@ -1,16 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/docs/(.*)",
-      "destination": "${DOCS_APP_URL}/docs/$1"
-    },
-    {
       "source": "/app/(.*)",
       "destination": "${PLATFORM_APP_URL}/app/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "${LANDING_APP_URL}/$1"
     }
   ],
   "headers": [

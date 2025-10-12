@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
+import { updateUserOrgInKeycloak, removeUserFromKeycloak } from '@/lib/keycloak-admin';
 
 export async function PATCH(
   request: NextRequest,
@@ -57,6 +58,25 @@ export async function PATCH(
       );
     }
 
+    // Sync role update to Keycloak (non-blocking)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    const org = await prisma.org.findUnique({
+      where: { id: orgId },
+    });
+
+    if (user && org) {
+      updateUserOrgInKeycloak(
+        user.email,
+        org.id,
+        org.slug,
+        role.toUpperCase()
+      ).catch((error) => {
+        console.error('Keycloak role update sync failed:', error);
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message: 'User role updated successfully',
@@ -105,6 +125,12 @@ export async function DELETE(
       );
     }
 
+    // Get user email before deletion for Keycloak sync
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
     // Remove user from the organization
     const deletedMembership = await prisma.orgMembership.deleteMany({
       where: {
@@ -118,6 +144,13 @@ export async function DELETE(
         { error: 'User not found in organization' },
         { status: 404 }
       );
+    }
+
+    // Remove user from Keycloak since they no longer belong to any org (non-blocking)
+    if (user) {
+      removeUserFromKeycloak(user.email).catch((error) => {
+        console.error('Keycloak user removal sync failed:', error);
+      });
     }
 
     return NextResponse.json({

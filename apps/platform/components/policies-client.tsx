@@ -25,6 +25,7 @@ import {
   PowerOff
 } from 'lucide-react';
 import { PolicyForm } from './policy-form';
+import { useRoleCheck } from './role-guard';
 
 interface Policy {
   id: string;
@@ -65,6 +66,7 @@ interface PoliciesClientProps {
 }
 
 export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
+  const { canManagePolicies, userRole } = useRoleCheck();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [tools, setTools] = useState<ToolConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -292,16 +294,32 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
     <div className="space-y-6">
       <PageHeader
         title="AI Governance Policies"
-        subtitle={`Manage and monitor governance policies for ${orgSlug}`}
+        subtitle={
+          canManagePolicies() 
+            ? `Manage and monitor governance policies for ${orgSlug}`
+            : `View your personal policies and organization policies for ${orgSlug}`
+        }
         actions={
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setIsCreating(true)}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Policy
-            </Button>
+          canManagePolicies() ? (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsCreating(true)}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Policy
+              </Button>
+              <Button
+                onClick={fetchData}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+              >
+                {refreshing ? <LoadingSpinner size="sm" /> : <RefreshCw className="h-4 w-4" />}
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
+          ) : (
             <Button
               onClick={fetchData}
               disabled={refreshing}
@@ -311,7 +329,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
               {refreshing ? <LoadingSpinner size="sm" /> : <RefreshCw className="h-4 w-4" />}
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
-          </div>
+          )
         }
       />
 
@@ -337,6 +355,33 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Policy Priority Information for VIEWER users */}
+      {!canManagePolicies() && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Policy Priority System</h3>
+                <div className="mt-2 text-sm text-gray-600">
+                  <p className="mb-2">
+                    <strong>Organization policies</strong> take priority over your personal policies.
+                  </p>
+                  <p className="mb-2">
+                    When both organization and personal policies exist for the same tool or action, 
+                    the organization policy will be enforced.
+                  </p>
+                  <p>
+                    You can create personal policies to customize your experience, but they won't 
+                    override organization-wide security settings.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Stats Cards */}
@@ -486,38 +531,44 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditPolicy(policy)}
-                            title="Edit policy"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDuplicatePolicy(policy)}
-                            title="Duplicate policy"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => togglePolicyStatus(policy.id, policy.isActive)}
-                            title={policy.isActive ? 'Deactivate' : 'Activate'}
-                          >
-                            {policy.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deletePolicy(policy.id)}
-                            title="Delete policy"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canManagePolicies() ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditPolicy(policy)}
+                                title="Edit policy"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDuplicatePolicy(policy)}
+                                title="Duplicate policy"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => togglePolicyStatus(policy.id, policy.isActive)}
+                                title={policy.isActive ? 'Deactivate' : 'Activate'}
+                              >
+                                {policy.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => deletePolicy(policy.id)}
+                                title="Delete policy"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">View Only</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">

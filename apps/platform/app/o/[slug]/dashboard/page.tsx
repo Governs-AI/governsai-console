@@ -19,6 +19,7 @@ import {
   LoadingSpinner
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
+import { useRoleCheck } from '@/components/role-guard';
 
 interface User {
   id: string;
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { userRole, canAccessAdmin, canManageUsers, canViewSpend } = useRoleCheck();
   const [dashboardData, setDashboardData] = useState({
     decisions: {
       total: 0,
@@ -253,22 +255,24 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           
-          <Card className="interactive-card">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Admin Panel</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">Configure policies, decisions, and tool calls</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
-                onClick={() => router.push(`/o/${orgSlug}/admin`)}
-              >
-                Admin Panel →
-              </Button>
-            </CardContent>
-          </Card>
+          {canAccessAdmin() && (
+            <Card className="interactive-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Admin Panel</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">Configure policies, decisions, and tool calls</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => router.push(`/o/${orgSlug}/admin`)}
+                >
+                  Admin Panel →
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Recent Activity */}

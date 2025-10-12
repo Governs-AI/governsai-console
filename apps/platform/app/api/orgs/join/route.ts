@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { consumeVerificationToken, addUserToOrganization } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
+import { syncUserToKeycloak } from '@/lib/keycloak-admin';
 
 const joinSchema = z.object({
   token: z.string(),
@@ -36,12 +37,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      // User doesn't exist, they need to sign up first
+      // User doesn't exist, redirect to invitation signup
       return NextResponse.json(
-        { 
+        {
           error: 'User not found. Please sign up first.',
           requiresSignup: true,
           email: email,
+          redirectUrl: `/auth/signup/invited?token=${token}`,
         },
         { status: 400 }
       );
@@ -72,6 +74,21 @@ export async function POST(request: NextRequest) {
       where: { id: orgId },
     });
 
+    // Sync user to Keycloak with new org (non-blocking)
+    if (org) {
+      syncUserToKeycloak({
+        userId: user.id,
+        email: user.email,
+        name: user.name || undefined,
+        emailVerified: !!user.emailVerified,
+        orgId: org.id,
+        orgSlug: org.slug,
+        role: membership.role,
+      }).catch((error) => {
+        console.error('Keycloak sync failed during org join:', error);
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Successfully joined organization',
@@ -88,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Join organization error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid input', details: error.errors },

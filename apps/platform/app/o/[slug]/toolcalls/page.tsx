@@ -26,6 +26,7 @@ import {
   Code
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { RoleGuard, useRoleCheck } from '@/components/role-guard';
 
 interface ToolCall {
   id: string;
@@ -56,6 +57,7 @@ interface ToolCallStats {
 export default function ToolCallsPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { canManageTools, canAccessAdmin } = useRoleCheck();
 
   const [toolcalls, setToolcalls] = useState<ToolCall[]>([]);
   const [stats, setStats] = useState<ToolCallStats | null>(null);

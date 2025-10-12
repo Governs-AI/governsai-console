@@ -27,33 +27,68 @@ interface PlatformShellProps {
   orgSlug?: string;
 }
 
-const getNavigation = (orgSlug: string) => [
-  { name: 'Dashboard', href: `/o/${orgSlug}/dashboard`, icon: LayoutDashboard },
-  // { name: 'Decisions', href: `/o/${orgSlug}/decisions`, icon: FileText },
-  { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
-  // { name: 'Approvals', href: `/o/${orgSlug}/approvals`, icon: CheckCircle },
-  { name: 'Spend & Budget', href: `/o/${orgSlug}/spend`, icon: DollarSign },
-  { name: 'Manage Tools', href: `/o/${orgSlug}/tools`, icon: Activity },
-  { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
-  { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key },
-  { name: 'Passkeys', href: `/o/${orgSlug}/settings/passkeys`, icon: Key },
-  { name: 'Admin Users', href: `/o/${orgSlug}/admin/users`, icon: Users },
-  // { name: 'DLQ', href: `/o/${orgSlug}/dlq`, icon: AlertTriangle },
-  { name: 'Settings', href: `/o/${orgSlug}/settings`, icon: Settings },
-];
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: any;
+  roles?: string[]; // Roles that can access this item
+  adminOnly?: boolean; // Admin-only items
+}
+
+const getNavigation = (orgSlug: string, userRole?: string): NavigationItem[] => {
+  const allItems: NavigationItem[] = [
+    { name: 'Dashboard', href: `/o/${orgSlug}/dashboard`, icon: LayoutDashboard },
+    { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
+    { name: 'Spend & Budget', href: `/o/${orgSlug}/spend`, icon: DollarSign },
+    { name: 'Manage Tools', href: `/o/${orgSlug}/tools`, icon: Activity, roles: ['OWNER', 'ADMIN', 'DEVELOPER'] },
+    { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },
+    { name: 'Keys', href: `/o/${orgSlug}/keys`, icon: Key, roles: ['OWNER', 'ADMIN', 'DEVELOPER'] },
+    { name: 'Passkeys', href: `/o/${orgSlug}/settings/passkeys`, icon: Key, roles: ['OWNER', 'ADMIN', 'DEVELOPER'] },
+    { 
+      name: 'Admin Users', 
+      href: `/o/${orgSlug}/admin/users`, 
+      icon: Users,
+      roles: ['OWNER', 'ADMIN'],
+      adminOnly: true
+    },
+    { name: 'Settings', href: `/o/${orgSlug}/settings`, icon: Settings, roles: ['OWNER', 'ADMIN'] },
+  ];
+
+  // Filter based on user role
+  if (!userRole) {
+    return allItems.filter(item => !item.adminOnly);
+  }
+
+  return allItems.filter(item => {
+    // If no roles specified, allow all users
+    if (!item.roles) return true;
+    
+    // If adminOnly is true, only allow OWNER and ADMIN
+    if (item.adminOnly) {
+      return ['OWNER', 'ADMIN'].includes(userRole);
+    }
+    
+    // Check if user role is in allowed roles
+    return item.roles.includes(userRole);
+  });
+};
 
 export default function PlatformShell({ children, orgSlug = 'acme-inc' }: PlatformShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const router = useRouter();
-  const { user, loading: userLoading } = useUser();
+  const { user, loading: userLoading, activeOrg } = useUser();
   
   // Debug logging
   React.useEffect(() => {
     console.log('PlatformShell - User data:', user);
     console.log('PlatformShell - User loading:', userLoading);
-  }, [user, userLoading]);
-  const navigation = getNavigation(orgSlug);
+    console.log('PlatformShell - Active org:', activeOrg);
+  }, [user, userLoading, activeOrg]);
+  
+  // Get role-based navigation
+  const userRole = activeOrg?.role;
+  const navigation = getNavigation(orgSlug, userRole);
 
   const handleLogout = async () => {
     try {

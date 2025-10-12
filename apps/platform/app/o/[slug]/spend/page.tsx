@@ -28,7 +28,6 @@ import {
   Edit,
   Trash2,
   BarChart3,
-  Calendar,
   Users,
   Zap,
   Brain,
@@ -37,6 +36,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { RoleGuard, useRoleCheck } from '@/components/role-guard';
 
 interface SpendData {
   totalSpend: number;
@@ -110,6 +110,7 @@ interface CallRecord {
 }
 
 export default function SpendPage() {
+  const { canAccessAdmin } = useRoleCheck();
   const [spendData, setSpendData] = useState<SpendData>({
     totalSpend: 0,
     monthlySpend: 0,
@@ -161,6 +162,26 @@ export default function SpendPage() {
   const fetchSpendData = async () => {
     try {
       setLoading(true);
+      
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (selectedTimeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
       
       // Fetch spend data
       const spendResponse = await fetch(`/api/spend?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
@@ -220,16 +241,13 @@ export default function SpendPage() {
         toolSpend: {},
         modelSpend: {},
         userSpend: {},
-        purchaseSpend: {},
+        purchaseSpend,
         budgetLimit: 0,
         remainingBudget: 0,
         isOverBudget: false,
-        llmSpend: 0,
-        purchaseSpendTotal: 0,
-        ...(spendData.spend || {}),
-        purchaseSpend,
         purchaseSpendTotal,
-        llmSpend: (spendData.spend?.monthlySpend || 0) - purchaseSpendTotal
+        llmSpend: (spendData.spend?.monthlySpend || 0) - purchaseSpendTotal,
+        ...(spendData.spend || {})
       });
       setBudgetLimits(budgetData.limits || []);
       setToolCosts(toolCostsData.costs || []);
@@ -511,24 +529,27 @@ export default function SpendPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <div className="space-y-6">
+      <RoleGuard requiredPermission="canViewSpend">
+        <div className="space-y-6">
         <PageHeader
           title="Spend Management"
           subtitle="Track AI tool usage costs and manage budget limits for your organization"
           actions={
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowBudgetForm(true)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Manage Budgets
-              </Button>
-              <Button onClick={() => {
-                resetBudgetForm();
-                setShowBudgetForm(true);
-              }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Budget Limit
-              </Button>
-            </div>
+            canAccessAdmin() && (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowBudgetForm(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Budgets
+                </Button>
+                <Button onClick={() => {
+                  resetBudgetForm();
+                  setShowBudgetForm(true);
+                }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Budget Limit
+                </Button>
+              </div>
+            )
           }
         />
 
@@ -1046,10 +1067,12 @@ export default function SpendPage() {
                 <p className="text-muted-foreground mb-4">
                   Set monthly spending limits for your organization and individual users.
                 </p>
-                <Button onClick={() => setShowBudgetForm(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Set Budget Limit
-                </Button>
+                {canAccessAdmin() && (
+                  <Button onClick={() => setShowBudgetForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Set Budget Limit
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -1075,21 +1098,27 @@ export default function SpendPage() {
                           {formatPercentage(limit.currentSpend, limit.monthlyLimit)} used
                         </p>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEditBudget(limit)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteBudget(limit.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canAccessAdmin() ? (
+                        <>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEditBudget(limit)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteBudget(limit.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">View Only</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1319,7 +1348,8 @@ export default function SpendPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </RoleGuard>
     </PlatformShell>
   );
 }

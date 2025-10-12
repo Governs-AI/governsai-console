@@ -45,6 +45,7 @@ export async function requireAuth(request: NextRequest): Promise<RequestContext>
 }
 
 export async function requireRole(request: NextRequest, requiredRole: string): Promise<RequestContext> {
+  console.log('requireRole', request, requiredRole);
   const context = await requireAuth(request);
 
   const roleHierarchy = ['VIEWER', 'DEVELOPER', 'ADMIN', 'OWNER'];

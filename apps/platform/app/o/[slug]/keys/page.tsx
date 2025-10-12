@@ -21,6 +21,7 @@ import {
   Input
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
+import { RoleGuard, useRoleCheck } from '@/components/role-guard';
 import { 
   Plus,
   Trash2,
@@ -52,8 +53,9 @@ export default function KeysPage() {
   const [newKeyName, setNewKeyName] = useState<string | null>(null);
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { canManageKeys } = useRoleCheck();
   // Fixed values for precheck integration
-  const PRECHECK_BASE = 'http://172.16.10.121:8080';
+  const PRECHECK_BASE = 'http://localhost:8080';
   const PRECHECK_USER_ID = 'cmfzriaip0000fyp81gjfkri9';
   const DEFAULT_API_KEY = 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e';
 
@@ -196,7 +198,8 @@ export default function KeysPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <div className="space-y-6">
+      <RoleGuard requiredPermission="canManageKeys">
+        <div className="space-y-6">
         {/* Show full key banner after creation */}
         {newFullKey && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
@@ -255,13 +258,15 @@ export default function KeysPage() {
           title="API Keys"
           subtitle={`Manage API keys for ${orgSlug} organization`}
           actions={
-            <Button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              variant="outline"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {showCreateForm ? 'Cancel' : 'Create Key'}
-            </Button>
+            canManageKeys() && (
+              <Button
+                onClick={() => setShowCreateForm(!showCreateForm)}
+                variant="outline"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {showCreateForm ? 'Cancel' : 'Create Key'}
+              </Button>
+            )
           }
         />
 
@@ -501,24 +506,28 @@ export default function KeysPage() {
                     </div>
                   </DataTableCell>
                   <DataTableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleToggleKey(key.id, !key.isActive)}
-                      >
-                        <Shield className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDeleteKey(key.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {canManageKeys() ? (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleToggleKey(key.id, !key.isActive)}
+                        >
+                          <Shield className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDeleteKey(key.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">View Only</span>
+                    )}
                   </DataTableCell>
                 </DataTableRow>
               ))}
@@ -544,7 +553,8 @@ export default function KeysPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </RoleGuard>
     </PlatformShell>
   );
 }

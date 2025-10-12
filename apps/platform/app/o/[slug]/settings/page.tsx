@@ -21,6 +21,7 @@ import {
   Clock
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { RoleGuard, useRoleCheck } from '@/components/role-guard';
 
 interface SettingsSection {
   id: string;
@@ -36,45 +37,67 @@ export default function SettingsPage() {
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
+  const { canManageSettings, canManageUsers, canManageKeys } = useRoleCheck();
 
-  const [sections, setSections] = useState<SettingsSection[]>([
-    {
-      id: 'members',
-      title: 'Team Members',
-      description: 'Manage organization members, roles, and permissions',
-      icon: Users,
-      href: `/o/${orgSlug}/settings/members`,
-      status: 'configured',
-      lastUpdated: '2 hours ago'
-    },
-    {
-      id: 'passkeys',
-      title: 'Passkeys',
-      description: 'Configure passwordless authentication with passkeys',
-      icon: Key,
-      href: `/o/${orgSlug}/settings/passkeys`,
-      status: 'partial',
-      lastUpdated: '1 day ago'
-    },
-    {
-      id: 'mfa',
-      title: 'Multi-Factor Authentication',
-      description: 'Set up TOTP and additional security measures',
-      icon: Shield,
-      href: `/o/${orgSlug}/settings/mfa`,
-      status: 'not-configured',
-      lastUpdated: undefined
-    },
-    {
-      id: 'general',
-      title: 'General Settings',
-      description: 'Organization preferences and basic configuration',
-      icon: SettingsIcon,
-      href: `/o/${orgSlug}/settings/general`,
-      status: 'not-configured',
-      lastUpdated: undefined
-    }
-  ]);
+  const [sections, setSections] = useState<SettingsSection[]>([]);
+
+  useEffect(() => {
+    const allSections: SettingsSection[] = [
+      {
+        id: 'members',
+        title: 'Team Members',
+        description: 'Manage organization members, roles, and permissions',
+        icon: Users,
+        href: `/o/${orgSlug}/settings/members`,
+        status: 'configured',
+        lastUpdated: '2 hours ago'
+      },
+      {
+        id: 'passkeys',
+        title: 'Passkeys',
+        description: 'Configure passwordless authentication with passkeys',
+        icon: Key,
+        href: `/o/${orgSlug}/settings/passkeys`,
+        status: 'partial',
+        lastUpdated: '1 day ago'
+      },
+      {
+        id: 'mfa',
+        title: 'Multi-Factor Authentication',
+        description: 'Set up TOTP and additional security measures',
+        icon: Shield,
+        href: `/o/${orgSlug}/settings/mfa`,
+        status: 'not-configured',
+        lastUpdated: undefined
+      },
+      {
+        id: 'general',
+        title: 'General Settings',
+        description: 'Organization preferences and basic configuration',
+        icon: SettingsIcon,
+        href: `/o/${orgSlug}/settings/general`,
+        status: 'not-configured',
+        lastUpdated: undefined
+      }
+    ];
+
+    // Filter sections based on user permissions
+    const filteredSections = allSections.filter(section => {
+      switch (section.id) {
+        case 'members':
+          return canManageUsers;
+        case 'passkeys':
+        case 'mfa':
+          return canManageKeys;
+        case 'general':
+          return canManageSettings;
+        default:
+          return true;
+      }
+    });
+
+    setSections(filteredSections);
+  }, [orgSlug, canManageUsers, canManageKeys, canManageSettings]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

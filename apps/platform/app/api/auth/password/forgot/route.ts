@@ -29,7 +29,21 @@ export async function POST(request: NextRequest) {
     // Create password reset token
     const resetToken = await createPasswordResetToken(user.id);
 
-    // TODO: Send password reset email
+    // Send password reset email
+    const { sendPasswordResetEmail } = await import('@/lib/email');
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}`;
+
+    const emailResult = await sendPasswordResetEmail({
+      to: email,
+      userName: user.name || email.split('@')[0],
+      resetUrl,
+    });
+
+    if (!emailResult.success) {
+      console.error('Failed to send password reset email:', emailResult.error);
+      // Don't fail the request, but log the error
+    }
+
     console.log(`Password reset token for ${email}: ${resetToken}`);
 
     return NextResponse.json({
@@ -39,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Password forgot error:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid input', details: error.errors },
