@@ -122,10 +122,10 @@ export class SimpleWebSocketHandler {
    */
   async handleAuth(connection, message) {
     try {
-      const { apiKey, userId } = message;
+      const { apiKey } = message;
       
-      if (!apiKey || !userId) {
-        throw new Error('Missing API key or userId');
+      if (!apiKey) {
+        throw new Error('Missing API key');
       }
       
       // Authenticate using API key only
@@ -171,7 +171,7 @@ export class SimpleWebSocketHandler {
       
       // Check if connection is authenticated, if not, try to authenticate from message data
       if (!connection.authenticated) {
-        if (data.authentication && data.authentication.apiKey && data.authentication.userId) {
+        if (data.authentication && data.authentication.apiKey) {
           console.log('🔐 Attempting authentication from INGEST message data...');
           console.log('📊 Auth data:', {
             apiKey: data.authentication.apiKey,
@@ -179,17 +179,14 @@ export class SimpleWebSocketHandler {
           });
           
           // Authenticate using the provided API key and userId
-          await this.handleAuth(connection, {
-            apiKey: data.authentication.apiKey,
-            userId: data.authentication.userId
-          });
+          await this.handleAuth(connection, { apiKey: data.authentication.apiKey });
           
           // If authentication failed, throw error
           if (!connection.authenticated) {
             throw new Error('Authentication failed from INGEST message data.');
           }
         } else {
-          throw new Error('Connection not authenticated. Send AUTH message first or include authentication in INGEST data.');
+          throw new Error('Connection not authenticated. Send AUTH message first or include authentication.apiKey in INGEST data.');
         }
       }
       
@@ -244,6 +241,20 @@ export class SimpleWebSocketHandler {
         
         console.log('✅ Using orgId for decision processing:', orgId);
         
+        // Fetch unified policy (org > user) for this context (optional for processing, useful for enforcement/logging)
+        if (this.services.decisionService?.fetchUnifiedPolicy) {
+          try {
+            const unifiedPolicy = await this.services.decisionService.fetchUnifiedPolicy(orgId, connection.userId);
+            console.log('📜 Unified policy fetched for ingestion:', {
+              hasPolicy: !!unifiedPolicy,
+              orgId,
+              userId: connection.userId
+            });
+          } catch (e) {
+            console.error('⚠️ Failed to fetch unified policy:', e);
+          }
+        }
+
         // Add orgId to data for validation
         const decisionData = {
           orgId: orgId, // Use the resolved orgId

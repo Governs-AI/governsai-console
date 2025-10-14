@@ -14,6 +14,92 @@ export class DecisionService {
   }
 
   /**
+   * Fetch unified policy with precedence org > user
+   */
+  async fetchUnifiedPolicy(orgId, userId) {
+    try {
+      const where = {
+        orgId,
+        isActive: true,
+        ...(userId ? { OR: [{ userId: null }, { userId }] } : { userId: null })
+      };
+
+      const policies = await prisma.policy.findMany({
+        where,
+        orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }]
+      });
+
+      const orgPolicy = policies.find(p => p.userId === null) || null;
+      const userPolicy = userId ? policies.find(p => p.userId === userId) || null : null;
+
+      if (!orgPolicy && !userPolicy) return null;
+
+      const unified = this.mergePolicies(orgPolicy, userPolicy);
+      return unified;
+    } catch (error) {
+      console.error('Error fetching unified policy:', error);
+      return null;
+    }
+  }
+
+  mergePolicies(orgPolicy, userPolicy) {
+    const toObj = (p) =>
+      p
+        ? {
+            version: p.version,
+            defaults: p.defaults || {},
+            tool_access: p.toolAccess || {},
+            deny_tools: p.denyTools || [],
+            allow_tools: p.allowTools || [],
+            network_scopes: p.networkScopes || {},
+            network_tools: p.networkTools || {},
+            on_error: p.onError || {},
+          }
+        : null;
+
+    const u = toObj(userPolicy) || {
+      version: 'v1',
+      defaults: {},
+      tool_access: {},
+      deny_tools: [],
+      allow_tools: [],
+      network_scopes: {},
+      network_tools: {},
+      on_error: {},
+    };
+    const o = toObj(orgPolicy) || null;
+
+    const merged = o ? this.deepMerge(u, o) : u;
+    return merged;
+  }
+
+  deepMerge(a, b) {
+    if (Array.isArray(a) && Array.isArray(b)) {
+      const set = new Set([...a, ...b]);
+      return Array.from(set);
+    }
+    if (this.isPlainObject(a) && this.isPlainObject(b)) {
+      const result = { ...a };
+      for (const key of Object.keys(b)) {
+        if (key in a) {
+          result[key] = this.deepMerge(a[key], b[key]);
+        } else {
+          result[key] = b[key];
+        }
+      }
+      return result;
+    }
+    return b ?? a;
+  }
+
+  isPlainObject(value) {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      (value.constructor === Object || Object.getPrototypeOf(value) === null)
+    );
+  }
+  /**
    * Process a decision from WebSocket INGEST message
    */
   async processDecision(decisionData) {

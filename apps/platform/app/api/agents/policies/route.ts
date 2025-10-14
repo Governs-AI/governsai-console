@@ -8,8 +8,8 @@ export async function GET(request: NextRequest) {
     let userId = searchParams.get('userId');
     const apiKey = searchParams.get('apiKey');
 
-    if (!userId || !apiKey) {
-      return NextResponse.json({ error: 'userId and apiKey are required' }, { status: 400 });
+    if (!apiKey) {
+      return NextResponse.json({ error: 'apiKey is required' }, { status: 400 });
     }
 
     let orgId: string;
@@ -50,24 +50,22 @@ export async function GET(request: NextRequest) {
     
     console.log('Found API key record, orgId:', orgId, 'userId:', userId);
 
-    // Get active policies for the organization
-    const whereClause: any = {
-      orgId,
-      isActive: true,
-    };
-
-    // If userId is provided, get both org-level and user-specific policies
-    // if (userId) {
-    //   whereClause.OR = [
-    //     { userId: null }, // Org-level policies
-    //     { userId }, // User-specific policies
-    //   ];
-    // }
-
+    // Fetch org-level and, if available, user-level policies
     const policies = await prisma.policy.findMany({
-      where: whereClause,
+      where: {
+        orgId,
+        isActive: true,
+        ...(userId
+          ? {
+              OR: [
+                { userId: null }, // Org-level
+                { userId }, // User-specific
+              ],
+            }
+          : { userId: null }),
+      },
       orderBy: [
-        { priority: 'desc' }, // Higher priority first
+        { priority: 'desc' },
         { createdAt: 'desc' },
       ],
     });
@@ -92,10 +90,11 @@ export async function GET(request: NextRequest) {
       return acc;
     }, {} as Record<string, any>);
 
-    // Return the most recent policy (highest priority) LATER WE WILL ADD MULTIPLE POLICIES
-    const activePolicy = policies[0];
+    // Split policies into org-level and user-level highest-priority entries
+    const orgPolicy = policies.find((p: any) => p.userId === null) || null;
+    const userPolicy = userId ? policies.find((p: any) => p.userId === userId) || null : null;
 
-    if (!activePolicy) {
+    if (!orgPolicy && !userPolicy) {
       return NextResponse.json({
         policy: null,
         toolMetadata,
@@ -104,22 +103,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Merge with precedence: org overrides user
+    const unified = mergePolicies(orgPolicy, userPolicy);
+
     return NextResponse.json({
-      policy: {
-        version: activePolicy.version,
-        defaults: activePolicy.defaults,
-        tool_access: activePolicy.toolAccess,
-        deny_tools: activePolicy.denyTools,
-        allow_tools: activePolicy.allowTools,
-        network_scopes: activePolicy.networkScopes,
-        network_tools: activePolicy.networkTools,
-        on_error: activePolicy.onError,
-      },
+      policy: unified.policy,
       toolMetadata,
-      policyId: activePolicy.id,
-      policyName: activePolicy.name,
-      lastUpdated: activePolicy.updatedAt,
-      orgId: orgId, // Add orgId to the response
+      orgPolicyId: orgPolicy?.id ?? null,
+      userPolicyId: userPolicy?.id ?? null,
+      lastUpdated: unified.lastUpdated,
+      orgId: orgId,
     });
   } catch (error) {
     console.error('Error fetching agent policies:', error);
@@ -128,4 +121,68 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function mergePolicies(orgPolicy: any | null, userPolicy: any | null) {
+  const toObj = (p: any | null) =>
+    p
+      ? {
+          version: p.version,
+          defaults: p.defaults || {},
+          tool_access: p.toolAccess || {},
+          deny_tools: p.denyTools || [],
+          allow_tools: p.allowTools || [],
+          network_scopes: p.networkScopes || {},
+          network_tools: p.networkTools || {},
+          on_error: p.onError || {},
+        }
+      : null;
+
+  const u = toObj(userPolicy) || {
+    version: 'v1',
+    defaults: {},
+    tool_access: {},
+    deny_tools: [],
+    allow_tools: [],
+    network_scopes: {},
+    network_tools: {},
+    on_error: {},
+  };
+  const o = toObj(orgPolicy) || null;
+
+  const merged = o ? deepMerge(u, o) : u;
+  const lastUpdated = [orgPolicy?.updatedAt, userPolicy?.updatedAt]
+    .filter(Boolean)
+    .sort()
+    .slice(-1)[0] || new Date().toISOString();
+
+  return { policy: merged, lastUpdated };
+}
+
+function deepMerge(a: any, b: any) {
+  // Objects: recursive merge; Arrays: union unique; Primitives: b overrides a
+  if (Array.isArray(a) && Array.isArray(b)) {
+    const set = new Set([...(a as any[]), ...(b as any[])]);
+    return Array.from(set);
+  }
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const result: any = { ...a };
+    for (const key of Object.keys(b)) {
+      if (key in a) {
+        result[key] = deepMerge(a[key], b[key]);
+      } else {
+        result[key] = b[key];
+      }
+    }
+    return result;
+  }
+  return b ?? a;
+}
+
+function isPlainObject(value: any) {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    (value.constructor === Object || Object.getPrototypeOf(value) === null)
+  );
 }
