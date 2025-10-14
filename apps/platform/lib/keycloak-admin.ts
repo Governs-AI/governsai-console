@@ -11,15 +11,19 @@ let kcAdminClient: KcAdminClient | null = null;
  */
 async function getKeycloakAdmin(): Promise<KcAdminClient> {
   if (!kcAdminClient) {
-    const baseUrl = process.env.KEYCLOAK_BASE_URL;
+    const rawBaseUrl = process.env.KEYCLOAK_BASE_URL;
     const realm = process.env.KEYCLOAK_REALM || 'governs-ai';
     const clientId = process.env.KEYCLOAK_ADMIN_CLIENT_ID;
     const clientSecret = process.env.KEYCLOAK_ADMIN_CLIENT_SECRET;
 
-    if (!baseUrl || !clientId || !clientSecret) {
+    if (!rawBaseUrl || !clientId || !clientSecret) {
       console.warn('Keycloak environment variables not configured. Skipping sync.');
       throw new Error('Keycloak configuration missing');
     }
+
+    // Normalize base URL to avoid duplicate `/realms/...` segments when the
+    // underlying client builds token and admin URLs.
+    const baseUrl = normalizeKeycloakBaseUrl(rawBaseUrl);
 
     kcAdminClient = new KcAdminClient({
       baseUrl,
@@ -234,5 +238,15 @@ export async function removeUserFromKeycloak(
  */
 function generateSecureRandomPassword(): string {
   return randomBytes(32).toString('hex');
+}
+
+function normalizeKeycloakBaseUrl(url: string): string {
+  // Remove any trailing slashes first
+  let cleaned = url.replace(/\/$/, '');
+  // If the URL already includes a realm segment, strip it off so that
+  // `realmName` exclusively controls the realm path.
+  // Matches: .../realms/<anything>(/admin...)?
+  cleaned = cleaned.replace(/\/(realms\/[^/]+)(?:\/.*)?$/, '');
+  return cleaned;
 }
 

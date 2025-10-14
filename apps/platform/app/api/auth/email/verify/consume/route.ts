@@ -67,3 +67,68 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({} as any));
+    const token = body?.token as string | undefined;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Token required' },
+        { status: 400 }
+      );
+    }
+
+    // Consume verification token
+    const tokenData = await consumeVerificationToken(token, 'email-verify');
+    if (!tokenData) {
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 400 }
+      );
+    }
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email: tokenData.email },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Mark email as verified
+    await markEmailVerified(user.id);
+
+    // Sync email verification to Keycloak (non-blocking)
+    updateEmailVerificationInKeycloak(user.email, true).catch((error) => {
+      console.error('Keycloak email verification sync failed:', error);
+    });
+
+    // Get user's organizations to redirect to their dashboard
+    const memberships = await prisma.orgMembership.findMany({
+      where: { userId: user.id },
+      include: { org: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const activeOrg = memberships[0]?.org;
+
+    return NextResponse.json({
+      success: true,
+      message: 'Email verified successfully',
+      activeOrgSlug: activeOrg?.slug,
+    });
+
+  } catch (error) {
+    console.error('Email verification consume error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
