@@ -533,7 +533,7 @@ interface RetryConfig {
 
 ```bash
 # API Configuration
-GOVERNS_API_KEY=gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e
+GOVERNS_API_KEY=your_api_key_here
 GOVERNS_USER_ID=cmg83v4lf00015q6aweq8i02j
 GOVERNS_ORG_ID=cmg83v4ki00005q6app5ouwrw
 GOVERNS_BASE_URL=http://localhost:3002

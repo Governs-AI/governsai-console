@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
     }
 
     let orgId: string;
-    let userRecord: any = null;
 
     // Verify API key and get user/org details
     const keyRecord = await prisma.aPIKey.findFirst({
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
         org: true
       },
     });
-
+    
     if (!keyRecord) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
@@ -46,7 +45,6 @@ export async function GET(request: NextRequest) {
 
     // Get orgId from API key or user memberships
     orgId = keyRecord.orgId;
-    userRecord = keyRecord.user;
     
     console.log('Found API key record, orgId:', orgId, 'userId:', userId);
 

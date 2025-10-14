@@ -51,13 +51,15 @@ export default function KeysPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newFullKey, setNewFullKey] = useState<string | null>(null);
   const [newKeyName, setNewKeyName] = useState<string | null>(null);
+  const [showIntegrationInfo, setShowIntegrationInfo] = useState(false);
   const params = useParams();
   const orgSlug = params.slug as string;
   const { canManageKeys } = useRoleCheck();
   // Fixed values for precheck integration
   const PRECHECK_BASE = 'http://localhost:8080';
   const PRECHECK_USER_ID = 'cmfzriaip0000fyp81gjfkri9';
-  const DEFAULT_API_KEY = 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e';
+  
+  // Integration info is now only shown when creating a new API key
 
   // Form state
   const [formData, setFormData] = useState({
@@ -116,6 +118,7 @@ export default function KeysPage() {
       if (data?.key?.fullKey) {
         setNewFullKey(data.key.fullKey);
         setNewKeyName(data.key.name || 'New API Key');
+        setShowIntegrationInfo(true); // Show integration info for new key
       }
       // Add the masked/preview version into the table
       setApiKeys(prev => [data.key, ...prev]);
@@ -270,114 +273,141 @@ export default function KeysPage() {
           }
         />
 
-        {/* Precheck Integration Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Precheck Integration
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Use these values to integrate your agent with the Precheck service.
-              </div>
-              
-              {/* Base URL */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Base URL</div>
+        {/* Precheck Integration Info - Only show when user creates their first API key */}
+        {showIntegrationInfo && newFullKey && newKeyName && (
+          <Card className="border-green-200 bg-green-50">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between text-green-800">
                 <div className="flex items-center gap-2">
-                  <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                    {PRECHECK_BASE}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigator.clipboard.writeText(PRECHECK_BASE)}
-                  >
-                    Copy
-                  </Button>
+                  <Shield className="h-5 w-5" />
+                  🎉 API Key Created Successfully!
                 </div>
-              </div>
-
-              {/* User ID */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">User ID</div>
-                <div className="flex items-center gap-2">
-                  <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                    {PRECHECK_USER_ID}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigator.clipboard.writeText(PRECHECK_USER_ID)}
-                  >
-                    Copy
-                  </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowIntegrationInfo(false)}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  ✕
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-sm text-green-700">
+                  Use these values to integrate your agent with the Precheck service.
                 </div>
-              </div>
-
-              {/* Default API Key */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Default API Key</div>
-                <div className="flex items-center gap-2">
-                  <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                    {DEFAULT_API_KEY}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigator.clipboard.writeText(DEFAULT_API_KEY)}
-                  >
-                    Copy
-                  </Button>
-                </div>
-              </div>
-
-              {/* Full URL with Header Auth */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Full URL (Header Auth - Recommended)</div>
-                <div className="flex flex-col gap-2">
-                  <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                    {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`}
-                  </code>
-                  <div className="text-sm text-muted-foreground">
-                    With header: <code className="bg-muted px-1 py-0.5 rounded">X-Governs-Key: {DEFAULT_API_KEY}</code>
+                
+                {/* Base URL */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Base URL</div>
+                  <div className="flex items-center gap-2">
+                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                      {PRECHECK_BASE}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard.writeText(PRECHECK_BASE)}
+                    >
+                      Copy
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const url = `${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`;
-                      const header = `X-Governs-Key: ${DEFAULT_API_KEY}`;
-                      navigator.clipboard.writeText(`URL: ${url}\nHeader: ${header}`);
-                    }}
-                  >
-                    Copy Both
-                  </Button>
                 </div>
-              </div>
 
-              {/* Full URL with Query Auth */}
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Full URL (Query Auth - Alternative)</div>
-                <div className="flex items-center gap-2">
-                  <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                    {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck?api_key=${DEFAULT_API_KEY}`}
-                  </code>
+                {/* User ID */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">User ID</div>
+                  <div className="flex items-center gap-2">
+                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                      {PRECHECK_USER_ID}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard.writeText(PRECHECK_USER_ID)}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Your New API Key */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Your New API Key</div>
+                  <div className="flex items-center gap-2">
+                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                      {newFullKey}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard.writeText(newFullKey)}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Full URL with Header Auth */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Full URL (Header Auth - Recommended)</div>
+                  <div className="flex flex-col gap-2">
+                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                      {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`}
+                    </code>
+                    <div className="text-sm text-muted-foreground">
+                      With header: <code className="bg-muted px-1 py-0.5 rounded">X-Governs-Key: {newFullKey}</code>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = `${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`;
+                        const header = `X-Governs-Key: ${newFullKey}`;
+                        navigator.clipboard.writeText(`URL: ${url}\nHeader: ${header}`);
+                      }}
+                    >
+                      Copy Both
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Full URL with Query Auth */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Full URL (Query Auth - Alternative)</div>
+                  <div className="flex items-center gap-2">
+                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                      {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck?api_key=${newFullKey}`}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard.writeText(`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck?api_key=${newFullKey}`)}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md">
+                  <div className="text-sm text-yellow-800">
+                    <strong>⚠️ Important:</strong> Save your API key now! You won't be able to see the full key again after closing this page.
+                  </div>
+                </div>
+
+                <div className="mt-4 flex justify-end">
                   <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigator.clipboard.writeText(`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck?api_key=${DEFAULT_API_KEY}`)}
+                    onClick={() => setShowIntegrationInfo(false)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
-                    Copy
+                    Got it, thanks!
                   </Button>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

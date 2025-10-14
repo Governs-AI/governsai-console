@@ -47,25 +47,9 @@ async function main() {
 
   console.log('✅ Created membership:', { userId: user.id, orgId: org.id, role: membership.role });
 
-  // Create or get API key for the user
-  const apiKey = await prisma.aPIKey.upsert({
-    where: { key: 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e' },
-    update: {},
-    create: {
-      key: 'gov_key_73a082a0cba066729f73a8240fff5ab80ab14afb90731c131a432163851eb36e',
-      name: 'Demo API Key',
-      userId: user.id,
-      orgId: org.id, // This should be the CUID, not the slug
-      scopes: ['read', 'write'],
-      env: 'dev',
-    },
-  });
-
-  console.log('✅ Created API key:', { 
-    key: apiKey.key.substring(0, 20) + '...', 
-    userId: apiKey.userId, 
-    orgId: apiKey.orgId 
-  });
+  // Note: API keys should be created through the UI, not in seed scripts
+  // This ensures proper security and user control over API key creation
+  console.log('ℹ️  API keys should be created through the dashboard UI for security');
 
   // Create a default policy
   const policy = await prisma.policy.create({
@@ -178,9 +162,9 @@ async function main() {
   console.log('\n📋 Summary:');
   console.log(`- Organization: ${org.name} (${org.slug}) - ID: ${org.id}`);
   console.log(`- User: ${user.email} - ID: ${user.id}`);
-  console.log(`- API Key: ${apiKey.key.substring(0, 20)}...`);
   console.log(`- Policy: ${policy.name} - ID: ${policy.id}`);
   console.log(`- Tools: ${tools.length} tool configurations created`);
+  console.log(`- API Keys: Create through the dashboard UI for security`);
 }
 
 main()
