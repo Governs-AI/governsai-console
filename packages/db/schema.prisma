@@ -1,5 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
+  output        = "./node_modules/.prisma/client"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -29,6 +30,10 @@ model Org {
   usageRecords         UsageRecord[]
   tools                Tool[]
   purchaseRecords      PurchaseRecord[]
+  contextMemory        ContextMemory[]
+  conversations        Conversation[]
+  contextAccessLog     ContextAccessLog[]
+  documents            Document[]
 }
 
 model User {
@@ -53,6 +58,10 @@ model User {
   budgetLimits         BudgetLimit[]
   budgetAlerts         BudgetAlert[]
   purchaseRecords      PurchaseRecord[]
+  contextMemory        ContextMemory[]
+  conversations        Conversation[]
+  contextAccessLog     ContextAccessLog[]
+  documents            Document[]
 }
 
 model Credential {
@@ -492,6 +501,211 @@ model WebSocketSession {
   @@index([sessionId])
   @@index([isActive])
   @@index([lastSeen])
+}
+
+// Context Memory Models
+model ContextMemory {
+  id        String   @id @default(cuid()) @map("id")
+  userId    String   @map("user_id")
+  orgId     String   @map("org_id")
+  
+  // Content
+  content     String   @db.Text
+  contentType String   @map("content_type") // 'user_message', 'agent_message', 'document', 'decision', 'tool_result'
+  metadata    Json     @default("{}")
+  
+  // Agent tracking
+  agentId     String?  @map("agent_id") // Which app/agent created this? 'demo-chat', 'platform', 'docs-chat'
+  agentName   String?  @map("agent_name") // Human-readable name
+  
+  // Vector embedding
+  embedding   Json?    @map("embedding") // Array of floats
+  
+  // Context tracking
+  conversationId String? @map("conversation_id")
+  parentId       String? @map("parent_id")
+  correlationId  String? @map("correlation_id")
+  
+  // Temporal
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  expiresAt  DateTime? @map("expires_at")
+  
+  // Governance
+  isArchived      Boolean @default(false) @map("is_archived")
+  piiDetected     Boolean @default(false) @map("pii_detected")
+  piiRedacted     Boolean @default(false) @map("pii_redacted")
+  rawContent      String? @map("raw_content") @db.Text // Original before redaction
+  precheckDecision String? @map("precheck_decision") // 'allow', 'redact', 'block'
+  
+  // Scope
+  scope       String  @default("user") @map("scope") // 'user' or 'org'
+  visibility  String  @default("private") @map("visibility") // 'private', 'team', 'org'
+  
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  parent       ContextMemory? @relation("ContextHierarchy", fields: [parentId], references: [id])
+  children     ContextMemory[] @relation("ContextHierarchy")
+  accessLogs   ContextAccessLog[]
+  
+  @@index([userId])
+  @@index([orgId])
+  @@index([agentId])
+  @@index([conversationId])
+  @@index([createdAt(sort: Desc)])
+  @@index([contentType])
+  @@index([scope, visibility])
+  @@map("context_memory")
+}
+
+model Conversation {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  orgId  String @map("org_id")
+  
+  title   String?
+  summary String?
+  
+  // Agent tracking
+  agentId   String? @map("agent_id")
+  agentName String? @map("agent_name")
+  
+  // Metadata
+  messageCount Int   @default(0) @map("message_count")
+  tokenCount   Int   @default(0) @map("token_count")
+  cost         Float @default(0.0)
+  
+  // Tags
+  tags String[] @default([])
+  
+  // Temporal
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastMessageAt DateTime? @map("last_message_at")
+  
+  // Governance
+  isArchived Boolean @default(false) @map("is_archived")
+  
+  // Scope
+  scope      String  @default("user") @map("scope") // 'user' or 'org'
+  
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contextMemory ContextMemory[]
+  
+  @@index([userId])
+  @@index([orgId])
+  @@index([agentId])
+  @@index([updatedAt(sort: Desc)])
+  @@map("conversations")
+}
+
+// RAG Documents
+model Document {
+  id     String @id @default(cuid())
+  userId String @map("user_id") // Who uploaded it
+  orgId  String @map("org_id")
+  
+  // Document metadata
+  filename    String
+  contentType String  @map("content_type") // 'pdf', 'txt', 'md', 'docx'
+  fileSize    Int     @map("file_size") // bytes
+  fileHash    String  @map("file_hash") // SHA256 for deduplication
+  
+  // Storage
+  storageUrl  String? @map("storage_url") // S3/Railway storage URL
+  content     String? @db.Text // Full text content
+  
+  // Processing status
+  status      String  @default("pending") @map("status") // 'pending', 'processing', 'completed', 'failed'
+  errorMessage String? @map("error_message") @db.Text
+  
+  // Chunking info
+  chunkCount  Int     @default(0) @map("chunk_count")
+  
+  // Scope
+  scope       String  @default("org") @map("scope") // Documents are usually org-scoped
+  visibility  String  @default("org") @map("visibility")
+  
+  // Governance
+  piiDetected     Boolean @default(false) @map("pii_detected")
+  piiRedacted     Boolean @default(false) @map("pii_redacted")
+  isArchived      Boolean @default(false) @map("is_archived")
+  
+  // Temporal
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  expiresAt  DateTime? @map("expires_at")
+  
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  chunks       DocumentChunk[]
+  
+  @@index([userId])
+  @@index([orgId])
+  @@index([fileHash])
+  @@index([scope, visibility])
+  @@index([status])
+  @@map("documents")
+}
+
+// Document chunks for RAG
+model DocumentChunk {
+  id         String @id @default(cuid())
+  documentId String @map("document_id")
+  
+  // Chunk content
+  content    String @db.Text
+  chunkIndex Int    @map("chunk_index") // Position in document
+  
+  // Vector embedding
+  embedding  Json?  @map("embedding")
+  
+  // Metadata
+  metadata   Json   @default("{}")
+  
+  // Governance
+  piiDetected     Boolean @default(false) @map("pii_detected")
+  piiRedacted     Boolean @default(false) @map("pii_redacted")
+  rawContent      String? @map("raw_content") @db.Text
+  
+  // Temporal
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  @@index([documentId])
+  @@index([chunkIndex])
+  @@map("document_chunks")
+}
+
+// Context access logging
+model ContextAccessLog {
+  id          String   @id @default(cuid())
+  contextId   String?  @map("context_id")
+  userId      String   @map("user_id")
+  orgId       String   @map("org_id")
+  accessType  String   @map("access_type") // 'search', 'read', 'write'
+  query       String?
+  resultsCount Int?    @map("results_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  context     ContextMemory? @relation(fields: [contextId], references: [id])
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  
+  @@index([contextId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([accessType])
+  @@index([createdAt])
+  @@map("context_access_log")
 }
 
 enum OrgRole {
