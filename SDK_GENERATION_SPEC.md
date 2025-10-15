@@ -366,6 +366,21 @@ Endpoints consumed:
 SDK surface:
 ```typescript
 export class ContextClient {
+  /** Explicitly save context (client-initiated, e.g., user clicks "Remember this") */
+  async saveContextExplicit(input: {
+    content: string;
+    contentType: 'user_message' | 'agent_message' | 'document' | 'decision' | 'tool_result';
+    agentId: string;
+    agentName?: string;
+    conversationId?: string;
+    parentId?: string;
+    correlationId?: string; // idempotency
+    metadata?: Record<string, any>;
+    scope?: 'user' | 'org';
+    visibility?: 'private' | 'team' | 'org';
+    expiresAt?: string; // ISO
+  }): Promise<{ contextId: string }>;
+
   /** Store a piece of context (runs Platform precheck; will redact/block per policy) */
   async storeContext(input: {
     content: string;
@@ -448,6 +463,56 @@ Notes:
 - Server enforces precheck; SDK just forwards payload and headers (API key/session).
 - Search is pgvector-native in Platform; SDK does not compute embeddings.
 - All dates in SDK responses are ISO strings.
+- saveContextExplicit is a thin alias over POST /api/v1/context for apps that want a UI action (no WebSocket needed).
+
+### Precheck intent metadata (for context.save)
+
+Extend Precheck types to carry save intent hints so apps can choose to act on them without keyword heuristics.
+
+```typescript
+type SuggestedAction =
+  | { type: 'context.save'; content?: string; reason?: string; metadata?: Record<string, any> }
+  | { type: string; [k: string]: any };
+
+interface PrecheckResponse {
+  decision: 'allow' | 'deny' | 'confirm';
+  raw_text_out?: string;
+  reasons?: string[];
+  policy_id?: string;
+  ts?: number;
+  budget_status?: BudgetStatus;
+  budget_info?: BudgetInfo;
+  // New fields
+  intent?: { save?: boolean };
+  suggestedActions?: SuggestedAction[];
+}
+```
+
+SDK convenience helper for chat UIs (optional):
+
+```typescript
+export class ContextClient {
+  /**
+   * Inspect a precheck response and, if it suggests a context save, call storeContext.
+   * No-op if there is no suggestion. Returns contextId if saved.
+   */
+  async maybeSaveFromPrecheck(params: {
+    precheck: PrecheckResponse;
+    fallbackContent?: string; // used if suggested content not provided
+    agentId: string;
+    agentName?: string;
+    conversationId?: string;
+    correlationId?: string;
+    metadata?: Record<string, any>;
+    scope?: 'user' | 'org';
+    visibility?: 'private' | 'team' | 'org';
+  }): Promise<{ saved: boolean; contextId?: string }>;
+}
+```
+
+Behavior:
+- If `precheck.intent?.save === true` or `suggestedActions` contains `{ type: 'context.save' }`, call `storeContext` with suggested `content` or `fallbackContent`.
+- If neither is present, return `{ saved: false }`.
 
 ## TypeScript Definitions
 
