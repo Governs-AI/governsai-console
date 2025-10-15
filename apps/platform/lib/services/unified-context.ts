@@ -1,4 +1,6 @@
 import { prisma } from '@governs-ai/db';
+// Temporary typing bridge until Prisma client resolution is stable across the workspace
+const dbAny = prisma as any;
 import { contextPrecheck } from '@/lib/services/context-precheck';
 import { UniversalEmbeddingService, createEmbeddingService, embeddingConfigs } from './embedding-service';
 
@@ -17,6 +19,13 @@ export interface StoreContextInput {
   parentId?: string;
   correlationId?: string;
   metadata?: Record<string, any>;
+  precheckRef?: {
+    decision: 'allow' | 'redact' | 'block' | 'deny';
+    redactedContent?: string;
+    piiTypes?: string[];
+    reasons?: string[];
+  };
+  skipPrecheck?: boolean;
   
   // Scope
   scope?: 'user' | 'org';
@@ -112,35 +121,55 @@ export class UnifiedContextService {
       parentId,
       correlationId,
       metadata = {},
+      precheckRef,
+      skipPrecheck,
       scope = 'user',
       visibility = 'private',
       expiresAt,
     } = input;
 
-    // Step 1: Precheck the content for PII
-    const precheckResult = await contextPrecheck.check({
-      content,
-      userId,
-      orgId,
-      tool: `context.${agentId}`,
-      scope: 'precheck',
-    });
+    // Step 1: Determine precheck outcome
+    let effectiveDecision: 'allow' | 'redact' | 'block' | 'deny' = 'allow';
+    let redactedContent: string | undefined;
+    let piiTypes: string[] = [];
+    let reasons: string[] = [];
+
+    if (skipPrecheck) {
+      // Honor provided precheckRef (from webhook) without calling adapter
+      effectiveDecision = precheckRef?.decision || 'allow';
+      redactedContent = precheckRef?.redactedContent;
+      piiTypes = precheckRef?.piiTypes || [];
+      reasons = precheckRef?.reasons || [];
+    } else {
+      // Call local adapter (for direct platform API usage)
+      const precheckResult = await contextPrecheck.check({
+        content,
+        userId,
+        orgId,
+        tool: `context.${agentId}`,
+        scope: 'precheck',
+      });
+      effectiveDecision = precheckResult.decision as typeof effectiveDecision;
+      redactedContent = precheckResult.redactedContent;
+      piiTypes = precheckResult.piiTypes;
+      reasons = precheckResult.reasons;
+    }
 
     // If blocked, don't store
-    if (precheckResult.decision === 'block' || precheckResult.decision === 'deny') {
-      throw new Error(`Content blocked by precheck: ${precheckResult.reasons.join(', ')}`);
+    if (effectiveDecision === 'block' || effectiveDecision === 'deny') {
+      throw new Error(`Content blocked by precheck: ${reasons.join(', ')}`);
     }
 
     // Use redacted content if available
-    const contentToStore = precheckResult.redactedContent || content;
-    const piiDetected = precheckResult.piiTypes.length > 0;
-    const piiRedacted = precheckResult.decision === 'redact';
+    const contentToStore = redactedContent || content;
+    const piiDetected = piiTypes.length > 0;
+    const piiRedacted = effectiveDecision === 'redact';
 
     // Step 2: Generate embedding
     const embedding = await this.generateEmbedding(contentToStore);
 
     // Step 3: Store in database (save first, then set pgvector via raw SQL)
-    const context = await prisma.contextMemory.create({
+    const context = await dbAny.contextMemory.create({
       data: {
         userId,
         orgId,
@@ -160,14 +189,14 @@ export class UnifiedContextService {
         piiDetected,
         piiRedacted,
         rawContent: piiRedacted ? content : null, // Store original if redacted
-        precheckDecision: precheckResult.decision,
+        precheckDecision: effectiveDecision,
       },
     });
 
     // Persist vector using pgvector casting (Unsupported type)
     try {
       const embeddingStr = `[${embedding.join(',')}]`;
-      await prisma.$executeRawUnsafe(
+      await dbAny.$executeRawUnsafe(
         `UPDATE context_memory SET embedding = $1::vector WHERE id = $2`,
         embeddingStr,
         context.id
@@ -279,10 +308,22 @@ export class UnifiedContextService {
     sql += ` ORDER BY embedding <=> $1::vector LIMIT $${paramIndex}`;
     params.push(limit);
 
-    const rows = await prisma.$queryRawUnsafe<any[]>(sql, ...params);
+    const rows = await dbAny.$queryRawUnsafe(sql, ...params) as Array<{
+      id: string;
+      user_id: string;
+      org_id: string;
+      content: string;
+      content_type: string;
+      agent_id: string | null;
+      agent_name: string | null;
+      conversation_id: string | null;
+      metadata: any;
+      created_at: Date;
+      similarity: string | number;
+    }>;
 
     if (rows.length > 0) {
-      await prisma.contextAccessLog.create({
+      await dbAny.contextAccessLog.create({
         data: {
           contextId: rows[0].id,
           userId,
@@ -294,7 +335,19 @@ export class UnifiedContextService {
       });
     }
 
-    return rows.map((r) => ({
+    return rows.map((r: {
+      id: string;
+      user_id: string;
+      org_id: string;
+      content: string;
+      content_type: string;
+      agent_id: string | null;
+      agent_name: string | null;
+      conversation_id: string | null;
+      metadata: any;
+      created_at: Date;
+      similarity: string | number;
+    }) => ({
       id: r.id,
       userId: r.user_id,
       orgId: r.org_id,
@@ -305,8 +358,8 @@ export class UnifiedContextService {
       conversationId: r.conversation_id,
       metadata: r.metadata,
       createdAt: r.created_at,
-      similarity: parseFloat(r.similarity),
-      finalScore: parseFloat(r.similarity),
+      similarity: typeof r.similarity === 'number' ? r.similarity : parseFloat(r.similarity),
+      finalScore: typeof r.similarity === 'number' ? r.similarity : parseFloat(r.similarity),
     }));
   }
 
@@ -337,7 +390,7 @@ export class UnifiedContextService {
       where.agentId = agentId;
     }
 
-    const contexts = await prisma.contextMemory.findMany({
+    const contexts = await dbAny.contextMemory.findMany({
       where,
       orderBy: { createdAt: 'asc' },
       take: limit,
@@ -359,7 +412,7 @@ export class UnifiedContextService {
     title?: string
   ) {
     // Get most recent active conversation for this agent
-    let conversation = await prisma.conversation.findFirst({
+    let conversation = await dbAny.conversation.findFirst({
       where: {
         userId,
         orgId,
@@ -372,7 +425,7 @@ export class UnifiedContextService {
     // Create new if none exists or if last message was >1 hour ago
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     if (!conversation || (conversation.lastMessageAt && conversation.lastMessageAt < oneHourAgo)) {
-      conversation = await prisma.conversation.create({
+      conversation = await dbAny.conversation.create({
         data: {
           userId,
           orgId,
@@ -412,43 +465,12 @@ export class UnifiedContextService {
     });
   }
 
-  /**
-   * Helper: Calculate cosine similarity
-   */
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-      throw new Error('Vectors must have same length');
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
-  /**
-   * Helper: Calculate recency boost (0-1)
-   */
-  private calculateRecencyBoost(createdAt: Date): number {
-    const ageInMs = Date.now() - createdAt.getTime();
-    const ageInDays = ageInMs / (1000 * 60 * 60 * 24);
-    
-    // Exponential decay: recent = 1.0, 30 days old = 0.5, 90 days = 0.1
-    return Math.exp(-ageInDays / 30);
-  }
 
   /**
    * Helper: Update conversation metadata
    */
   private async updateConversationMetadata(conversationId: string) {
-    const contexts = await prisma.contextMemory.findMany({
+    const contexts = await dbAny.contextMemory.findMany({
       where: { conversationId },
       select: { content: true },
     });
@@ -458,7 +480,7 @@ export class UnifiedContextService {
       return sum + Math.ceil(ctx.content.length / 4);
     }, 0);
 
-    await prisma.conversation.update({
+    await dbAny.conversation.update({
       where: { id: conversationId },
       data: {
         messageCount,
@@ -475,7 +497,7 @@ export class UnifiedContextService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const result = await prisma.contextMemory.updateMany({
+    const result = await dbAny.contextMemory.updateMany({
       where: {
         createdAt: { lt: cutoffDate },
         isArchived: false,

@@ -275,6 +275,12 @@ export class SimpleWebSocketHandler {
         
         const result = await this.services.decisionService.processDecision(decisionData);
         
+        // Check for context save intent (keywords detection)
+        if (this.shouldSaveContext(data)) {
+          console.log('💾 Context save intent detected, emitting to Platform...');
+          await this.emitContextSave(connection, data, decisionData);
+        }
+        
         // Send acknowledgment
         this.sendMessage(connection.ws, {
           type: 'ACK',
@@ -406,6 +412,122 @@ export class SimpleWebSocketHandler {
       message,
       timestamp: new Date().toISOString()
     });
+  }
+
+  /**
+   * Check if message content should trigger context save
+   */
+  shouldSaveContext(data) {
+    // Keywords that indicate user wants to save context
+    const saveKeywords = [
+      'remember this',
+      'remember that',
+      'save this',
+      'save that',
+      'don\'t forget',
+      'keep this in mind',
+      'note this',
+      'note that',
+      'make a note',
+      'store this'
+    ];
+
+    // Check in raw_text_in (user input) or raw_text_out (LLM output)
+    const textToCheck = (data.raw_text_in || data.raw_text_out || '').toLowerCase();
+    
+    return saveKeywords.some(keyword => textToCheck.includes(keyword));
+  }
+
+  /**
+   * Emit context.save event to Platform webhook
+   */
+  async emitContextSave(connection, data, decisionData) {
+    try {
+      const webhookUrl = process.env.PLATFORM_WEBHOOK_URL || 'http://localhost:3002/api/governs/webhook';
+      const webhookSecret = process.env.WEBHOOK_SECRET || 'dev-secret-key-change-in-production';
+
+      // Build context save payload
+      const payload = {
+        type: 'context.save',
+        apiKey: connection.apiKey,
+        data: {
+          content: data.raw_text_in || data.raw_text_out || '',
+          contentType: 'user_message',
+          agentId: data.tool || 'unknown',
+          agentName: data.tool || 'Unknown Agent',
+          conversationId: data.conversationId,
+          correlationId: data.correlationId || decisionData.correlationId,
+          metadata: {
+            direction: data.direction,
+            tool: data.tool,
+            scope: data.scope,
+            detectorSummary: data.detectorSummary,
+            timestamp: data.timestamp || new Date().toISOString()
+          },
+          scope: 'user',
+          visibility: 'private',
+          precheckRef: {
+            decision: data.decision || 'allow',
+            redactedContent: data.raw_text_out !== data.raw_text_in ? data.raw_text_out : undefined,
+            piiTypes: this.extractPiiTypes(data.detectorSummary),
+            reasons: data.reasons || []
+          }
+        }
+      };
+
+      // Create signature
+      const timestamp = Math.floor(Date.now() / 1000);
+      const payloadString = JSON.stringify(payload);
+      const message = `${timestamp}.${payloadString}`;
+      const crypto = require('crypto');
+      const signature = crypto.createHmac('sha256', webhookSecret).update(message).digest('hex');
+      const signatureHeader = `v1,t=${timestamp},s=${signature}`;
+
+      // Send to Platform webhook
+      const fetch = (await import('node-fetch')).default;
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-governs-signature': signatureHeader
+        },
+        body: payloadString
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Platform webhook failed: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Context saved successfully:', result);
+      
+    } catch (error) {
+      console.error('❌ Failed to emit context.save:', error);
+      // Don't throw - context save failure shouldn't break the main flow
+    }
+  }
+
+  /**
+   * Extract PII types from detector summary
+   */
+  extractPiiTypes(detectorSummary) {
+    if (!detectorSummary || typeof detectorSummary !== 'object') {
+      return [];
+    }
+
+    const piiTypes = [];
+    
+    // Check for PII detector results
+    if (detectorSummary.pii && Array.isArray(detectorSummary.pii)) {
+      detectorSummary.pii.forEach(detection => {
+        if (detection.type) {
+          piiTypes.push(detection.type);
+        }
+      });
+    }
+
+    return [...new Set(piiTypes)]; // Remove duplicates
   }
 
   /**
