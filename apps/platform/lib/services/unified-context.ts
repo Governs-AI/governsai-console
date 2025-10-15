@@ -1,4 +1,4 @@
-import { db } from './db-wrapper';
+import { prisma } from '@governs-ai/db';
 import { contextPrecheck } from '@/lib/services/context-precheck';
 import { UniversalEmbeddingService, createEmbeddingService, embeddingConfigs } from './embedding-service';
 
@@ -140,7 +140,7 @@ export class UnifiedContextService {
     const embedding = await this.generateEmbedding(contentToStore);
 
     // Step 3: Store in database
-    const context = await db.contextMemory.create({
+    const context = await prisma.contextMemory.create({
       data: {
         userId,
         orgId,
@@ -238,7 +238,7 @@ export class UnifiedContextService {
 
     // Step 3: Fetch contexts (in-memory similarity for MVP)
     // TODO: Use pgvector for native similarity search in production
-    const contexts = await db.contextMemory.findMany({
+    const contexts = await prisma.contextMemory.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: 100, // Pre-filter
@@ -276,7 +276,7 @@ export class UnifiedContextService {
       .slice(0, limit);
 
     // Step 5: Log access
-    await db.contextAccessLog.create({
+    await prisma.contextAccessLog.create({
       data: {
         contextId: results[0]?.id || 'none',
         userId,
@@ -317,7 +317,7 @@ export class UnifiedContextService {
       where.agentId = agentId;
     }
 
-    const contexts = await db.contextMemory.findMany({
+    const contexts = await prisma.contextMemory.findMany({
       where,
       orderBy: { createdAt: 'asc' },
       take: limit,
@@ -339,7 +339,7 @@ export class UnifiedContextService {
     title?: string
   ) {
     // Get most recent active conversation for this agent
-    let conversation = await db.conversation.findFirst({
+    let conversation = await prisma.conversation.findFirst({
       where: {
         userId,
         orgId,
@@ -352,7 +352,7 @@ export class UnifiedContextService {
     // Create new if none exists or if last message was >1 hour ago
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     if (!conversation || (conversation.lastMessageAt && conversation.lastMessageAt < oneHourAgo)) {
-      conversation = await db.conversation.create({
+      conversation = await prisma.conversation.create({
         data: {
           userId,
           orgId,
@@ -428,7 +428,7 @@ export class UnifiedContextService {
    * Helper: Update conversation metadata
    */
   private async updateConversationMetadata(conversationId: string) {
-    const contexts = await db.contextMemory.findMany({
+    const contexts = await prisma.contextMemory.findMany({
       where: { conversationId },
       select: { content: true },
     });
@@ -438,7 +438,7 @@ export class UnifiedContextService {
       return sum + Math.ceil(ctx.content.length / 4);
     }, 0);
 
-    await db.conversation.update({
+    await prisma.conversation.update({
       where: { id: conversationId },
       data: {
         messageCount,
@@ -455,7 +455,7 @@ export class UnifiedContextService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const result = await db.contextMemory.updateMany({
+    const result = await prisma.contextMemory.updateMany({
       where: {
         createdAt: { lt: cutoffDate },
         isArchived: false,
