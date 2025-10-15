@@ -139,7 +139,7 @@ export class UnifiedContextService {
     // Step 2: Generate embedding
     const embedding = await this.generateEmbedding(contentToStore);
 
-    // Step 3: Store in database
+    // Step 3: Store in database (save first, then set pgvector via raw SQL)
     const context = await prisma.contextMemory.create({
       data: {
         userId,
@@ -148,7 +148,6 @@ export class UnifiedContextService {
         contentType,
         agentId,
         agentName,
-        embedding: embedding as any,
         conversationId,
         parentId,
         correlationId,
@@ -164,6 +163,19 @@ export class UnifiedContextService {
         precheckDecision: precheckResult.decision,
       },
     });
+
+    // Persist vector using pgvector casting (Unsupported type)
+    try {
+      const embeddingStr = `[${embedding.join(',')}]`;
+      await prisma.$executeRawUnsafe(
+        `UPDATE context_memory SET embedding = $1::vector WHERE id = $2`,
+        embeddingStr,
+        context.id
+      );
+    } catch (e) {
+      // If vector update fails, keep the row without embedding
+      console.error('Failed to set pgvector embedding:', e);
+    }
 
     // Step 4: Update conversation metadata
     if (conversationId) {
@@ -193,101 +205,109 @@ export class UnifiedContextService {
 
     // Step 1: Generate query embedding
     const queryEmbedding = await this.generateEmbedding(query);
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
-    // Step 2: Build where clause
-    const where: any = {
-      isArchived: false,
-    };
+    // Step 2: Build native pgvector SQL
+    let sql = `
+      SELECT
+        id,
+        user_id,
+        org_id,
+        content,
+        content_type,
+        agent_id,
+        agent_name,
+        conversation_id,
+        metadata,
+        created_at,
+        1 - (embedding <=> $1::vector) as similarity
+      FROM context_memory
+      WHERE is_archived = false
+    `;
+
+    const params: any[] = [embeddingStr];
+    let paramIndex = 2;
 
     // Scope filtering
     if (scope === 'user') {
-      where.userId = userId;
-      where.scope = 'user';
+      sql += ` AND user_id = $${paramIndex} AND scope = 'user'`;
+      params.push(userId);
+      paramIndex++;
     } else if (scope === 'org') {
-      where.orgId = orgId;
-      where.scope = 'org';
+      sql += ` AND org_id = $${paramIndex} AND scope = 'org'`;
+      params.push(orgId);
+      paramIndex++;
     } else {
-      // Both: user's private context + org's shared context
-      where.OR = [
-        { userId, scope: 'user' },
-        { orgId, scope: 'org' },
-      ];
+      sql += ` AND ((user_id = $${paramIndex} AND scope = 'user') OR (org_id = $${paramIndex + 1} AND scope = 'org'))`;
+      params.push(userId, orgId);
+      paramIndex += 2;
     }
 
-    // Agent filter
     if (agentId) {
-      where.agentId = agentId;
+      sql += ` AND agent_id = $${paramIndex}`;
+      params.push(agentId);
+      paramIndex++;
     }
 
-    // Content type filter
     if (contentTypes && contentTypes.length > 0) {
-      where.contentType = { in: contentTypes };
+      sql += ` AND content_type = ANY($${paramIndex}::text[])`;
+      params.push(contentTypes);
+      paramIndex++;
     }
 
-    // Conversation filter
     if (conversationId) {
-      where.conversationId = conversationId;
+      sql += ` AND conversation_id = $${paramIndex}`;
+      params.push(conversationId);
+      paramIndex++;
     }
 
-    // Time range filter
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = startDate;
-      if (endDate) where.createdAt.lte = endDate;
+    if (startDate) {
+      sql += ` AND created_at >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+    if (endDate) {
+      sql += ` AND created_at <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
     }
 
-    // Step 3: Fetch contexts (in-memory similarity for MVP)
-    // TODO: Use pgvector for native similarity search in production
-    const contexts = await prisma.contextMemory.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 100, // Pre-filter
-      include: {
-        conversation: true,
-      },
-    });
+    sql += ` AND 1 - (embedding <=> $1::vector) > $${paramIndex}`;
+    params.push(threshold);
+    paramIndex++;
 
-    // Step 4: Calculate similarity and rank
-    const results = contexts
-      .map((ctx: any) => {
-        const ctxEmbedding = ctx.embedding as number[];
-        const similarity = this.cosineSimilarity(queryEmbedding, ctxEmbedding);
-        
-        // Boost recent messages slightly
-        const recencyBoost = this.calculateRecencyBoost(ctx.createdAt);
-        const finalScore = similarity * 0.8 + recencyBoost * 0.2;
-        
-        return {
-          id: ctx.id,
-          content: ctx.content,
-          contentType: ctx.contentType,
-          agentId: ctx.agentId,
-          agentName: ctx.agentName,
-          conversationId: ctx.conversationId,
-          conversation: ctx.conversation,
-          metadata: ctx.metadata,
-          createdAt: ctx.createdAt,
-          similarity,
-          finalScore,
-        };
-      })
-      .filter((r: any) => r.similarity >= threshold)
-      .sort((a: any, b: any) => b.finalScore - a.finalScore)
-      .slice(0, limit);
+    sql += ` ORDER BY embedding <=> $1::vector LIMIT $${paramIndex}`;
+    params.push(limit);
 
-    // Step 5: Log access
-    await prisma.contextAccessLog.create({
-      data: {
-        contextId: results[0]?.id || 'none',
-        userId,
-        orgId,
-        accessType: 'search',
-        query,
-        resultsCount: results.length,
-      },
-    });
+    const rows = await prisma.$queryRawUnsafe<any[]>(sql, ...params);
 
-    return results;
+    if (rows.length > 0) {
+      await prisma.contextAccessLog.create({
+        data: {
+          contextId: rows[0].id,
+          userId,
+          orgId,
+          accessType: 'search',
+          query,
+          resultsCount: rows.length,
+        },
+      });
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      userId: r.user_id,
+      orgId: r.org_id,
+      content: r.content,
+      contentType: r.content_type,
+      agentId: r.agent_id,
+      agentName: r.agent_name,
+      conversationId: r.conversation_id,
+      metadata: r.metadata,
+      createdAt: r.created_at,
+      similarity: parseFloat(r.similarity),
+      finalScore: parseFloat(r.similarity),
+    }));
   }
 
   /**
