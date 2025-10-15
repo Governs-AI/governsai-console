@@ -158,6 +158,14 @@ apps/platform/
 - `POST /api/v1/policies` - Create policy
 - `GET /api/v1/passkey/list` - List passkeys
 
+### Context Memory (Unified Context) – New
+- `POST /api/v1/context` – Store context (explicit client save path)
+- `POST /api/v1/context/search` – Semantic search (pgvector)
+- `POST /api/v1/context/cross-agent` – Cross-agent search
+- `GET /api/v1/context/conversation` – Get conversation items
+- `POST /api/v1/context/conversation` – Get or create conversation
+- `POST /api/governs/webhook` – Receives signed events; now handles `context.save`
+
 ## 🔐 Security Features
 
 ### Authentication
@@ -171,6 +179,11 @@ apps/platform/
 - **API Key Management**: Secure API key generation and management
 - **Scope-based Access**: Fine-grained permission control
 - **Organization Isolation**: Multi-tenant security
+
+### Webhook Security (Context Save)
+- **Signed Webhooks**: `x-governs-signature` header `v1,t=TIMESTAMP,s=HMAC_SHA256_HEX`
+- **Shared Secret**: `WEBHOOK_SECRET` (must match WebSocket service)
+- **Idempotency**: `correlationId` used to deduplicate `context.save`
 
 ### Data Protection
 - **Encryption**: Data encryption at rest and in transit
@@ -188,6 +201,7 @@ apps/platform/
 - **Budget Records**: Budget and spending data
 - **Policy Records**: Policy definitions
 - **Decision Records**: Governance decisions
+- **Context Memory**: `ContextMemory`, `Conversation`, `Document`, `DocumentChunk`, `ContextAccessLog` (pgvector-backed embeddings)
 - **Audit Logs**: Audit trail
 - **Purchase Records**: Purchase tracking
 
@@ -198,6 +212,7 @@ apps/platform/
 - Budget Records belong to Organizations
 - Policy Records belong to Organizations
 - Decision Records belong to Users and Organizations
+- Context records belong to Users and Organizations; Conversations relate to ContextMemory
 
 ## 🚀 Deployment
 
@@ -213,9 +228,18 @@ NEXTAUTH_URL="http://localhost:3002"
 # AI Providers
 OPENAI_API_KEY="your-openai-key"
 ANTHROPIC_API_KEY="your-anthropic-key"
+EMBEDDING_PROVIDER="openai|ollama|huggingface|cohere"
+OLLAMA_BASE_URL="http://localhost:11434"
+OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
+HUGGINGFACE_API_KEY="hf_..."
+HUGGINGFACE_EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+COHERE_API_KEY="..."
 
 # Platform URLs
 NEXT_PUBLIC_PLATFORM_URL="http://localhost:3002"
+# Webhook & WebSocket
+WEBHOOK_SECRET="change-me"               # Platform (must match WS)
+PLATFORM_WEBHOOK_URL="http://localhost:3002/api/governs/webhook"  # WS side
 NEXT_PUBLIC_DOCS_URL="http://localhost:3001"
 NEXT_PUBLIC_LANDING_URL="http://localhost:3000"
 ```
