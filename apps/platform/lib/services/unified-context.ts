@@ -106,6 +106,16 @@ export class UnifiedContextService {
     }
   }
 
+  /** Ensure embeddings match DB vector dimension (pad/truncate) */
+  private normalizeEmbeddingDimensions(values: number[]): number[] {
+    const targetDim = Number(process.env.PGVECTOR_DIM || 1536);
+    if (values.length === targetDim) return values;
+    if (values.length > targetDim) return values.slice(0, targetDim);
+    const padded = values.slice();
+    while (padded.length < targetDim) padded.push(0);
+    return padded;
+  }
+
   /**
    * Store context with precheck and embedding
    */
@@ -165,8 +175,9 @@ export class UnifiedContextService {
     const piiDetected = piiTypes.length > 0;
     const piiRedacted = effectiveDecision === 'redact';
 
-    // Step 2: Generate embedding
-    const embedding = await this.generateEmbedding(contentToStore);
+    // Step 2: Generate embedding and normalize to DB dimension
+    const embeddingRaw = await this.generateEmbedding(contentToStore);
+    const embedding = this.normalizeEmbeddingDimensions(embeddingRaw);
 
     // Step 3: Store in database (save first, then set pgvector via raw SQL)
     const context = await dbAny.contextMemory.create({
@@ -191,13 +202,15 @@ export class UnifiedContextService {
         rawContent: piiRedacted ? content : null, // Store original if redacted
         precheckDecision: effectiveDecision,
       },
+      select: { id: true },
     });
 
     // Persist vector using pgvector casting (Unsupported type)
     try {
       const embeddingStr = `[${embedding.join(',')}]`;
+      const dim = Number(process.env.PGVECTOR_DIM || 1536);
       await dbAny.$executeRawUnsafe(
-        `UPDATE context_memory SET embedding = $1::vector WHERE id = $2`,
+        `UPDATE context_memory SET embedding = $1::vector(${dim}) WHERE id = $2`,
         embeddingStr,
         context.id
       );
@@ -232,11 +245,13 @@ export class UnifiedContextService {
       endDate,
     } = input;
 
-    // Step 1: Generate query embedding
-    const queryEmbedding = await this.generateEmbedding(query);
+    // Step 1: Generate query embedding and normalize
+    const queryEmbeddingRaw = await this.generateEmbedding(query);
+    const queryEmbedding = this.normalizeEmbeddingDimensions(queryEmbeddingRaw);
     const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
     // Step 2: Build native pgvector SQL
+    const dim = Number(process.env.PGVECTOR_DIM || 1536);
     let sql = `
       SELECT
         id,
@@ -249,7 +264,7 @@ export class UnifiedContextService {
         conversation_id,
         metadata,
         created_at,
-        1 - (embedding <=> $1::vector) as similarity
+        1 - (embedding <=> $1::vector(${dim})) as similarity
       FROM context_memory
       WHERE is_archived = false
     `;
@@ -301,11 +316,11 @@ export class UnifiedContextService {
       paramIndex++;
     }
 
-    sql += ` AND 1 - (embedding <=> $1::vector) > $${paramIndex}`;
+    sql += ` AND 1 - (embedding <=> $1::vector(${dim})) > $${paramIndex}`;
     params.push(threshold);
     paramIndex++;
 
-    sql += ` ORDER BY embedding <=> $1::vector LIMIT $${paramIndex}`;
+    sql += ` ORDER BY embedding <=> $1::vector(${dim}) LIMIT $${paramIndex}`;
     params.push(limit);
 
     const rows = await dbAny.$queryRawUnsafe(sql, ...params) as Array<{

@@ -422,6 +422,10 @@ export class SimpleWebSocketHandler {
     const saveKeywords = [
       'remember this',
       'remember that',
+      'remember i',
+      'remember we',
+      'remember my',
+      'remember our',
       'save this',
       'save that',
       'don\'t forget',
@@ -432,10 +436,20 @@ export class SimpleWebSocketHandler {
       'store this'
     ];
 
-    // Check in raw_text_in (user input) or raw_text_out (LLM output)
-    const textToCheck = (data.raw_text_in || data.raw_text_out || '').toLowerCase();
+    // Check in raw_text_in/rawText (user input) or raw_text_out/rawTextOut (LLM output)
+    const textToCheck = (
+      data.raw_text_in ||
+      data.rawText ||
+      data.raw_text_out ||
+      data.rawTextOut ||
+      ''
+    ).toLowerCase();
     
-    return saveKeywords.some(keyword => textToCheck.includes(keyword));
+    console.log('🔍 Checking for context save keywords in:', textToCheck);
+    const shouldSave = saveKeywords.some(keyword => textToCheck.includes(keyword));
+    console.log('💾 Should save context:', shouldSave);
+    
+    return shouldSave;
   }
 
   /**
@@ -443,15 +457,18 @@ export class SimpleWebSocketHandler {
    */
   async emitContextSave(connection, data, decisionData) {
     try {
+      console.log('🚀 Emitting context.save event to Platform...');
       const webhookUrl = process.env.PLATFORM_WEBHOOK_URL || 'http://localhost:3002/api/governs/webhook';
       const webhookSecret = process.env.WEBHOOK_SECRET || 'dev-secret-key-change-in-production';
 
       // Build context save payload
+      const inText = data.raw_text_in || data.rawText || '';
+      const outText = data.raw_text_out || data.rawTextOut || '';
       const payload = {
         type: 'context.save',
         apiKey: connection.apiKey,
         data: {
-          content: data.raw_text_in || data.raw_text_out || '',
+          content: inText || outText || '',
           contentType: 'user_message',
           agentId: data.tool || 'unknown',
           agentName: data.tool || 'Unknown Agent',
@@ -468,23 +485,24 @@ export class SimpleWebSocketHandler {
           visibility: 'private',
           precheckRef: {
             decision: data.decision || 'allow',
-            redactedContent: data.raw_text_out !== data.raw_text_in ? data.raw_text_out : undefined,
+            redactedContent: (outText && inText && outText !== inText) ? outText : undefined,
             piiTypes: this.extractPiiTypes(data.detectorSummary),
             reasons: data.reasons || []
           }
         }
       };
 
+      console.log('📦 Context save payload:', JSON.stringify(payload, null, 2));
+
       // Create signature
       const timestamp = Math.floor(Date.now() / 1000);
       const payloadString = JSON.stringify(payload);
       const message = `${timestamp}.${payloadString}`;
-      const crypto = require('crypto');
+      const crypto = await import('crypto');
       const signature = crypto.createHmac('sha256', webhookSecret).update(message).digest('hex');
       const signatureHeader = `v1,t=${timestamp},s=${signature}`;
 
       // Send to Platform webhook
-      const fetch = (await import('node-fetch')).default;
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {

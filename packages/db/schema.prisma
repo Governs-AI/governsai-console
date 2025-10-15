@@ -520,8 +520,8 @@ model ContextMemory {
   agentId     String?  @map("agent_id") // Which app/agent created this? 'demo-chat', 'platform', 'docs-chat'
   agentName   String?  @map("agent_name") // Human-readable name
   
-  // Vector embedding - pgvector type (1536 dims)
-  embedding   Unsupported("vector(1536)")? @map("embedding")
+  // Vector embedding - pgvector type (768 dims)
+  embedding   Unsupported("vector(768)")? @map("embedding")
   
   // Context tracking
   conversationId String? @map("conversation_id")
@@ -664,8 +664,8 @@ model DocumentChunk {
   content    String @db.Text
   chunkIndex Int    @map("chunk_index") // Position in document
   
-  // Vector embedding - pgvector type (1536 dims)
-  embedding  Unsupported("vector(1536)")?  @map("embedding")
+  // Vector embedding - pgvector type (768 dims)
+  embedding  Unsupported("vector(768)")?  @map("embedding")
   
   // Metadata
   metadata   Json   @default("{}")
