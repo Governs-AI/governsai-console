@@ -352,6 +352,103 @@ export class AnalyticsClient {
 }
 ```
 
+#### ContextClient (Unified Context Memory)
+
+Purpose: First-class SDK wrapper for Platform Context Memory APIs. No separate client package required; include in `@governs-ai/sdk`.
+
+Endpoints consumed:
+- `POST /api/v1/context` (store context)
+- `POST /api/v1/context/search` (semantic search; pgvector-backed)
+- `POST /api/v1/context/cross-agent` (cross-agent search)
+- `GET /api/v1/context/conversation` (get conversation items)
+- `POST /api/v1/context/conversation` (get or create conversation)
+
+SDK surface:
+```typescript
+export class ContextClient {
+  /** Store a piece of context (runs Platform precheck; will redact/block per policy) */
+  async storeContext(input: {
+    content: string;
+    contentType: 'user_message' | 'agent_message' | 'document' | 'decision' | 'tool_result';
+    agentId: string;
+    agentName?: string;
+    conversationId?: string;
+    parentId?: string;
+    correlationId?: string;
+    metadata?: Record<string, any>;
+    scope?: 'user' | 'org';
+    visibility?: 'private' | 'team' | 'org';
+    expiresAt?: string; // ISO
+  }): Promise<{ contextId: string }>;
+
+  /** pgvector similarity search over context */
+  async searchContext(input: {
+    query: string;
+    agentId?: string;
+    contentTypes?: string[];
+    conversationId?: string;
+    scope?: 'user' | 'org' | 'both';
+    limit?: number;
+    threshold?: number; // default 0.7
+    startDate?: string; // ISO
+    endDate?: string;   // ISO
+  }): Promise<Array<{
+    id: string;
+    userId?: string;
+    orgId?: string;
+    content: string;
+    contentType: string;
+    agentId?: string;
+    agentName?: string;
+    conversationId?: string;
+    metadata?: Record<string, any>;
+    createdAt: string;
+    similarity: number;
+  }>>;
+
+  /** Cross-agent search convenience */
+  async searchCrossAgent(query: string, opts?: {
+    limit?: number;
+    threshold?: number;
+    scope?: 'user' | 'org' | 'both';
+  }): Promise<ReturnType<ContextClient['searchContext']>>;
+
+  /** Create or fetch a conversation for an agent */
+  async getOrCreateConversation(input: {
+    agentId: string;
+    agentName: string;
+    title?: string;
+  }): Promise<{
+    id: string;
+    title?: string;
+    messageCount: number;
+    tokenCount: number;
+    lastMessageAt?: string;
+    scope: 'user' | 'org';
+  }>;
+
+  /** Fetch conversation messages */
+  async getConversationContext(input: {
+    conversationId: string;
+    agentId?: string;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    content: string;
+    contentType: string;
+    agentId?: string;
+    createdAt: string;
+    parentId?: string;
+    metadata?: Record<string, any>;
+  }>>;
+}
+```
+
+Notes:
+- Server enforces precheck; SDK just forwards payload and headers (API key/session).
+- Search is pgvector-native in Platform; SDK does not compute embeddings.
+- All dates in SDK responses are ISO strings.
+
 ## TypeScript Definitions
 
 ### Core Types
