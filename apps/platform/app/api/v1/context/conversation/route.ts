@@ -1,12 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { unifiedContext } from '@/lib/services/unified-context';
+import { verifySessionToken } from '@/lib/auth-server';
+import { prisma } from '@governs-ai/db';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Auth: Bearer JWT or X-Governs-Key
+    let userId: string | undefined;
+    let orgId: string | undefined;
+
+    const authHeader = req.headers.get('authorization');
+    const apiKeyHeader = req.headers.get('x-governs-key');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -21,9 +45,6 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const userId = session.user.governs_user_id;
-    const orgId = session.user.org_id;
 
     const contexts = await unifiedContext.getConversationContext(
       conversationId,
@@ -47,8 +68,32 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Auth: Bearer JWT or X-Governs-Key
+    let userId: string | undefined;
+    let orgId: string | undefined;
+
+    const authHeader = req.headers.get('authorization');
+    const apiKeyHeader = req.headers.get('x-governs-key');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -61,9 +106,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const userId = session.user.governs_user_id;
-    const orgId = session.user.org_id;
 
     const conversation = await unifiedContext.getOrCreateConversation(
       userId,
