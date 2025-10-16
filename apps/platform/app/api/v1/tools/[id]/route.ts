@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
+import { cookies } from 'next/headers';
 
 // GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
@@ -14,6 +15,7 @@ export async function GET(
 
     const authHeader = request.headers.get('authorization');
     const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -30,6 +32,12 @@ export async function GET(
       if (apiKey) {
         userId = apiKey.userId;
         orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
       }
     }
 
@@ -67,6 +75,7 @@ export async function PUT(
 
     const authHeader = request.headers.get('authorization');
     const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -83,6 +92,12 @@ export async function PUT(
       if (apiKey) {
         userId = apiKey.userId;
         orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
       }
     }
 
@@ -143,6 +158,7 @@ export async function DELETE(
 
     const authHeader = request.headers.get('authorization');
     const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -159,6 +175,12 @@ export async function DELETE(
       if (apiKey) {
         userId = apiKey.userId;
         orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
       }
     }
 
