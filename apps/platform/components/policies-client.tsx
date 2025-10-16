@@ -143,7 +143,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
 
   const fetchTools = async () => {
     try {
-      const response = await fetch('/api/tools');
+      const response = await fetch('/api/v1/tools');
       const data = await response.json();
       setTools(data.tools || []);
     } catch (error) {
@@ -171,7 +171,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
         });
       } else {
         // Create new policy
-        response = await fetch('/api/policies', {
+        response = await fetch('/api/v1/policies', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

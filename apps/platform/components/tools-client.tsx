@@ -90,7 +90,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
   const fetchTools = async () => {
     if (!loading) setRefreshing(true);
     try {
-      const response = await fetch('/api/tools');
+      const response = await fetch('/api/v1/tools');
       const data = await response.json();
       setTools(data.tools || []);
     } catch (error) {
@@ -114,7 +114,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
         });
       } else {
         // Create new tool
-        response = await fetch('/api/tools', {
+        response = await fetch('/api/v1/tools', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(toolData),

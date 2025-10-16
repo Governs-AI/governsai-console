@@ -43,11 +43,11 @@ export default function OrganizationOverview() {
   const fetchStats = async () => {
     try {
       // Fetch policies count
-      const policiesResponse = await fetch(`/api/policies?orgId=${orgSlug}`);
+      const policiesResponse = await fetch(`/api/v1/policies?orgId=${orgSlug}`);
       const policiesData = await policiesResponse.json();
       
       // Fetch tools count
-      const toolsResponse = await fetch('/api/tools');
+      const toolsResponse = await fetch('/api/v1/tools');
       const toolsData = await toolsResponse.json();
       
       // Mock data for demo

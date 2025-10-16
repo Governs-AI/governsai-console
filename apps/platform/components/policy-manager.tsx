@@ -58,7 +58,7 @@ export function PolicyManager() {
 
   const fetchPolicies = async () => {
     try {
-      const response = await fetch('/api/policies?orgId=demo-org-123');
+      const response = await fetch('/api/v1/policies?orgId=demo-org-123');
       const data = await response.json();
       setPolicies(data.policies || []);
     } catch (error) {
@@ -68,7 +68,7 @@ export function PolicyManager() {
 
   const fetchTools = async () => {
     try {
-      const response = await fetch('/api/tools');
+      const response = await fetch('/api/v1/tools');
       const data = await response.json();
       setTools(data.tools || []);
     } catch (error) {
@@ -117,7 +117,7 @@ export function PolicyManager() {
         priority: 0,
       };
 
-      const response = await fetch('/api/policies', {
+      const response = await fetch('/api/v1/policies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(defaultPolicy),

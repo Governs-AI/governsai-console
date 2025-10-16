@@ -134,9 +134,9 @@ await recordUsage({
 
 **API Endpoints**:
 
-- `GET /api/budget/context` - Get budget information
-- `POST /api/usage` - Record usage
-- `GET /api/usage` - Get usage records
+- `GET /api/v1/budget/context` - Get budget information  
+- `POST /api/v1/usage` - Record usage
+- `GET /api/v1/usage` - Get usage records
 - `GET /api/spend` - Get spend analytics
 - `GET /api/spend/budget-limits` - Get budget limits
 - `POST /api/spend/budget-limits` - Create budget limits
@@ -161,8 +161,8 @@ const toolMetadata = getToolMetadataFromPlatform(
 
 **API Endpoints**:
 
-- `GET /api/tools` - List tools
-- `POST /api/tools` - Create/update tool configuration
+- `GET /api/v1/tools` - List tools
+- `POST /api/v1/tools` - Create/update tool configuration
 - `GET /api/agents/tools` - Get agent tools
 - `POST /api/agents/tools` - Register agent tools
 - `POST /api/agents/tools/register` - Register tools with metadata

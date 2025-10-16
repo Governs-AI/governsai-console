@@ -1,11 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { recordUsage } from '@governs-ai/db';
 import { calculateCost, getProvider, getCostType } from '@governs-ai/common-utils';
+import { verifySessionToken } from '@/lib/auth-server';
+import { prisma } from '@governs-ai/db';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth: Bearer JWT or X-Governs-Key
+    let authUserId: string | undefined;
+    let authOrgId: string | undefined;
+
+    const authHeader = req.headers.get('authorization');
+    const apiKeyHeader = req.headers.get('x-governs-key');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        authUserId = session.sub;
+        authOrgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        authUserId = apiKey.userId;
+        authOrgId = apiKey.orgId;
+      }
+    }
+
+    if (!authUserId || !authOrgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       userId,
@@ -29,11 +60,15 @@ export async function POST(req: NextRequest) {
       correlationId
     });
 
+    // Use auth context or body params
+    const finalUserId = userId || authUserId;
+    const finalOrgId = orgId || authOrgId;
+
     // Validate required fields
-    if (!userId || !orgId || !model || inputTokens === undefined || outputTokens === undefined) {
+    if (!finalUserId || !finalOrgId || !model || inputTokens === undefined || outputTokens === undefined) {
       console.error('❌ Missing required fields:', {
-        hasUserId: !!userId,
-        hasOrgId: !!orgId,
+        hasUserId: !!finalUserId,
+        hasOrgId: !!finalOrgId,
         hasModel: !!model,
         inputTokens,
         outputTokens
@@ -58,8 +93,8 @@ export async function POST(req: NextRequest) {
     });
 
     await recordUsage({
-      userId,
-      orgId,
+      userId: finalUserId,
+      orgId: finalOrgId,
       provider,
       model,
       inputTokens,
@@ -91,16 +126,41 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    // Auth: Bearer JWT or X-Governs-Key
+    let authUserId: string | undefined;
+    let authOrgId: string | undefined;
+
+    const authHeader = req.headers.get('authorization');
+    const apiKeyHeader = req.headers.get('x-governs-key');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        authUserId = session.sub;
+        authOrgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        authUserId = apiKey.userId;
+        authOrgId = apiKey.orgId;
+      }
+    }
+
+    if (!authUserId || !authOrgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId');
+    const orgId = searchParams.get('orgId') || authOrgId;
     const userId = searchParams.get('userId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100');
-
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId required' }, { status: 400 });
-    }
 
     const { getUsageRecords } = await import('@governs-ai/db');
     
@@ -121,3 +181,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+

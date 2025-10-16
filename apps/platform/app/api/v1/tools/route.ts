@@ -1,9 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { verifySessionToken } from '@/lib/auth-server';
+import { prisma } from '@governs-ai/db';
 
-// GET /api/tools - List all available tools with metadata
+// GET /api/v1/tools - List all available tools with metadata
 export async function GET(request: NextRequest) {
   try {
+    // Auth: Bearer JWT or X-Governs-Key
+    let userId: string | undefined;
+    let orgId: string | undefined;
+
+    const authHeader = request.headers.get('authorization');
+    const apiKeyHeader = request.headers.get('x-governs-key');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const riskLevel = searchParams.get('riskLevel');
@@ -37,9 +67,38 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/tools - Create or update tool configuration
+// POST /api/v1/tools - Create or update tool configuration
 export async function POST(request: NextRequest) {
   try {
+    // Auth: Bearer JWT or X-Governs-Key
+    let userId: string | undefined;
+    let orgId: string | undefined;
+
+    const authHeader = request.headers.get('authorization');
+    const apiKeyHeader = request.headers.get('x-governs-key');
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       toolName,
@@ -96,3 +155,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

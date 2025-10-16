@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
+import { prisma } from '@governs-ai/db';
 
+// GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -36,23 +37,25 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
-
-    const policy = await prisma.policy.findUnique({
-      where: { id },
+    const tool = await prisma.toolConfig.findUnique({
+      where: { id: params.id },
     });
 
-    if (!policy) {
-      return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
+    if (!tool) {
+      return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ policy });
+    return NextResponse.json({ tool });
   } catch (error) {
-    console.error('Error fetching policy:', error);
-    return NextResponse.json({ error: 'Failed to fetch policy' }, { status: 500 });
+    console.error('Error fetching tool:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch tool' },
+      { status: 500 }
+    );
   }
 }
 
+// PUT /api/v1/tools/[id] - Update tool configuration
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -87,49 +90,48 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
     const body = await request.json();
     const {
-      name,
+      toolName,
+      displayName,
       description,
-      version,
-      defaults,
-      toolAccess,
-      denyTools,
-      allowTools,
-      networkScopes,
-      networkTools,
-      onError,
-      priority,
+      category,
+      riskLevel,
+      scope,
+      direction,
+      metadata,
+      requiresApproval,
       isActive,
     } = body;
 
-    const policy = await prisma.policy.update({
-      where: { id },
+    const tool = await prisma.toolConfig.update({
+      where: { id: params.id },
       data: {
-        ...(name && { name }),
+        ...(toolName && { toolName }),
+        ...(displayName !== undefined && { displayName }),
         ...(description !== undefined && { description }),
-        ...(version && { version }),
-        ...(defaults && { defaults }),
-        ...(toolAccess !== undefined && { toolAccess }),
-        ...(denyTools !== undefined && { denyTools }),
-        ...(allowTools !== undefined && { allowTools }),
-        ...(networkScopes !== undefined && { networkScopes }),
-        ...(networkTools !== undefined && { networkTools }),
-        ...(onError && { onError }),
-        ...(priority !== undefined && { priority }),
+        ...(category && { category }),
+        ...(riskLevel && { riskLevel }),
+        ...(scope && { scope }),
+        ...(direction && { direction }),
+        ...(metadata !== undefined && { metadata }),
+        ...(requiresApproval !== undefined && { requiresApproval }),
         ...(isActive !== undefined && { isActive }),
         updatedAt: new Date(),
       },
     });
 
-    return NextResponse.json({ policy });
+    return NextResponse.json({ tool });
   } catch (error) {
-    console.error('Error updating policy:', error);
-    return NextResponse.json({ error: 'Failed to update policy' }, { status: 500 });
+    console.error('Error updating tool:', error);
+    return NextResponse.json(
+      { error: 'Failed to update tool' },
+      { status: 500 }
+    );
   }
 }
 
+// DELETE /api/v1/tools/[id] - Delete tool configuration
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -164,15 +166,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
-
-    await prisma.policy.delete({
-      where: { id },
+    await prisma.toolConfig.delete({
+      where: { id: params.id },
     });
 
-    return NextResponse.json({ message: 'Policy deleted successfully' });
+    return NextResponse.json({ message: 'Tool deleted successfully' });
   } catch (error) {
-    console.error('Error deleting policy:', error);
-    return NextResponse.json({ error: 'Failed to delete policy' }, { status: 500 });
+    console.error('Error deleting tool:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete tool' },
+      { status: 500 }
+    );
   }
 }
+
