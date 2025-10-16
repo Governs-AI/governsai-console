@@ -8,7 +8,7 @@ const createOrgSchema = z.object({
   name: z.string().min(1),
 });
 
-// GET /api/orgs - Get organization by slug or list user's organizations
+// GET /api/v1/orgs - Get organization by slug or list user's organizations
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

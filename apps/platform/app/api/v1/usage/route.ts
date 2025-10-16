@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { recordUsage } from '@governs-ai/db';
 import { calculateCost, getProvider, getCostType } from '@governs-ai/common-utils';
 import { verifySessionToken } from '@/lib/auth-server';
+import { cookies } from 'next/headers';
 import { prisma } from '@governs-ai/db';
 
 export const runtime = 'nodejs';
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
 
     const authHeader = req.headers.get('authorization');
     const apiKeyHeader = req.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -30,6 +32,12 @@ export async function POST(req: NextRequest) {
       if (apiKey) {
         authUserId = apiKey.userId;
         authOrgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        authUserId = session.sub;
+        authOrgId = session.orgId;
       }
     }
 
@@ -132,6 +140,7 @@ export async function GET(req: NextRequest) {
 
     const authHeader = req.headers.get('authorization');
     const apiKeyHeader = req.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -148,6 +157,12 @@ export async function GET(req: NextRequest) {
       if (apiKey) {
         authUserId = apiKey.userId;
         authOrgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        authUserId = session.sub;
+        authOrgId = session.orgId;
       }
     }
 

@@ -83,7 +83,7 @@ export default function ToolCallsPage() {
     
     try {
       // First, get the organization ID from the profile API
-      const profileResponse = await fetch('/api/profile', { credentials: 'include' });
+      const profileResponse = await fetch('/api/v1/profile', { credentials: 'include' });
       if (!profileResponse.ok) {
         throw new Error('Failed to fetch profile');
       }
@@ -103,7 +103,7 @@ export default function ToolCallsPage() {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       });
 
-      const toolcallsResponse = await fetch(`/api/toolcalls?${toolcallsParams}`, { credentials: 'include' });
+      const toolcallsResponse = await fetch(`/api/v1/toolcalls?${toolcallsParams}`, { credentials: 'include' });
 
       if (toolcallsResponse.ok) {
         const toolcallsData = await toolcallsResponse.json();

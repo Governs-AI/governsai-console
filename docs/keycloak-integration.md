@@ -254,9 +254,9 @@ The dashboard automatically syncs users to Keycloak at these points:
 |-------|-----------|--------|
 | **User Signup** | `/api/auth/signup` | Create user in Keycloak with org context |
 | **Email Verified** | `/api/auth/email/verify/consume` | Update `emailVerified=true` |
-| **Join Organization** | `/api/orgs/join` | Update user's org context |
-| **Role Changed** | `/api/orgs/[orgId]/users/[userId]` (PATCH) | Update `org_role` attribute |
-| **User Removed** | `/api/orgs/[orgId]/users/[userId]` (DELETE) | Delete user from Keycloak |
+| **Join Organization** | `/api/v1/orgs/join` | Update user's org context |
+| **Role Changed** | `/api/v1/orgs/[orgId]/users/[userId]` (PATCH) | Update `org_role` attribute |
+| **User Removed** | `/api/v1/orgs/[orgId]/users/[userId]` (DELETE) | Delete user from Keycloak |
 
 All sync operations are:
 - **Non-blocking**: Failures don't break user workflows

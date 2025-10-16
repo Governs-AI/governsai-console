@@ -133,12 +133,12 @@ apps/platform/
 - `DELETE /api/tools/[id]` - Delete tool
 
 ### Organization Management
-- `GET /api/orgs` - List organizations
-- `POST /api/orgs` - Create organization
-- `GET /api/orgs/[orgId]` - Get organization details
-- `PUT /api/orgs/[orgId]` - Update organization
-- `GET /api/orgs/[orgId]/api-keys` - List API keys
-- `POST /api/orgs/[orgId]/api-keys` - Create API key
+- `GET /api/v1/orgs` - List organizations
+- `POST /api/v1/orgs` - Create organization
+- `GET /api/v1/orgs/[orgId]` - Get organization details
+- `PUT /api/v1/orgs/[orgId]` - Update organization
+- `GET /api/v1/orgs/[orgId]/api-keys` - List API keys
+- `POST /api/v1/orgs/[orgId]/api-keys` - Create API key
 
 ### Decision Tracking
 - `GET /api/decisions` - List decisions

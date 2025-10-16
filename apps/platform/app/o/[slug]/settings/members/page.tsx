@@ -85,7 +85,7 @@ export default function MembersPage() {
     setSuccess('');
 
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/invites`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/invites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

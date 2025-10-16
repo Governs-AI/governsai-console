@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { userId, orgId } = await requireAuth(request);
 
     // Check if user has admin permissions for budget management
-    const userMembership = await prisma.membership.findFirst({
+    const userMembership = await prisma.orgMembership.findFirst({
       where: {
         userId,
         orgId,
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     const { userId, orgId } = await requireAuth(request);
 
     // Check if user has admin permissions for budget management
-    const userMembership = await prisma.membership.findFirst({
+    const userMembership = await prisma.orgMembership.findFirst({
       where: {
         userId,
         orgId,

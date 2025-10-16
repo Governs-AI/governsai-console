@@ -137,9 +137,11 @@ await recordUsage({
 - `GET /api/v1/budget/context` - Get budget information  
 - `POST /api/v1/usage` - Record usage
 - `GET /api/v1/usage` - Get usage records
-- `GET /api/spend` - Get spend analytics
-- `GET /api/spend/budget-limits` - Get budget limits
-- `POST /api/spend/budget-limits` - Create budget limits
+- `GET /api/v1/spend` - Get spend analytics
+- `GET /api/v1/spend/budget-limits` - Get budget limits
+- `POST /api/v1/spend/budget-limits` - Create budget limits
+- `GET /api/v1/purchases` - Get purchase records
+- `POST /api/v1/purchases` - Record a purchase
 
 ### 4. Tool Management
 
@@ -176,24 +178,24 @@ const toolMetadata = getToolMetadataFromPlatform(
 ```typescript
 // Fetch dashboard data
 const decisionsResponse = await fetch(
-  `/api/decisions?orgId=${orgId}&includeStats=true`
+  `/api/v1/decisions?orgId=${orgId}&includeStats=true`
 );
 const toolCallsResponse = await fetch(
-  `/api/toolcalls?orgId=${orgId}&includeStats=true`
+  `/api/v1/toolcalls?orgId=${orgId}&includeStats=true`
 );
 const spendResponse = await fetch(
-  `/api/spend?orgSlug=${orgSlug}&timeRange=${timeRange}`
+  `/api/v1/spend?orgSlug=${orgSlug}&timeRange=${timeRange}`
 );
 ```
 
 **API Endpoints**:
 
-- `GET /api/decisions` - Get decision events with filtering
-- `GET /api/toolcalls` - Get tool call analytics
-- `GET /api/spend` - Get spend analytics
-- `GET /api/spend/tool-costs` - Get tool usage costs
-- `GET /api/spend/model-costs` - Get model usage costs
-- `GET /api/profile` - Get user profile and organizations
+- `GET /api/v1/decisions` - Get decision events with filtering
+- `GET /api/v1/toolcalls` - Get tool call analytics
+- `GET /api/v1/spend` - Get spend analytics
+- `GET /api/v1/spend/tool-costs` - Get tool usage costs
+- `GET /api/v1/spend/model-costs` - Get model usage costs
+- `GET /api/v1/profile` - Get user profile and organizations
 
 ### 6. Authentication & Authorization
 
@@ -203,7 +205,7 @@ const spendResponse = await fetch(
 
 ```typescript
 // Session-based auth
-const response = await fetch("/api/profile", {
+const response = await fetch("/api/v1/profile", {
   method: "GET",
   credentials: "include",
 });
@@ -216,10 +218,10 @@ const response = await fetch("/api/endpoint", {
 
 **API Endpoints**:
 
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/profile` - Get user profile
-- `PUT /api/profile` - Update user profile
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/logout` - User logout
+- `GET /api/v1/profile` - Get user profile
+- `PUT /api/v1/profile` - Update user profile
 - `GET /api/v1/keys` - List API keys
 - `POST /api/v1/keys` - Create API key
 - `DELETE /api/v1/keys/[id]` - Delete API key

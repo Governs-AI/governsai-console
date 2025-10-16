@@ -72,7 +72,7 @@ export default function ProfilePage() {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/v1/profile', {
         credentials: 'include',
       });
 
@@ -110,7 +110,7 @@ export default function ProfilePage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/v1/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

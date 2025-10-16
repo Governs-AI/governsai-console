@@ -184,32 +184,32 @@ export default function SpendPage() {
       }
       
       // Fetch spend data
-      const spendResponse = await fetch(`/api/spend?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
+      const spendResponse = await fetch(`/api/v1/spend?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
         credentials: 'include',
       });
       
       // Fetch budget limits
-      const budgetResponse = await fetch(`/api/spend/budget-limits?orgSlug=${orgSlug}`, {
+      const budgetResponse = await fetch(`/api/v1/spend/budget-limits?orgSlug=${orgSlug}`, {
         credentials: 'include',
       });
       
       // Fetch tool costs
-      const toolCostsResponse = await fetch(`/api/spend/tool-costs?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
+      const toolCostsResponse = await fetch(`/api/v1/spend/tool-costs?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
         credentials: 'include',
       });
       
       // Fetch model costs
-      const modelCostsResponse = await fetch(`/api/spend/model-costs?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
+      const modelCostsResponse = await fetch(`/api/v1/spend/model-costs?orgSlug=${orgSlug}&timeRange=${selectedTimeRange}`, {
         credentials: 'include',
       });
 
       // Fetch members
-      const membersResponse = await fetch(`/api/spend/members?orgSlug=${orgSlug}`, {
+      const membersResponse = await fetch(`/api/v1/spend/members?orgSlug=${orgSlug}`, {
         credentials: 'include',
       });
 
       // Fetch purchase data
-      const purchasesResponse = await fetch(`/api/purchases?orgId=${orgSlug}&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}&limit=1000`, {
+      const purchasesResponse = await fetch(`/api/v1/purchases?orgId=${orgSlug}&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}&limit=1000`, {
         credentials: 'include',
       });
 
@@ -287,7 +287,7 @@ export default function SpendPage() {
       }
 
       // First get the organization ID from the slug
-      const orgResponse = await fetch(`/api/orgs?slug=${orgSlug}`, {
+      const orgResponse = await fetch(`/api/v1/orgs?slug=${orgSlug}`, {
         credentials: 'include',
       });
       
@@ -299,12 +299,12 @@ export default function SpendPage() {
       const orgId = orgData.org?.id || orgSlug; // Fallback to slug if no org found
 
       // Fetch usage records
-      const usageResponse = await fetch(`/api/usage?orgId=${orgId}&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}&limit=1000`, {
+      const usageResponse = await fetch(`/api/v1/usage?orgId=${orgId}&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}&limit=1000`, {
         credentials: 'include',
       });
 
       // Fetch decisions for additional context
-      const decisionsResponse = await fetch(`/api/decisions?orgId=${orgId}&startTime=${startDate.toISOString()}&endTime=${now.toISOString()}&limit=1000`, {
+      const decisionsResponse = await fetch(`/api/v1/decisions?orgId=${orgId}&startTime=${startDate.toISOString()}&endTime=${now.toISOString()}&limit=1000`, {
         credentials: 'include',
       });
 
@@ -393,7 +393,7 @@ export default function SpendPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/spend/budget-limits?orgSlug=${orgSlug}`, {
+      const response = await fetch(`/api/v1/spend/budget-limits?orgSlug=${orgSlug}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -444,7 +444,7 @@ export default function SpendPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/spend/budget-limits/${editingBudget.id}`, {
+      const response = await fetch(`/api/v1/spend/budget-limits/${editingBudget.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -483,7 +483,7 @@ export default function SpendPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/spend/budget-limits/${budgetId}`, {
+      const response = await fetch(`/api/v1/spend/budget-limits/${budgetId}`, {
         method: 'DELETE',
         credentials: 'include',
       });

@@ -83,7 +83,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   // Fetch org ID from slug
   const fetchOrgId = async () => {
     try {
-      const response = await fetch(`/api/orgs?slug=${orgSlug}`);
+      const response = await fetch(`/api/v1/orgs?slug=${orgSlug}`);
       const data = await response.json();
       if (data.org) {
         setOrgId(data.org.id);
@@ -132,7 +132,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
         console.error('No orgId available for fetching policies');
         return;
       }
-      const response = await fetch(`/api/policies?orgId=${actualOrgId}`);
+      const response = await fetch(`/api/v1/policies?orgId=${actualOrgId}`);
       const data = await response.json();
       setPolicies(data.policies || []);
     } catch (error) {
@@ -164,7 +164,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
       let response;
       if (editingPolicy) {
         // Update existing policy
-        response = await fetch(`/api/policies/${editingPolicy.id}`, {
+        response = await fetch(`/api/v1/policies/${editingPolicy.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -213,7 +213,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
 
   const togglePolicyStatus = async (policyId: string, currentStatus: boolean) => {
     try {
-      const response = await fetch(`/api/policies/${policyId}`, {
+      const response = await fetch(`/api/v1/policies/${policyId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !currentStatus }),
@@ -238,7 +238,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
     if (!confirm('Are you sure you want to delete this policy?')) return;
 
     try {
-      const response = await fetch(`/api/policies/${policyId}`, {
+      const response = await fetch(`/api/v1/policies/${policyId}`, {
         method: 'DELETE',
       });
 

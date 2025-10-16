@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
 
     const authHeader = request.headers.get('authorization');
     const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -26,6 +28,12 @@ export async function GET(request: NextRequest) {
       if (apiKey) {
         userId = apiKey.userId;
         orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
       }
     }
 
@@ -77,6 +85,7 @@ export async function POST(request: NextRequest) {
 
     const authHeader = request.headers.get('authorization');
     const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();
@@ -93,6 +102,12 @@ export async function POST(request: NextRequest) {
       if (apiKey) {
         userId = apiKey.userId;
         orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
       }
     }
 

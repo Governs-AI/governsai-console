@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { cn, Button } from '@governs-ai/ui';
 import { 
   LayoutDashboard, 
@@ -92,7 +93,7 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
+      const response = await fetch('/api/v1/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -147,14 +148,15 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
-                <a
+                <Link
                   key={item.name}
                   href={item.href}
                   className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150 ease-pleasant"
+                  prefetch
                 >
                   <Icon className="h-4 w-4" />
                   {item.name}
-                </a>
+                </Link>
               );
             })}
           </nav>

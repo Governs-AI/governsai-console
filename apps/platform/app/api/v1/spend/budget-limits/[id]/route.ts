@@ -7,13 +7,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
 
     // Check if user has admin permissions for budget management
-    const userMembership = await prisma.membership.findFirst({
+    const userMembership = await prisma.orgMembership.findFirst({
       where: {
         userId,
         orgId,
@@ -111,13 +111,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
 
     // Check if user has admin permissions for budget management
-    const userMembership = await prisma.membership.findFirst({
+    const userMembership = await prisma.orgMembership.findFirst({
       where: {
         userId,
         orgId,
@@ -204,13 +204,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Get user from session and check admin permissions
     const { userId, orgId } = await requireAuth(request);
 
     // Check if user has admin permissions for budget management
-    const userMembership = await prisma.membership.findFirst({
+    const userMembership = await prisma.orgMembership.findFirst({
       where: {
         userId,
         orgId,

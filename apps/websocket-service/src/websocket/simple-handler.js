@@ -458,7 +458,7 @@ export class SimpleWebSocketHandler {
   async emitContextSave(connection, data, decisionData) {
     try {
       console.log('🚀 Emitting context.save event to Platform...');
-      const webhookUrl = process.env.PLATFORM_WEBHOOK_URL || 'http://localhost:3002/api/governs/webhook';
+      const webhookUrl = process.env.PLATFORM_WEBHOOK_URL || 'http://localhost:3002/api/v1/webhook';
       const webhookSecret = process.env.WEBHOOK_SECRET || 'dev-secret-key-change-in-production';
 
       // Build context save payload

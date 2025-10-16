@@ -68,7 +68,7 @@ export default function DashboardPage() {
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/v1/profile', {
         method: 'GET',
         credentials: 'include',
       });
@@ -100,12 +100,12 @@ export default function DashboardPage() {
   const fetchDashboardData = async (orgId: string) => {
     try {
       // Fetch decisions data
-      const decisionsResponse = await fetch(`/api/decisions?orgId=${orgId}&includeStats=true&limit=10`, {
+      const decisionsResponse = await fetch(`/api/v1/decisions?orgId=${orgId}&includeStats=true&limit=10`, {
         credentials: 'include',
       });
       
       // Fetch tool calls data
-      const toolCallsResponse = await fetch(`/api/toolcalls?orgId=${orgId}&includeStats=true&limit=10`, {
+      const toolCallsResponse = await fetch(`/api/v1/toolcalls?orgId=${orgId}&includeStats=true&limit=10`, {
         credentials: 'include',
       });
 
@@ -139,7 +139,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch('/api/v1/auth/logout', {
         method: 'POST',
       });
       router.push('/auth/login');

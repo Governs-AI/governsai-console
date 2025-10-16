@@ -25,7 +25,7 @@ export default function VerifyEmailPage() {
 
   const verifyToken = async (token: string) => {
     try {
-      const response = await fetch('/api/auth/email/verify/consume', {
+      const response = await fetch('/api/v1/auth/email/verify/consume', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ export default function VerifyEmailPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/email/verify/request', {
+      const response = await fetch('/api/v1/auth/email/verify/request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

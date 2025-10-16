@@ -70,7 +70,7 @@ export default function KeysPage() {
   useEffect(() => {
     fetchApiKeys();
     // Fetch org id by slug for display in success card
-    fetch(`/api/orgs?slug=${orgSlug}`)
+    fetch(`/api/v1/orgs?slug=${orgSlug}`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(d => setOrgId(d?.org?.id ?? null))
       .catch(() => setOrgId(null));
@@ -78,7 +78,7 @@ export default function KeysPage() {
 
   const fetchApiKeys = async () => {
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys`, {
         method: 'GET',
         credentials: 'include',
       });
@@ -103,7 +103,7 @@ export default function KeysPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -143,7 +143,7 @@ export default function KeysPage() {
 
   const handleToggleKey = async (keyId: string, isActive: boolean) => {
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys/${keyId}`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys/${keyId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ export default function KeysPage() {
     }
 
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys/${keyId}`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys/${keyId}`, {
         method: 'DELETE',
         credentials: 'include',
       });

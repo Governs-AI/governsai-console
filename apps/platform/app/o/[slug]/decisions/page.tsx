@@ -82,7 +82,7 @@ export default function DecisionsPage() {
     
     try {
       // First, get the organization ID from the profile API
-      const profileResponse = await fetch('/api/profile', { credentials: 'include' });
+      const profileResponse = await fetch('/api/v1/profile', { credentials: 'include' });
       if (!profileResponse.ok) {
         throw new Error('Failed to fetch profile');
       }
@@ -102,7 +102,7 @@ export default function DecisionsPage() {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       });
 
-      const decisionsResponse = await fetch(`/api/decisions?${decisionsParams}`, { credentials: 'include' });
+      const decisionsResponse = await fetch(`/api/v1/decisions?${decisionsParams}`, { credentials: 'include' });
 
       if (decisionsResponse.ok) {
         const decisionsData = await decisionsResponse.json();

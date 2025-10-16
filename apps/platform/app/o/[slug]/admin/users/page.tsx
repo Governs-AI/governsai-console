@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
     
     try {
       setLoading(true);
-      const response = await fetch(`/api/orgs/${orgId}/users`, {
+      const response = await fetch(`/api/v1/orgs/${orgId}/users`, {
         credentials: 'include',
       });
 
@@ -132,7 +132,7 @@ export default function AdminUsersPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/orgs/${orgId}/invites`, {
+      const response = await fetch(`/api/v1/orgs/${orgId}/invites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +167,7 @@ export default function AdminUsersPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/orgs/${orgId}/users/${userId}`, {
+      const response = await fetch(`/api/v1/orgs/${orgId}/users/${userId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -190,7 +190,7 @@ export default function AdminUsersPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/orgs/${orgId}/users/${userId}`, {
+      const response = await fetch(`/api/v1/orgs/${orgId}/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

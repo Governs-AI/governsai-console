@@ -40,7 +40,7 @@ export default function InvitedSignupPage() {
     }
 
     try {
-      const response = await fetch('/api/auth/signup/invited', {
+      const response = await fetch('/api/v1/auth/signup/invited', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
