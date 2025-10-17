@@ -43,3 +43,10 @@ export {
 
 export default prisma;
 export type { PrismaClient } from "@prisma/client";
+
+// Force TypeScript to recognize new models
+export type ContextMemory = any;
+export type Conversation = any;
+export type Document = any;
+export type DocumentChunk = any;
+export type ContextAccessLog = any;

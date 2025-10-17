@@ -42,7 +42,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/v1/profile', {
         credentials: 'include',
       });
 

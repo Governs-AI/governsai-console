@@ -50,7 +50,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function fetchLimits() {
     try {
-      const res = await fetch(`/api/budget/limits?orgId=${params.slug}`);
+      const res = await fetch(`/api/v1/budget/limits?orgId=${params.slug}`);
       if (!res.ok) throw new Error('Failed to fetch budget limits');
       const data = await res.json();
       setLimits(data.limits);
@@ -62,7 +62,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function fetchAlerts() {
     try {
-      const res = await fetch(`/api/budget/alerts?orgId=${params.slug}&unreadOnly=true`);
+      const res = await fetch(`/api/v1/budget/alerts?orgId=${params.slug}&unreadOnly=true`);
       if (res.ok) {
         const data = await res.json();
         setAlerts(data.alerts);
@@ -74,7 +74,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function fetchSettings() {
     try {
-      const res = await fetch(`/api/budget/settings?orgId=${params.slug}`);
+      const res = await fetch(`/api/v1/budget/settings?orgId=${params.slug}`);
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
@@ -86,7 +86,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function updateSettings() {
     try {
-      const res = await fetch('/api/budget/settings', {
+      const res = await fetch('/api/v1/budget/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,7 +115,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
     setCreating(true);
     try {
-      const res = await fetch('/api/budget/limits', {
+      const res = await fetch('/api/v1/budget/limits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +146,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function deleteLimit(limitId: string) {
     try {
-      const res = await fetch(`/api/budget/limits/${limitId}`, {
+      const res = await fetch(`/api/v1/budget/limits/${limitId}`, {
         method: 'DELETE',
       });
 
@@ -164,7 +164,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function markAlertAsRead(alertId: string) {
     try {
-      await fetch('/api/budget/alerts', {
+      await fetch('/api/v1/budget/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ alertId }),

@@ -185,6 +185,7 @@ No lock-in: the AI provider (OpenAI, Google, Anthropic, etc.) still sees standar
 - **✅ Compliance & Audit**: Immutable logs of all prompts, responses, and tool calls
 - **✅ Memory Visibility**: Dashboard shows which agents are connected and what memory they retain
 - **✅ PII Guardrails**: Instant flagging of sensitive data (SSN, credit card, PHI) before it leaves the system
+- **✅ Context Memory**: Advanced semantic search with recency scoring, deduplication, and LLM-optimized compression
 
 ## 🛠️ Tech Stack
 

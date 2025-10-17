@@ -134,12 +134,14 @@ await recordUsage({
 
 **API Endpoints**:
 
-- `GET /api/budget/context` - Get budget information
-- `POST /api/usage` - Record usage
-- `GET /api/usage` - Get usage records
-- `GET /api/spend` - Get spend analytics
-- `GET /api/spend/budget-limits` - Get budget limits
-- `POST /api/spend/budget-limits` - Create budget limits
+- `GET /api/v1/budget/context` - Get budget information  
+- `POST /api/v1/usage` - Record usage
+- `GET /api/v1/usage` - Get usage records
+- `GET /api/v1/spend` - Get spend analytics
+- `GET /api/v1/spend/budget-limits` - Get budget limits
+- `POST /api/v1/spend/budget-limits` - Create budget limits
+- `GET /api/v1/purchases` - Get purchase records
+- `POST /api/v1/purchases` - Record a purchase
 
 ### 4. Tool Management
 
@@ -161,8 +163,8 @@ const toolMetadata = getToolMetadataFromPlatform(
 
 **API Endpoints**:
 
-- `GET /api/tools` - List tools
-- `POST /api/tools` - Create/update tool configuration
+- `GET /api/v1/tools` - List tools
+- `POST /api/v1/tools` - Create/update tool configuration
 - `GET /api/agents/tools` - Get agent tools
 - `POST /api/agents/tools` - Register agent tools
 - `POST /api/agents/tools/register` - Register tools with metadata
@@ -176,24 +178,24 @@ const toolMetadata = getToolMetadataFromPlatform(
 ```typescript
 // Fetch dashboard data
 const decisionsResponse = await fetch(
-  `/api/decisions?orgId=${orgId}&includeStats=true`
+  `/api/v1/decisions?orgId=${orgId}&includeStats=true`
 );
 const toolCallsResponse = await fetch(
-  `/api/toolcalls?orgId=${orgId}&includeStats=true`
+  `/api/v1/toolcalls?orgId=${orgId}&includeStats=true`
 );
 const spendResponse = await fetch(
-  `/api/spend?orgSlug=${orgSlug}&timeRange=${timeRange}`
+  `/api/v1/spend?orgSlug=${orgSlug}&timeRange=${timeRange}`
 );
 ```
 
 **API Endpoints**:
 
-- `GET /api/decisions` - Get decision events with filtering
-- `GET /api/toolcalls` - Get tool call analytics
-- `GET /api/spend` - Get spend analytics
-- `GET /api/spend/tool-costs` - Get tool usage costs
-- `GET /api/spend/model-costs` - Get model usage costs
-- `GET /api/profile` - Get user profile and organizations
+- `GET /api/v1/decisions` - Get decision events with filtering
+- `GET /api/v1/toolcalls` - Get tool call analytics
+- `GET /api/v1/spend` - Get spend analytics
+- `GET /api/v1/spend/tool-costs` - Get tool usage costs
+- `GET /api/v1/spend/model-costs` - Get model usage costs
+- `GET /api/v1/profile` - Get user profile and organizations
 
 ### 6. Authentication & Authorization
 
@@ -203,7 +205,7 @@ const spendResponse = await fetch(
 
 ```typescript
 // Session-based auth
-const response = await fetch("/api/profile", {
+const response = await fetch("/api/v1/profile", {
   method: "GET",
   credentials: "include",
 });
@@ -216,10 +218,10 @@ const response = await fetch("/api/endpoint", {
 
 **API Endpoints**:
 
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/profile` - Get user profile
-- `PUT /api/profile` - Update user profile
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/logout` - User logout
+- `GET /api/v1/profile` - Get user profile
+- `PUT /api/v1/profile` - Update user profile
 - `GET /api/v1/keys` - List API keys
 - `POST /api/v1/keys` - Create API key
 - `DELETE /api/v1/keys/[id]` - Delete API key
@@ -351,6 +353,168 @@ export class AnalyticsClient {
   async getUsageRecords(filters: UsageFilters): Promise<UsageRecord[]>;
 }
 ```
+
+#### ContextClient (Unified Context Memory)
+
+Purpose: First-class SDK wrapper for Platform Context Memory APIs. No separate client package required; include in `@governs-ai/sdk`.
+
+Endpoints consumed:
+- `POST /api/v1/context` (store context)
+- `POST /api/v1/context/search/llm` (compressed search for LLM consumption)
+- `GET /api/v1/context/conversation` (get conversation items)
+- `POST /api/v1/context/conversation` (get or create conversation)
+
+Note: `POST /api/v1/context/search` (full format with stats) is platform-only and not exposed via SDK.
+
+SDK surface:
+```typescript
+export class ContextClient {
+  /** Explicitly save context (client-initiated, e.g., user clicks "Remember this") */
+  async saveContextExplicit(input: {
+    content: string;
+    contentType: 'user_message' | 'agent_message' | 'document' | 'decision' | 'tool_result';
+    agentId: string;
+    agentName?: string;
+    conversationId?: string;
+    parentId?: string;
+    correlationId?: string; // idempotency
+    metadata?: Record<string, any>;
+    scope?: 'user' | 'org';
+    visibility?: 'private' | 'team' | 'org';
+    expiresAt?: string; // ISO
+  }): Promise<{ contextId: string }>;
+
+  /** Store a piece of context (runs Platform precheck; will redact/block per policy) */
+  async storeContext(input: {
+    content: string;
+    contentType: 'user_message' | 'agent_message' | 'document' | 'decision' | 'tool_result';
+    agentId: string;
+    agentName?: string;
+    conversationId?: string;
+    parentId?: string;
+    correlationId?: string;
+    metadata?: Record<string, any>;
+    scope?: 'user' | 'org';
+    visibility?: 'private' | 'team' | 'org';
+    expiresAt?: string; // ISO
+  }): Promise<{ contextId: string }>;
+
+  /** LLM-optimized context search (compressed format using summaries only) */
+  async searchContextLLM(input: {
+    query: string;
+    agentId?: string;
+    contentTypes?: string[];
+    conversationId?: string;
+    scope?: 'user' | 'org' | 'both';
+    limit?: number;
+    threshold?: number; // default 0.5
+  }): Promise<{
+    success: boolean;
+    context: string; // Natural language compressed format (uses summaries)
+    memoryCount: number;
+    highConfidence: number;
+    mediumConfidence: number;
+    lowConfidence: number;
+    tokenEstimate: number;
+  }>;
+
+  /** Cross-agent search convenience (LLM format) */
+  async searchCrossAgent(query: string, opts?: {
+    limit?: number;
+    threshold?: number;
+    scope?: 'user' | 'org' | 'both';
+  }): Promise<ReturnType<ContextClient['searchContextLLM']>>;
+
+  /** Create or fetch a conversation for an agent */
+  async getOrCreateConversation(input: {
+    agentId: string;
+    agentName: string;
+    title?: string;
+  }): Promise<{
+    id: string;
+    title?: string;
+    messageCount: number;
+    tokenCount: number;
+    lastMessageAt?: string;
+    scope: 'user' | 'org';
+  }>;
+
+  /** Fetch conversation messages */
+  async getConversationContext(input: {
+    conversationId: string;
+    agentId?: string;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    content: string;
+    contentType: string;
+    agentId?: string;
+    createdAt: string;
+    parentId?: string;
+    metadata?: Record<string, any>;
+  }>>;
+}
+```
+
+Notes:
+- Server enforces precheck; SDK just forwards payload and headers (API key/session).
+- Search is pgvector-native in Platform; SDK does not compute embeddings.
+- All dates in SDK responses are ISO strings.
+- saveContextExplicit is a thin alias over POST /api/v1/context for apps that want a UI action (no WebSocket needed).
+- Full memory search with stats (`/api/v1/context/search`) is platform-only for dashboard/debugging.
+- SDK only exposes LLM-optimized search (`/api/v1/context/search/llm`) for AI agent consumption.
+- **Privacy Protection**: SDK only receives summarized versions of memories, not full content.
+- Platform has access to full content via `/api/v1/context/memories` endpoint for management.
+- **Security**: User ID is determined from API key authentication, never passed as parameter.
+
+### Precheck intent metadata (for context.save)
+
+Extend Precheck types to carry save intent hints so apps can choose to act on them without keyword heuristics.
+
+```typescript
+type SuggestedAction =
+  | { type: 'context.save'; content?: string; reason?: string; metadata?: Record<string, any> }
+  | { type: string; [k: string]: any };
+
+interface PrecheckResponse {
+  decision: 'allow' | 'deny' | 'confirm';
+  raw_text_out?: string;
+  reasons?: string[];
+  policy_id?: string;
+  ts?: number;
+  budget_status?: BudgetStatus;
+  budget_info?: BudgetInfo;
+  // New fields
+  intent?: { save?: boolean };
+  suggestedActions?: SuggestedAction[];
+}
+```
+
+SDK convenience helper for chat UIs (optional):
+
+```typescript
+export class ContextClient {
+  /**
+   * Inspect a precheck response and, if it suggests a context save, call storeContext.
+   * No-op if there is no suggestion. Returns contextId if saved.
+   */
+  async maybeSaveFromPrecheck(params: {
+    precheck: PrecheckResponse;
+    fallbackContent?: string; // used if suggested content not provided
+    agentId: string;
+    agentName?: string;
+    conversationId?: string;
+    correlationId?: string;
+    metadata?: Record<string, any>;
+    scope?: 'user' | 'org';
+    visibility?: 'private' | 'team' | 'org';
+  }): Promise<{ saved: boolean; contextId?: string }>;
+}
+```
+
+Behavior:
+- If `precheck.intent?.save === true` or `suggestedActions` contains `{ type: 'context.save' }`, call `storeContext` with suggested `content` or `fallbackContent`.
+- If neither is present, return `{ saved: false }`.
 
 ## TypeScript Definitions
 

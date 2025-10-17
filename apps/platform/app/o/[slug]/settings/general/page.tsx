@@ -70,7 +70,7 @@ export default function GeneralSettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/orgs/settings?orgSlug=${orgSlug}`, {
+      const response = await fetch(`/api/v1/orgs/settings?orgSlug=${orgSlug}`, {
         credentials: 'include',
       });
 
@@ -99,7 +99,7 @@ export default function GeneralSettingsPage() {
       setError('');
       setSuccess('');
 
-      const response = await fetch(`/api/orgs/settings?orgSlug=${orgSlug}`, {
+      const response = await fetch(`/api/v1/orgs/settings?orgSlug=${orgSlug}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

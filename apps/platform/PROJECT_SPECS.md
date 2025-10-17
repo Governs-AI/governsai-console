@@ -133,12 +133,12 @@ apps/platform/
 - `DELETE /api/tools/[id]` - Delete tool
 
 ### Organization Management
-- `GET /api/orgs` - List organizations
-- `POST /api/orgs` - Create organization
-- `GET /api/orgs/[orgId]` - Get organization details
-- `PUT /api/orgs/[orgId]` - Update organization
-- `GET /api/orgs/[orgId]/api-keys` - List API keys
-- `POST /api/orgs/[orgId]/api-keys` - Create API key
+- `GET /api/v1/orgs` - List organizations
+- `POST /api/v1/orgs` - Create organization
+- `GET /api/v1/orgs/[orgId]` - Get organization details
+- `PUT /api/v1/orgs/[orgId]` - Update organization
+- `GET /api/v1/orgs/[orgId]/api-keys` - List API keys
+- `POST /api/v1/orgs/[orgId]/api-keys` - Create API key
 
 ### Decision Tracking
 - `GET /api/decisions` - List decisions
@@ -158,6 +158,24 @@ apps/platform/
 - `POST /api/v1/policies` - Create policy
 - `GET /api/v1/passkey/list` - List passkeys
 
+### Context Memory (Unified Context) – New
+- `POST /api/v1/context` – Store context (explicit client save path)
+- `POST /api/v1/context/search` – **Platform-only**: Full semantic search with stats (pgvector)
+- `POST /api/v1/context/search/llm` – **SDK-accessible**: LLM-optimized compressed search (summaries only)
+- `GET /api/v1/context/memories` – **Platform-only**: List all memories with filtering and pagination
+- `GET /api/v1/context/conversation` – Get conversation items
+- `POST /api/v1/context/conversation` – Get or create conversation
+- `POST /api/governs/webhook` – Receives signed events; now handles `context.save`
+
+**Context Search Pipeline Features:**
+- **Scoring**: Recency (30-day decay) + similarity (0.7/0.3 weights)
+- **Deduplication**: Content similarity threshold (0.93)
+- **Tiering**: High (0.75+), Medium (0.60-0.75), Low (0.50-0.60)
+- **Compression**: Token-budgeted natural language for LLM consumption
+- **Overquery**: 3x multiplier for better recall
+- **Privacy**: SDK only receives summarized versions, platform has full access
+- **Auto-summarization**: Rule-based content summarization for different content types
+
 ## 🔐 Security Features
 
 ### Authentication
@@ -171,6 +189,11 @@ apps/platform/
 - **API Key Management**: Secure API key generation and management
 - **Scope-based Access**: Fine-grained permission control
 - **Organization Isolation**: Multi-tenant security
+
+### Webhook Security (Context Save)
+- **Signed Webhooks**: `x-governs-signature` header `v1,t=TIMESTAMP,s=HMAC_SHA256_HEX`
+- **Shared Secret**: `WEBHOOK_SECRET` (must match WebSocket service)
+- **Idempotency**: `correlationId` used to deduplicate `context.save`
 
 ### Data Protection
 - **Encryption**: Data encryption at rest and in transit
@@ -188,6 +211,7 @@ apps/platform/
 - **Budget Records**: Budget and spending data
 - **Policy Records**: Policy definitions
 - **Decision Records**: Governance decisions
+- **Context Memory**: `ContextMemory`, `Conversation`, `Document`, `DocumentChunk`, `ContextAccessLog` (pgvector-backed embeddings)
 - **Audit Logs**: Audit trail
 - **Purchase Records**: Purchase tracking
 
@@ -198,6 +222,7 @@ apps/platform/
 - Budget Records belong to Organizations
 - Policy Records belong to Organizations
 - Decision Records belong to Users and Organizations
+- Context records belong to Users and Organizations; Conversations relate to ContextMemory
 
 ## 🚀 Deployment
 
@@ -213,9 +238,18 @@ NEXTAUTH_URL="http://localhost:3002"
 # AI Providers
 OPENAI_API_KEY="your-openai-key"
 ANTHROPIC_API_KEY="your-anthropic-key"
+EMBEDDING_PROVIDER="openai|ollama|huggingface|cohere"
+OLLAMA_BASE_URL="http://localhost:11434"
+OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
+HUGGINGFACE_API_KEY="hf_..."
+HUGGINGFACE_EMBEDDING_MODEL="sentence-transformers/all-MiniLM-L6-v2"
+COHERE_API_KEY="..."
 
 # Platform URLs
 NEXT_PUBLIC_PLATFORM_URL="http://localhost:3002"
+# Webhook & WebSocket
+WEBHOOK_SECRET="change-me"               # Platform (must match WS)
+PLATFORM_WEBHOOK_URL="http://localhost:3002/api/governs/webhook"  # WS side
 NEXT_PUBLIC_DOCS_URL="http://localhost:3001"
 NEXT_PUBLIC_LANDING_URL="http://localhost:3000"
 ```

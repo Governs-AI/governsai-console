@@ -14,7 +14,7 @@ export default function RootPage() {
 
   const checkAuthAndRedirect = async () => {
     try {
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/v1/profile', {
         method: 'GET',
         credentials: 'include',
       });

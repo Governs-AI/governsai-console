@@ -26,7 +26,7 @@ export function HealthPill() {
   const fetchHealthStatus = async () => {
     try {
       // Fetch decisions with stats
-      const decisionsResponse = await fetch('/api/decisions?orgId=default-org&includeStats=true&limit=1');
+      const decisionsResponse = await fetch('/api/v1/decisions?orgId=default-org&includeStats=true&limit=1');
       const decisionsData = await decisionsResponse.json();
       
       // Fetch ingest API health

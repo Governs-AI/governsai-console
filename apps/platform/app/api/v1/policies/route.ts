@@ -1,45 +1,155 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { verifySessionToken } from '@/lib/auth-server';
+import { cookies } from 'next/headers';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    // Auth: Bearer JWT or X-Governs-Key
+    let userId: string | undefined;
+    let orgId: string | undefined;
+
+    const authHeader = request.headers.get('authorization');
+    const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get('orgId') || 'default-org'; // TODO: Get from session/auth
+    const includeInactive = searchParams.get('includeInactive') === 'true';
+
+    // SECURITY: Only use authenticated user's orgId and userId
+    // Never accept userId as parameter to prevent cross-user access
+    const whereClause: any = {
+      orgId: orgId, // Use authenticated orgId only
+      isActive: includeInactive ? undefined : true,
+      OR: [
+        { userId: null }, // Org-level policies
+        { userId: userId }, // User-specific policies (authenticated user only)
+      ],
+    };
 
     const policies = await prisma.policy.findMany({
-      where: { orgId },
-      orderBy: { createdAt: 'desc' },
+      where: whereClause,
+      orderBy: [
+        { priority: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
 
-    return NextResponse.json(policies);
+    return NextResponse.json({ policies });
   } catch (error) {
     console.error('Error fetching policies:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch policies' }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { name, description, toolAccessMatrix, orgId = 'default-org' } = body; // TODO: Get orgId from session/auth
+    // Auth: Bearer JWT or X-Governs-Key
+    let userId: string | undefined;
+    let orgId: string | undefined;
 
-    if (!name || !description) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const authHeader = request.headers.get('authorization');
+    const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await cookies()).get('session')?.value;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const {
+      name,
+      description,
+      version = 'v1',
+      defaults,
+      toolAccess = {},
+      denyTools = [],
+      allowTools = [],
+      networkScopes = [],
+      networkTools = [],
+      onError = 'block',
+      priority = 0,
+      userId: policyUserId,
+    } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: 'Missing required field: name' }, { status: 400 });
     }
 
     const policy = await prisma.policy.create({
       data: {
+        orgId,
+        userId: policyUserId || null,
         name,
         description,
-        toolAccessMatrix: toolAccessMatrix || {},
-        orgId,
+        version,
+        defaults,
+        toolAccess,
+        denyTools,
+        allowTools,
+        networkScopes,
+        networkTools,
+        onError,
+        priority,
         isActive: true,
       },
     });
 
-    return NextResponse.json(policy);
+    return NextResponse.json({ policy }, { status: 201 });
   } catch (error) {
     console.error('Error creating policy:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create policy' }, { status: 500 });
   }
 }

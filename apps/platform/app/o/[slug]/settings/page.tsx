@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Card, 
@@ -39,9 +39,7 @@ export default function SettingsPage() {
   const orgSlug = params.slug as string;
   const { canManageSettings, canManageUsers, canManageKeys } = useRoleCheck();
 
-  const [sections, setSections] = useState<SettingsSection[]>([]);
-
-  useEffect(() => {
+  const sections: SettingsSection[] = useMemo(() => {
     const allSections: SettingsSection[] = [
       {
         id: 'members',
@@ -82,21 +80,19 @@ export default function SettingsPage() {
     ];
 
     // Filter sections based on user permissions
-    const filteredSections = allSections.filter(section => {
+    return allSections.filter((section) => {
       switch (section.id) {
         case 'members':
-          return canManageUsers;
+          return canManageUsers();
         case 'passkeys':
         case 'mfa':
-          return canManageKeys;
+          return canManageKeys();
         case 'general':
-          return canManageSettings;
+          return canManageSettings();
         default:
           return true;
       }
     });
-
-    setSections(filteredSections);
   }, [orgSlug, canManageUsers, canManageKeys, canManageSettings]);
 
   const getStatusIcon = (status: string) => {

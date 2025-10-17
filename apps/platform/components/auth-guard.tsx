@@ -57,7 +57,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const checkAuthStatus = async () => {
     try {
       // Load user data for authenticated routes
-      const response = await fetch('/api/profile', {
+      const response = await fetch('/api/v1/profile', {
         method: 'GET',
         credentials: 'include', // Include cookies
       });

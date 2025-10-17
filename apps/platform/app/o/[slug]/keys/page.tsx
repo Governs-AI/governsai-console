@@ -55,9 +55,9 @@ export default function KeysPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
   const { canManageKeys } = useRoleCheck();
-  // Fixed values for precheck integration
-  const PRECHECK_BASE = 'http://localhost:8080';
-  const PRECHECK_USER_ID = 'cmfzriaip0000fyp81gjfkri9';
+  // Values captured for post-creation display
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   
   // Integration info is now only shown when creating a new API key
 
@@ -69,11 +69,16 @@ export default function KeysPage() {
 
   useEffect(() => {
     fetchApiKeys();
+    // Fetch org id by slug for display in success card
+    fetch(`/api/v1/orgs?slug=${orgSlug}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => setOrgId(d?.org?.id ?? null))
+      .catch(() => setOrgId(null));
   }, []);
 
   const fetchApiKeys = async () => {
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys`, {
         method: 'GET',
         credentials: 'include',
       });
@@ -98,7 +103,7 @@ export default function KeysPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,6 +123,7 @@ export default function KeysPage() {
       if (data?.key?.fullKey) {
         setNewFullKey(data.key.fullKey);
         setNewKeyName(data.key.name || 'New API Key');
+        setCreatedUserId(data.key?.createdBy?.id ?? null);
         setShowIntegrationInfo(true); // Show integration info for new key
       }
       // Add the masked/preview version into the table
@@ -137,7 +143,7 @@ export default function KeysPage() {
 
   const handleToggleKey = async (keyId: string, isActive: boolean) => {
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys/${keyId}`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys/${keyId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +172,7 @@ export default function KeysPage() {
     }
 
     try {
-      const response = await fetch(`/api/orgs/${orgSlug}/api-keys/${keyId}`, {
+      const response = await fetch(`/api/v1/orgs/${orgSlug}/api-keys/${keyId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -203,60 +209,7 @@ export default function KeysPage() {
     <PlatformShell orgSlug={orgSlug}>
       <RoleGuard requiredPermission="canManageKeys">
         <div className="space-y-6">
-        {/* Show full key banner after creation */}
-        {newFullKey && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="font-medium text-amber-900">Save this API key now</div>
-                <div className="mt-1 text-sm text-amber-800">
-                  This is the only time you can view the full value of <span className="font-semibold">{newKeyName}</span>.
-                </div>
-                <div className="mt-3">
-                  <code className="inline-block break-all rounded bg-white px-2 py-1 text-sm text-amber-900">
-                    {newFullKey}
-                  </code>
-                </div>
-                {/* Show precheck URL with new key */}
-                <div className="mt-3 space-y-2">
-                  <div className="text-sm font-medium text-amber-900">Precheck URL with this key</div>
-                  <div className="flex flex-col gap-2">
-                    <code className="inline-block break-all rounded bg-white px-2 py-1 text-sm text-amber-900">
-                      {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`}
-                    </code>
-                    <div className="text-xs text-amber-800">
-                      With header: <code className="bg-white px-1 py-0.5 rounded">X-Governs-Key: {newFullKey}</code>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const url = `${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`;
-                        const header = `X-Governs-Key: ${newFullKey}`;
-                        navigator.clipboard.writeText(`URL: ${url}\nHeader: ${header}`);
-                      }}
-                    >
-                      Copy Both
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => navigator.clipboard.writeText(newFullKey)}
-                >
-                  Copy
-                </Button>
-                <Button
-                  onClick={() => { setNewFullKey(null); setNewKeyName(null); }}
-                >
-                  Dismiss
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Removed legacy precheck banner; success info shown below */}
         <PageHeader
           title="API Keys"
           subtitle={`Manage API keys for ${orgSlug} organization`}
@@ -295,24 +248,7 @@ export default function KeysPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="text-sm text-green-700">
-                  Use these values to integrate your agent with the Precheck service.
-                </div>
-                
-                {/* Base URL */}
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Base URL</div>
-                  <div className="flex items-center gap-2">
-                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                      {PRECHECK_BASE}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigator.clipboard.writeText(PRECHECK_BASE)}
-                    >
-                      Copy
-                    </Button>
-                  </div>
+                  Save this API key now. You won't be able to view it again.
                 </div>
 
                 {/* User ID */}
@@ -320,12 +256,29 @@ export default function KeysPage() {
                   <div className="text-sm font-medium">User ID</div>
                   <div className="flex items-center gap-2">
                     <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                      {PRECHECK_USER_ID}
+                      {createdUserId ?? '—'}
                     </code>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigator.clipboard.writeText(PRECHECK_USER_ID)}
+                      onClick={() => createdUserId && navigator.clipboard.writeText(createdUserId)}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Org ID */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Org ID</div>
+                  <div className="flex items-center gap-2">
+                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                      {orgId ?? '—'}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => orgId && navigator.clipboard.writeText(orgId)}
                     >
                       Copy
                     </Button>
@@ -343,47 +296,6 @@ export default function KeysPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => navigator.clipboard.writeText(newFullKey)}
-                    >
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Full URL with Header Auth */}
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Full URL (Header Auth - Recommended)</div>
-                  <div className="flex flex-col gap-2">
-                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                      {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`}
-                    </code>
-                    <div className="text-sm text-muted-foreground">
-                      With header: <code className="bg-muted px-1 py-0.5 rounded">X-Governs-Key: {newFullKey}</code>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const url = `${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck`;
-                        const header = `X-Governs-Key: ${newFullKey}`;
-                        navigator.clipboard.writeText(`URL: ${url}\nHeader: ${header}`);
-                      }}
-                    >
-                      Copy Both
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Full URL with Query Auth */}
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Full URL (Query Auth - Alternative)</div>
-                  <div className="flex items-center gap-2">
-                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
-                      {`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck?api_key=${newFullKey}`}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigator.clipboard.writeText(`${PRECHECK_BASE}/v1/u/${PRECHECK_USER_ID}/precheck?api_key=${newFullKey}`)}
                     >
                       Copy
                     </Button>

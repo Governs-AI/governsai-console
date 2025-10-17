@@ -18,7 +18,7 @@ export default function OnboardingPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/orgs', {
+      const response = await fetch('/api/v1/orgs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -58,7 +58,7 @@ export default function PasskeySettingsPage() {
   const fetchPasskeys = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/passkeys', {
+      const response = await fetch('/api/v1/passkeys', {
         credentials: 'include',
       });
 
@@ -89,7 +89,7 @@ export default function PasskeySettingsPage() {
       setIsRegistering(true);
 
       // Get registration options from server
-      const optionsResponse = await fetch('/api/passkeys/challenge', {
+      const optionsResponse = await fetch('/api/v1/passkeys/challenge', {
         method: 'GET',
         credentials: 'include',
       });
@@ -105,7 +105,7 @@ export default function PasskeySettingsPage() {
       const credential = await startRegistration(options);
 
       // Complete registration with server
-      const completeResponse = await fetch('/api/passkeys/register', {
+      const completeResponse = await fetch('/api/v1/passkeys/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +140,7 @@ export default function PasskeySettingsPage() {
     }
 
     try {
-      const response = await fetch(`/api/passkeys/${id}`, {
+      const response = await fetch(`/api/v1/passkeys/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -164,7 +164,7 @@ export default function PasskeySettingsPage() {
     }
 
     try {
-      const response = await fetch(`/api/passkeys/${id}`, {
+      const response = await fetch(`/api/v1/passkeys/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

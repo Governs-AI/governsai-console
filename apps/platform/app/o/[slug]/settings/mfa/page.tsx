@@ -48,7 +48,7 @@ export default function MfaSettingsPage() {
   const checkTotpStatus = async () => {
     try {
       setInitialLoading(true);
-      const response = await fetch('/api/mfa/totp/status', {
+      const response = await fetch('/api/v1/totp/status', {
         credentials: 'include',
       });
 
@@ -61,7 +61,7 @@ export default function MfaSettingsPage() {
         });
       } else {
         // If no status endpoint exists, check if user has TOTP enabled
-        const response = await fetch('/api/mfa/totp/check', {
+        const response = await fetch('/api/v1/totp/verify', {
           credentials: 'include',
         });
         
@@ -86,7 +86,7 @@ export default function MfaSettingsPage() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/mfa/totp/setup', {
+      const response = await fetch('/api/v1/totp/setup', {
         method: 'POST',
       });
 
@@ -126,7 +126,7 @@ export default function MfaSettingsPage() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/mfa/totp/enable', {
+      const response = await fetch('/api/v1/totp/enable', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -165,7 +165,7 @@ export default function MfaSettingsPage() {
     setSuccess('');
 
     try {
-      const response = await fetch('/api/mfa/totp/disable', {
+      const response = await fetch('/api/v1/totp/disable', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
