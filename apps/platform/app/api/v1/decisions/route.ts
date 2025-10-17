@@ -1,12 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { verifySessionToken } from '@/lib/auth-server';
 
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Add authentication to prevent unauthorized access
+    let userId: string | undefined;
+    let orgId: string | undefined;
+
+    const authHeader = request.headers.get('authorization');
+    const apiKeyHeader = request.headers.get('x-governs-key');
+    const sessionCookie = (await import('next/headers')).cookies().get('session')?.value;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice('Bearer '.length).trim();
+      const session = verifySessionToken(token);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    } else if (apiKeyHeader) {
+      const apiKey = await prisma.aPIKey.findFirst({
+        where: { key: apiKeyHeader, isActive: true },
+        select: { userId: true, orgId: true },
+      });
+      if (apiKey) {
+        userId = apiKey.userId;
+        orgId = apiKey.orgId;
+      }
+    } else if (sessionCookie) {
+      const session = verifySessionToken(sessionCookie);
+      if (session) {
+        userId = session.sub;
+        orgId = session.orgId;
+      }
+    }
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     
-    // Parse query parameters
-    const orgId = searchParams.get('orgId') || 'default-org';
+    // SECURITY: Only use authenticated orgId, never accept as parameter
+    const targetOrgId = orgId; // Use authenticated orgId only
     const direction = searchParams.get('direction') as 'precheck' | 'postcheck' | undefined;
     const decision = searchParams.get('decision') as 'allow' | 'transform' | 'deny' | undefined;
     const tool = searchParams.get('tool') || undefined;
@@ -26,7 +63,7 @@ export async function GET(request: NextRequest) {
     const includeStats = searchParams.get('includeStats') === 'true';
     
     const filters = {
-      orgId,
+      orgId: targetOrgId, // Use authenticated orgId
       direction,
       decision,
       tool,
@@ -37,7 +74,7 @@ export async function GET(request: NextRequest) {
     
     // Build where clause
     const where: any = {};
-    if (filters.orgId) where.orgId = filters.orgId;
+    where.orgId = targetOrgId; // Always use authenticated orgId
     if (filters.direction) where.direction = filters.direction;
     if (filters.decision) where.decision = filters.decision;
     if (filters.tool) where.tool = filters.tool;
@@ -134,7 +171,7 @@ export async function GET(request: NextRequest) {
     
     // Get last ingest time for health monitoring
     const lastDecision = await prisma.decision.findFirst({
-      where: { orgId },
+      where: { orgId: targetOrgId },
       orderBy: { ts: 'desc' },
       select: { ts: true },
     });

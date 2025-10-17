@@ -42,25 +42,18 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const queryOrgId = searchParams.get('orgId');
-    const queryUserId = searchParams.get('userId');
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
-    // Use auth orgId or query orgId
-    const targetOrgId = queryOrgId || orgId;
-
+    // SECURITY: Only use authenticated user's orgId and userId
+    // Never accept userId as parameter to prevent cross-user access
     const whereClause: any = {
-      orgId: targetOrgId,
+      orgId: orgId, // Use authenticated orgId only
       isActive: includeInactive ? undefined : true,
-    };
-
-    // If userId is provided, get both org-level and user-specific policies
-    if (queryUserId) {
-      whereClause.OR = [
+      OR: [
         { userId: null }, // Org-level policies
-        { userId: queryUserId }, // User-specific policies
-      ];
-    }
+        { userId: userId }, // User-specific policies (authenticated user only)
+      ],
+    };
 
     const policies = await prisma.policy.findMany({
       where: whereClause,
