@@ -513,6 +513,7 @@ model ContextMemory {
   
   // Content
   content     String   @db.Text
+  summary     String?  @db.Text // Short, concise summary for SDK access
   contentType String   @map("content_type") // 'user_message', 'agent_message', 'document', 'decision', 'tool_result'
   metadata    Json     @default("{}")
   

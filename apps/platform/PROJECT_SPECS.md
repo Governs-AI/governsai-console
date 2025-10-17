@@ -161,7 +161,8 @@ apps/platform/
 ### Context Memory (Unified Context) – New
 - `POST /api/v1/context` – Store context (explicit client save path)
 - `POST /api/v1/context/search` – **Platform-only**: Full semantic search with stats (pgvector)
-- `POST /api/v1/context/search/llm` – **SDK-accessible**: LLM-optimized compressed search
+- `POST /api/v1/context/search/llm` – **SDK-accessible**: LLM-optimized compressed search (summaries only)
+- `GET /api/v1/context/memories` – **Platform-only**: List all memories with filtering and pagination
 - `GET /api/v1/context/conversation` – Get conversation items
 - `POST /api/v1/context/conversation` – Get or create conversation
 - `POST /api/governs/webhook` – Receives signed events; now handles `context.save`
@@ -172,6 +173,8 @@ apps/platform/
 - **Tiering**: High (0.75+), Medium (0.60-0.75), Low (0.50-0.60)
 - **Compression**: Token-budgeted natural language for LLM consumption
 - **Overquery**: 3x multiplier for better recall
+- **Privacy**: SDK only receives summarized versions, platform has full access
+- **Auto-summarization**: Rule-based content summarization for different content types
 
 ## 🔐 Security Features
 

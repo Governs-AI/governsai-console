@@ -1,6 +1,7 @@
 export interface MemoryItem {
   id: string;
   content: string;
+  summary?: string | null;
   contentType: string;
   createdAt: Date;
   agentId?: string | null;

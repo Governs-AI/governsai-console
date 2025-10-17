@@ -116,6 +116,57 @@ export class UnifiedContextService {
     return padded;
   }
 
+  /** Generate a concise summary of the content */
+  private generateSummary(content: string, contentType: string): string {
+    // Simple rule-based summarization for now
+    // In production, this could use an LLM for better summaries
+    
+    const maxLength = 150; // Keep summaries concise
+    
+    if (content.length <= maxLength) {
+      return content;
+    }
+
+    // For different content types, use different summarization strategies
+    switch (contentType) {
+      case 'user_message':
+        // Extract key points from user messages
+        const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        if (sentences.length <= 2) {
+          return content.substring(0, maxLength) + '...';
+        }
+        return sentences[0].trim() + '...';
+        
+      case 'agent_message':
+        // For agent responses, try to extract the main point
+        const lines = content.split('\n').filter(line => line.trim().length > 0);
+        if (lines.length === 1) {
+          return content.substring(0, maxLength) + '...';
+        }
+        return lines[0].trim() + '...';
+        
+      case 'decision':
+        // For decisions, extract the key decision point
+        const decisionMatch = content.match(/(?:decision|decided|chose|selected):\s*(.+)/i);
+        if (decisionMatch) {
+          return decisionMatch[1].substring(0, maxLength) + '...';
+        }
+        return content.substring(0, maxLength) + '...';
+        
+      case 'tool_result':
+        // For tool results, extract the outcome
+        const resultMatch = content.match(/(?:result|outcome|output):\s*(.+)/i);
+        if (resultMatch) {
+          return resultMatch[1].substring(0, maxLength) + '...';
+        }
+        return content.substring(0, maxLength) + '...';
+        
+      default:
+        // Generic summarization - take first part
+        return content.substring(0, maxLength) + '...';
+    }
+  }
+
   /**
    * Store context with precheck and embedding
    */
@@ -175,7 +226,8 @@ export class UnifiedContextService {
     const piiDetected = piiTypes.length > 0;
     const piiRedacted = effectiveDecision === 'redact';
 
-    // Step 2: Generate embedding and normalize to DB dimension
+    // Step 2: Generate summary and embedding
+    const summary = this.generateSummary(contentToStore, contentType);
     const embeddingRaw = await this.generateEmbedding(contentToStore);
     const embedding = this.normalizeEmbeddingDimensions(embeddingRaw);
 
@@ -185,6 +237,7 @@ export class UnifiedContextService {
         userId,
         orgId,
         content: contentToStore,
+        summary,
         contentType,
         agentId,
         agentName,
@@ -258,6 +311,7 @@ export class UnifiedContextService {
         user_id,
         org_id,
         content,
+        summary,
         content_type,
         agent_id,
         agent_name,
@@ -328,6 +382,7 @@ export class UnifiedContextService {
       user_id: string;
       org_id: string;
       content: string;
+      summary: string | null;
       content_type: string;
       agent_id: string | null;
       agent_name: string | null;
@@ -355,6 +410,7 @@ export class UnifiedContextService {
       user_id: string;
       org_id: string;
       content: string;
+      summary: string | null;
       content_type: string;
       agent_id: string | null;
       agent_name: string | null;
@@ -367,6 +423,7 @@ export class UnifiedContextService {
       userId: r.user_id,
       orgId: r.org_id,
       content: r.content,
+      summary: r.summary,
       contentType: r.content_type,
       agentId: r.agent_id,
       agentName: r.agent_name,

@@ -399,7 +399,7 @@ export class ContextClient {
     expiresAt?: string; // ISO
   }): Promise<{ contextId: string }>;
 
-  /** LLM-optimized context search (compressed format) */
+  /** LLM-optimized context search (compressed format using summaries only) */
   async searchContextLLM(input: {
     query: string;
     agentId?: string;
@@ -410,7 +410,7 @@ export class ContextClient {
     threshold?: number; // default 0.5
   }): Promise<{
     success: boolean;
-    context: string; // Natural language compressed format
+    context: string; // Natural language compressed format (uses summaries)
     memoryCount: number;
     highConfidence: number;
     mediumConfidence: number;
@@ -463,6 +463,8 @@ Notes:
 - saveContextExplicit is a thin alias over POST /api/v1/context for apps that want a UI action (no WebSocket needed).
 - Full memory search with stats (`/api/v1/context/search`) is platform-only for dashboard/debugging.
 - SDK only exposes LLM-optimized search (`/api/v1/context/search/llm`) for AI agent consumption.
+- **Privacy Protection**: SDK only receives summarized versions of memories, not full content.
+- Platform has access to full content via `/api/v1/context/memories` endpoint for management.
 
 ### Precheck intent metadata (for context.save)
 

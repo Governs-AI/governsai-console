@@ -57,11 +57,15 @@ export class ContextFormatterService {
 
     for (const m of high) {
       const when = this.formatTimeAgo(m.ageInDays);
-      lines.push(`• ${m.content} (mentioned ${when})`);
+      // Use summary if available, fallback to content
+      const displayText = (m as any).summary || m.content;
+      lines.push(`• ${displayText} (mentioned ${when})`);
     }
 
     for (const m of med) {
-      lines.push(`• ${m.content}`);
+      // Use summary if available, fallback to content
+      const displayText = (m as any).summary || m.content;
+      lines.push(`• ${displayText}`);
     }
 
     if (low.length > 0) {
