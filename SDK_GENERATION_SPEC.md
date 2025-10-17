@@ -465,6 +465,7 @@ Notes:
 - SDK only exposes LLM-optimized search (`/api/v1/context/search/llm`) for AI agent consumption.
 - **Privacy Protection**: SDK only receives summarized versions of memories, not full content.
 - Platform has access to full content via `/api/v1/context/memories` endpoint for management.
+- **Security**: User ID is determined from API key authentication, never passed as parameter.
 
 ### Precheck intent metadata (for context.save)
 
