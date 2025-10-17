@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { contextSearch } from '@/lib/services/context-search';
 import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
+import { contextSearch } from '@/lib/services/context-search';
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await contextSearch.searchFull({
+    const result = await contextSearch.searchLLM({
       userId,
       orgId,
       query,
@@ -66,10 +66,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error searching context:', error);
+    console.error('Error searching context (LLM):', error);
     return NextResponse.json(
-      { error: 'Failed to search context' },
+      { success: true, context: '', memoryCount: 0, highConfidence: 0, mediumConfidence: 0, lowConfidence: 0, tokenEstimate: 0, error: 'Failed to search context' },
       { status: 500 }
     );
   }
 }
+
+
