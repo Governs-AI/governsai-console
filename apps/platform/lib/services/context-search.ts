@@ -44,8 +44,10 @@ export class ContextSearchService {
     const groups: ScoredMemoryItem[][] = [];
     const toTokens = (s: string) => new Set(s.toLowerCase().split(/[^a-z0-9]+/g).filter(Boolean));
     const simTokens = (a: Set<string>, b: Set<string>) => {
-      const inter = new Set([...a].filter((x) => b.has(x))).size;
-      const uni = new Set([...a, ...b]).size || 1;
+      const aArray = Array.from(a);
+      const bArray = Array.from(b);
+      const inter = new Set(aArray.filter((x) => b.has(x))).size;
+      const uni = new Set([...aArray, ...bArray]).size || 1;
       return inter / uni; // 0..1 Jaccard
     };
 
