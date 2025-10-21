@@ -1,6 +1,8 @@
-# 🌐 GovernsAI — The AI Governance OS
+# GovernsAI — The AI Governance OS
 
-**Secure control plane for AI interactions** that acts as an intelligent gateway between users and AI models, providing complete visibility and control over AI usage and spending.
+**Version 0.1.0** - Production-ready secure control plane for AI interactions
+
+A comprehensive platform that acts as an intelligent gateway between users and AI models, providing complete visibility, control, and governance over AI usage and spending.
 
 ## 🎯 The Problem
 
@@ -20,80 +22,226 @@ This allows GovernsAI to:
 
 ```mermaid
 graph TB
-    %% User Entry Points
-    User[👤 User] --> Landing[🌐 Landing App<br/>Marketing & Sales]
-    User --> Platform[⚙️ Platform App<br/>Main Dashboard]
-    User --> Docs[📚 Docs App<br/>Documentation]
+    %% External Actors
+    User[👤 User/Developer]
+    ExternalApp[🤖 External Chatbot App<br/>Any AI Agent]
+    AIProviders[🌐 AI Providers<br/>OpenAI, Anthropic, Google, etc.<br/>AI Agnostic]
 
-    %% Main Applications
-    Landing --> Auth[🔐 Authentication]
-    Platform --> Auth
-    Docs --> Auth
-
-    %% Shared Packages
-    Platform --> Layout[📐 Layout Package]
-    Landing --> Layout
-    Docs --> Layout
-
-    Platform --> UI[🎨 UI Package]
-    Landing --> UI
-    Docs --> UI
-
-    Platform --> Billing[💳 Billing Package]
-    Platform --> DB[(🗄️ Database<br/>PostgreSQL)]
-    Platform --> CommonUtils[🛠️ Common Utils]
-
-    %% External Services
-    Platform --> OpenAI[🤖 OpenAI API]
-    Platform --> Claude[🤖 Claude API]
-    Platform --> Gemini[🤖 Gemini API]
-
-    Auth --> Google[🔐 Google OAuth]
-
-    %% Data Flow
-    subgraph "AI Governance Layer"
-        Proxy[🛡️ AI Proxy Gateway]
-        PII[🔍 PII Detection]
-        Budget[💰 Budget Control]
-        Audit[📊 Audit Logging]
+    %% ============================================
+    %% AUTHENTICATION & SSO LAYER
+    %% ============================================
+    subgraph "🔐 Login with GovernsAI SSO/IDP"
+        Keycloak[🔑 Keycloak OAuth/OIDC Provider<br/>auth.governsai.com]
+        KeycloakFeatures[📝 Features:<br/>• OAuth 2.0 / OIDC<br/>• Org Context in JWT<br/>• Custom Claims<br/>• User Sync]
     end
 
-    Platform --> Proxy
-    Proxy --> OpenAI
-    Proxy --> Claude
-    Proxy --> Gemini
+    User -->|1. Sign Up/Login| Platform
+    ExternalApp -->|Login with GovernsAI| Keycloak
+    Keycloak -->|JWT + Org Context| ExternalApp
 
-    Proxy --> PII
-    Proxy --> Budget
-    Proxy --> Audit
+    %% ============================================
+    %% CENTRAL PLATFORM (Hub)
+    %% ============================================
+    subgraph "⚙️ Platform Dashboard - Central Hub"
+        Platform[🌐 Next.js 15 Platform]
 
-    %% Styling
-    classDef app fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef package fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+        subgraph "Core Services"
+            Passkey[🔑 Passkey/WebAuthn<br/>Payment Confirmation]
+            Budget[💰 Budget Manager<br/>Real-time Enforcement]
+            ToolReg[🛠️ Tool Registration<br/>Agent Marketplace]
+            PolicyEngine[📋 Policy Engine<br/>Tool Blocking]
+            APIKeys[🗝️ API Key Management]
+        end
+
+        subgraph "Unified Memory & RAG"
+            UnifiedMemory[🧠 Unified Context Memory<br/>Semantic Search]
+            UnifiedRAG[📚 Unified RAG Engine<br/>Multi-source Retrieval]
+            VectorSearch[🔍 Vector Embeddings<br/>pgvector]
+        end
+
+        Platform --> Passkey
+        Platform --> Budget
+        Platform --> ToolReg
+        Platform --> PolicyEngine
+        Platform --> APIKeys
+        Platform --> UnifiedMemory
+        Platform --> UnifiedRAG
+        UnifiedMemory --> VectorSearch
+        UnifiedRAG --> VectorSearch
+    end
+
+    %% ============================================
+    %% WEBSOCKET SERVICE
+    %% ============================================
+    subgraph "⚡ WebSocket Service - Real-time Gateway"
+        WSService[🔌 WebSocket Server<br/>Node.js + Express]
+        WSFeatures[📡 Real-time Events<br/>📝 Decision Logging<br/>💾 Context Auto-save<br/>🔗 Webhooks]
+        WSService --> WSFeatures
+    end
+
+    User -->|WebSocket Connect| WSService
+    ExternalApp -->|API Requests| WSService
+
+    %% ============================================
+    %% PRECHECK SERVICE (STANDALONE)
+    %% ============================================
+    subgraph "🔍 Precheck Service - PII Detection"
+        Precheck[🛡️ Precheck API<br/>Standalone Service]
+        PrecheckFeatures[• No DB Connection<br/>• Runs Independently<br/>• PII Detection<br/>• Compliance Checks]
+        Precheck -.->|Features| PrecheckFeatures
+    end
+
+    %% ============================================
+    %% DATABASE LAYER
+    %% ============================================
+    subgraph "🗄️ Data Layer - PostgreSQL + pgvector"
+        DB[(PostgreSQL Database)]
+
+        subgraph "Tables"
+            Users[👥 Users & Orgs]
+            Keys[🔑 API Keys]
+            Decisions[📊 AI Decisions]
+            ContextVectors[🧠 Context Vectors]
+            Policies[📜 Policies & Rules]
+            BudgetData[💵 Budget & Usage]
+            Tools[🛠️ Registered Tools]
+        end
+
+        DB --> Users
+        DB --> Keys
+        DB --> Decisions
+        DB --> ContextVectors
+        DB --> Policies
+        DB --> BudgetData
+        DB --> Tools
+    end
+
+    %% ============================================
+    %% AI & EMBEDDING SERVICES
+    %% ============================================
+    subgraph "🤖 AI & Embedding Services - Multi-Provider"
+        OpenAI[🤖 OpenAI<br/>GPT-4 + Embeddings]
+        Anthropic[🧠 Anthropic Claude]
+        Google[🔍 Google Gemini]
+        Ollama[🦙 Ollama Local]
+        HuggingFace[🤗 Hugging Face]
+        Cohere[⚡ Cohere]
+    end
+
+    %% ============================================
+    %% DATA FLOW CONNECTIONS
+    %% ============================================
+
+    %% Platform <-> Database
+    Platform <-->|Read/Write| DB
+    Platform -->|Sync Users| Keycloak
+
+    %% WebSocket Service <-> Database
+    WSService <-->|Log Decisions<br/>Save Context| DB
+
+    %% WebSocket <-> Platform Communication
+    WSService <-->|Budget Check<br/>Policy Check<br/>Tool Validation| Platform
+
+    %% Precheck Integration (Independent)
+    Platform -->|PII Check Request| Precheck
+    WSService -->|PII Check Request| Precheck
+    Precheck -->|PII Report| Platform
+    Precheck -->|PII Report| WSService
+
+    %% Unified Memory/RAG <-> AI Services
+    UnifiedMemory -->|Embedding Request| OpenAI
+    UnifiedMemory -->|Embedding Request| Ollama
+    UnifiedMemory -->|Embedding Request| HuggingFace
+    UnifiedMemory -->|Embedding Request| Cohere
+
+    UnifiedRAG -->|RAG Query| OpenAI
+    UnifiedRAG -->|RAG Query| Anthropic
+    UnifiedRAG -->|RAG Query| Google
+
+    %% AI Agnostic Gateway
+    WSService -->|Proxied AI Requests| AIProviders
+    PolicyEngine -->|Tool Blocking Rules| WSService
+    Budget -->|Budget Limits| WSService
+
+    %% Passkey for Payment Confirmation
+    Budget -->|Requires Confirmation| Passkey
+    Passkey -->|WebAuthn Challenge| User
+
+    %% Tool Registration & Agent Marketplace
+    ToolReg -->|Register Tools| DB
+    ExternalApp -->|Register as Agent| ToolReg
+    PolicyEngine -->|Tool Access Control| ToolReg
+
+    %% ============================================
+    %% STYLING
+    %% ============================================
+    classDef platform fill:#e1f5fe,stroke:#01579b,stroke-width:3px
     classDef service fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef sso fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef precheck fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef ai fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef external fill:#fff9c4,stroke:#f57f17,stroke-width:2px
 
-    class Landing,Platform,Docs app
-    class Layout,UI,Billing,CommonUtils package
-    class OpenAI,Claude,Gemini,Google service
-    class DB,Proxy,PII,Budget,Audit data
+    class Platform,WSService platform
+    class Keycloak,KeycloakFeatures sso
+    class Precheck,PrecheckFeatures precheck
+    class DB,Users,Keys,Decisions,ContextVectors,Policies,BudgetData,Tools data
+    class OpenAI,Anthropic,Google,Ollama,HuggingFace,Cohere ai
+    class User,ExternalApp,AIProviders external
 ```
 
-## 📦 The MVP Plan
+## 🎯 Current Status
 
-The project will be built in two minimal, rapid phases:
+### ✅ Implemented Features (v0.1.0)
 
-### Phase 1: The "Cost Controller" MVP
-The absolute core product. It will provide the proxy endpoint, a dashboard for visibility, and the critical budget enforcement feature. The goal is to solve the #1 pain point: unpredictable spending.
+**Core Infrastructure**
+- ✅ Next.js 15 platform with TypeScript
+- ✅ Real-time WebSocket service for live updates
+- ✅ PostgreSQL database with pgvector for semantic search
+- ✅ Turborepo monorepo with shared packages
 
-### Phase 2: The "PII-Aware" Upgrade
-The first major feature enhancement. It will add an asynchronous PII detection system that flags requests containing sensitive data in the user's dashboard, demonstrating immediate security value.
+**Authentication & Security**
+- ✅ **"Login with GovernsAI" OAuth/OIDC Provider** via Keycloak
+- ✅ Passkey/WebAuthn authentication (phishing-resistant)
+- ✅ Organization context embedded in JWT tokens
+- ✅ Automatic user sync to Keycloak
+- ✅ API key generation and management
+- ✅ Secure session management with JWT
+- ✅ HMAC webhook signature verification
+
+**AI Governance**
+- ✅ Budget tracking and enforcement
+- ✅ Decision logging and audit trail
+- ✅ Policy management system
+- ✅ PII detection via Precheck API integration
+- ✅ Real-time usage monitoring
+
+**Context Memory System**
+- ✅ Semantic search with vector embeddings
+- ✅ Multi-provider support (OpenAI, Ollama, Hugging Face, Cohere)
+- ✅ Automatic context saving from conversations
+- ✅ Recency scoring and deduplication
+- ✅ Cross-agent memory sharing
+- ✅ Platform-only memory management
+
+**Real-time Features**
+- ✅ WebSocket gateway for live updates
+- ✅ Real-time budget status notifications
+- ✅ Live decision streaming
+- ✅ Context save event webhooks
+
+**Organization Management**
+- ✅ Multi-tenant organization support
+- ✅ User and role management
+- ✅ Per-org API keys and policies
+- ✅ Spending isolation by organization
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - pnpm
 - PostgreSQL database
 - OpenAI API key (and other AI provider keys)
@@ -156,84 +304,159 @@ NEXT_PUBLIC_PLATFORM_URL="https://app.governs.ai"
 NEXT_PUBLIC_DOCS_URL="https://docs.governs.ai"
 ```
 
-## ✨ Core Features
+## ✨ Current Features (v0.1.0)
 
-### 🔑 Mode 1: Login with AI (Passport Mode)
+### 🔑 "Login with GovernsAI" - OAuth/OIDC Identity Provider
 
-Users sign in once through GovernsAI (via passkey, wallet, or SSO).
+**The Killer Feature** - External applications can use GovernsAI as their identity provider:
 
-Connect to multiple AI agents (ChatGPT, Gemini, Claude, custom MCP agents).
+- 🎯 **Single Sign-On (SSO)** - "Login with GovernsAI" button for external chatbot apps
+- 🔐 **OAuth 2.0/OIDC Provider** - Full-featured identity provider via Keycloak
+- 🏢 **Organization Context in Tokens** - Tokens include org_id, org_slug, and role
+- 🔄 **Automatic User Sync** - Dashboard users automatically synced to Keycloak
+- 📝 **Custom Claims** - GovernsAI-specific claims embedded in JWT tokens
+- 🌐 **Standard OIDC Endpoints** - Works with any OAuth 2.0 library
 
-GovernsAI applies policies: budgets, approvals, logging, redaction.
+**Use Cases:**
+- Chatbot applications can use "Login with GovernsAI"
+- AI agents get organization context automatically
+- Centralized user management across AI ecosystem
+- Governance policies follow users across apps
 
-Enterprises gain centralized control and visibility.
+See [docs/keycloak-integration.md](docs/keycloak-integration.md) for integration guide.
 
-### ⚙️ Mode 2: Sidecar MCP Gateway (Optional)
+---
 
-Users or enterprises get a per-user/per-org endpoint (governs.ai/u/{id}).
+### What's Live Now
 
-Any agent can route API traffic through this Sidecar without changing its login system.
+**Platform Capabilities:**
+- 🔐 **Authentication** - Passkey/WebAuthn authentication for phishing resistance
+- 🔐 **Keycloak SSO/IDP** - Full OAuth/OIDC provider for "Login with GovernsAI"
+- 🗝️ **API Key Management** - Generate, manage, and rotate API keys with scopes
+- 💰 **Budget Tracking** - Monitor and control AI spending with real-time enforcement
+- 📊 **Decision Logging** - Complete audit trail of all AI interactions
+- 🧠 **Context Memory** - Semantic search across conversation history with vector embeddings
+- 🔍 **PII Detection** - Automatic flagging of sensitive data via Precheck API
+- ⚡ **Real-time Monitoring** - WebSocket-based live updates and notifications
+- 🏢 **Multi-tenant** - Full organization and user management
+- 📋 **Policy Engine** - Define and enforce governance policies
+- 🔗 **Webhooks** - Event-driven integrations for custom workflows
 
-GovernsAI transparently enforces policies, logs usage, and redacts sensitive data.
+### Key Features at a Glance
 
-No lock-in: the AI provider (OpenAI, Google, Anthropic, etc.) still sees standard API calls.
-
-### Key Features
-
-- **✅ Unified Identity**: One login for multiple agents (passkey, OAuth, or wallet)
-- **✅ Budgets & Payments**: Set per-agent or per-team usage limits with real-time spend dashboards
-- **✅ Compliance & Audit**: Immutable logs of all prompts, responses, and tool calls
-- **✅ Memory Visibility**: Dashboard shows which agents are connected and what memory they retain
-- **✅ PII Guardrails**: Instant flagging of sensitive data (SSN, credit card, PHI) before it leaves the system
-- **✅ Context Memory**: Advanced semantic search with recency scoring, deduplication, and LLM-optimized compression
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **🎯 "Login with GovernsAI"** | ✅ Live | OAuth/OIDC provider for external apps via Keycloak |
+| **🔐 Passkey Auth** | ✅ Live | WebAuthn-based phishing-resistant authentication |
+| **🏢 Org Context in Tokens** | ✅ Live | JWT tokens include org_id, org_slug, and role |
+| **🔑 API Key Management** | ✅ Live | Generate, manage, and rotate API keys with scopes |
+| **💰 Budget Control** | ✅ Live | Set spending limits with real-time enforcement |
+| **📊 Decision Logging** | ✅ Live | Complete audit trail of all AI interactions |
+| **🧠 Context Memory** | ✅ Live | Semantic search across conversation history |
+| **🔍 PII Detection** | ✅ Live | Automatic flagging of sensitive data |
+| **⚡ Real-time Updates** | ✅ Live | WebSocket-based live notifications |
+| **🔗 Webhook System** | ✅ Live | Event-driven integrations |
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** Next.js 15, TypeScript, React 18, Tailwind CSS
-- **Backend:** Next.js API routes, Prisma ORM
-- **AI/ML:** OpenAI GPT-4, Anthropic Claude, Google Gemini
-- **Database:** PostgreSQL with Prisma
-- **Authentication:** NextAuth.js with Google OAuth
-- **Infrastructure:** Vercel, Docker
-- **Package Manager:** pnpm with Turborepo
+**Frontend**
+- Next.js 15 (App Router)
+- TypeScript 5.8
+- React 18
+- Tailwind CSS
+- shadcn/ui components
+- Lucide React icons
+
+**Backend**
+- Next.js API Routes
+- Node.js + Express (WebSocket service)
+- Prisma ORM
+- PostgreSQL 11+ with pgvector extension
+
+**Authentication**
+- WebAuthn/Passkey (FIDO2)
+- Keycloak SSO
+- JWT-based sessions
+- Argon2id password hashing
+
+**AI & Embeddings**
+- OpenAI (GPT-4, text-embedding-3-small)
+- Ollama (local embeddings)
+- Hugging Face Transformers
+- Cohere embeddings
+
+**Real-time**
+- WebSocket (ws library)
+- Server-Sent Events
+- Ably for pub/sub
+
+**Infrastructure**
+- pnpm + Turborepo monorepo
+- Docker support
+- Vercel-ready deployment
 
 ## 🚀 Development
 
 ### Available Scripts
 
 ```bash
-# Start all applications
+# Start all services
 pnpm run dev:all
 
-# Start individual applications
-pnpm run dev:landing    # http://localhost:3000
-pnpm run dev:platform   # http://localhost:3002
-pnpm run dev:docs       # http://localhost:3001
+# Start individual services
+pnpm run dev:platform        # Platform dashboard (http://localhost:3002)
+# WebSocket service runs separately (see apps/websocket-service)
 
 # Build all applications
 pnpm run build
 
-# Lint all packages
-pnpm run lint
+# Database operations
+pnpm run generate            # Generate Prisma client
+pnpm --filter @governs-ai/db run migrate:dev  # Run migrations
 
-# Type check all packages
-pnpm run check-types
+# Code quality
+pnpm run lint               # Lint all packages
+pnpm run check-types        # TypeScript type checking
+pnpm run format             # Format code with Prettier
+
+# Cleanup
+pnpm run clean              # Remove build artifacts and node_modules
 ```
 
 ### Project Structure
 
 ```
 governs-ai/
-├── apps/                    # Applications
-│   ├── platform/            # Main Platform App (Port 3002)
-├── packages/                # Shared Packages
-│   ├── ui/                  # UI Components
-│   ├── layout/              # Layout Components
-│   ├── db/                  # Database Schema & Queries
-│   ├── billing/             # Billing & Usage Tracking
-│   ├── common-utils/        # Shared Utilities
-│   ├── typescript-config/   # TypeScript Configuration
-│   └── eslint-config/       # ESLint Configuration
+├── apps/
+│   ├── platform/                 # Main Platform Dashboard (Next.js 15)
+│   │   ├── app/                  # App router pages and API routes
+│   │   ├── components/           # React components
+│   │   ├── lib/                  # Services and utilities
+│   │   └── public/               # Static assets
+│   └── websocket-service/        # Real-time WebSocket Service (Node.js)
+│       ├── src/
+│       │   ├── server.js         # Express server setup
+│       │   ├── websocket/        # WebSocket handlers
+│       │   └── services/         # Auth and business logic
+│       └── package.json
+├── packages/
+│   ├── db/                       # Prisma schema and database client
+│   │   ├── prisma/
+│   │   │   └── schema.prisma    # Database schema
+│   │   └── migrations/          # Database migrations
+│   ├── ui/                      # Shared UI components
+│   ├── layout/                  # Layout components
+│   ├── billing/                 # Billing utilities
+│   ├── common-utils/            # Shared utilities
+│   ├── typescript-config/       # TypeScript configs
+│   └── eslint-config/           # ESLint configs
+├── docs/                        # Documentation
+│   ├── environment-variables.md
+│   ├── unified-context-memory.md
+│   └── keycloak-integration.md
+├── .env.example                 # Environment template
+├── SECURITY.md                  # Security policy
+└── LICENSE                      # ELv2 License
 ```
 
 ## 🚀 Deployment
@@ -257,19 +480,53 @@ docker build -t governs-ai .
 docker run -p 3000:3000 governs-ai
 ```
 
+## 🔒 Security
+
+Security is a top priority for GovernsAI. See [SECURITY.md](SECURITY.md) for:
+- Security best practices
+- Environment variable requirements
+- How to report vulnerabilities
+- Production deployment checklist
+
+**Key Security Features:**
+- All secrets must be in environment variables (no hardcoded fallbacks)
+- Passkey authentication for phishing resistance
+- HMAC signature verification for webhooks
+- Timing-safe comparison for sensitive operations
+- Argon2id password hashing
+- JWT-based session management
+- CORS configuration with whitelisting
+
 ## 🤝 Contributing
 
-We welcome contributions! Please see our `CONTRIBUTING.md` file for guidelines on how to get involved.
+We welcome contributions! Here's how to get started:
 
 ### Development Workflow
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and linting (`pnpm run lint && pnpm run check-types`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+2. Clone your fork: `git clone https://github.com/yourusername/governs-ai.git`
+3. Create a feature branch: `git checkout -b feature/amazing-feature`
+4. Copy environment template: `cp .env.example .env`
+5. Fill in your environment variables
+6. Install dependencies: `pnpm install`
+7. Run database migrations: `pnpm run generate`
+8. Start development: `pnpm run dev:all`
+9. Make your changes
+10. Run quality checks: `pnpm run lint && pnpm run check-types`
+11. Commit your changes: `git commit -m 'feat: add amazing feature'`
+12. Push to your fork: `git push origin feature/amazing-feature`
+13. Open a Pull Request
+
+### Commit Convention
+
+We use conventional commits:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation changes
+- `refactor:` - Code refactoring
+- `test:` - Test additions/changes
+- `chore:` - Maintenance tasks
+- `security:` - Security improvements
 
 ## 📄 License
 
@@ -288,8 +545,45 @@ For more information, visit https://www.elastic.co/licensing/elastic-license
 - UI components from shadcn/ui
 - Icons from Lucide React
 
-## 🌟 The Long-Term Vision
+## 🗺️ Roadmap
 
-GovernsAI will start as a simple cost and security tool for developers. Over time, it will evolve into the essential governance layer for enterprise AI, expanding to include complex policy enforcement, role-based access control, and a trusted marketplace for third-party AI agents. It will become the single source of truth for how an organization interacts with artificial intelligence.
+### Current Release (v0.1.0)
+- ✅ Core governance platform
+- ✅ Context memory system
+- ✅ Real-time monitoring
+- ✅ Multi-tenant support
+
+### Upcoming Features (Roadmap)
+
+**Enhanced SSO/IDP Capabilities**
+- 🔄 Direct integration with ChatGPT, Claude, Gemini for "Login with GovernsAI"
+- 🔄 Federated identity across AI platforms (once they support custom OIDC providers)
+- 🔄 Policy enforcement in tokens (budget limits, permissions as claims)
+- 🔄 Automatic governance application via token claims
+
+**AI Proxy Gateway (Sidecar Mode)**
+- 🔄 Per-user/org proxy endpoints (governs.ai/u/{id})
+- 🔄 Transparent request interception and governance
+- 🔄 Provider failover and load balancing
+- 🔄 Zero-trust AI access layer
+
+**Enterprise Features**
+- 🔄 Cost optimization recommendations and alerts
+- 🔄 Compliance reporting (SOC2, GDPR, HIPAA)
+- 🔄 Marketplace for governance plugins and integrations
+- 🔄 Mobile app for real-time monitoring
+- 🔄 Advanced analytics, insights, and BI dashboards
+- 🔄 AI agent marketplace with verified governance
+
+## 🌟 Vision
 
 **GovernsAI is the AI Governance OS** — a unified identity, policy, and compliance layer that keeps AI interactions secure, auditable, and under control.
+
+Starting as a comprehensive governance platform for developers, GovernsAI will evolve into the essential governance layer for enterprise AI, expanding to include:
+- Complex policy enforcement with custom rules
+- Fine-grained role-based access control
+- Trusted marketplace for third-party AI agents and governance plugins
+- Enterprise compliance reporting (SOC2, GDPR, HIPAA)
+- AI usage optimization and cost reduction
+
+It will become the single source of truth for how organizations interact with artificial intelligence — providing complete control, visibility, and compliance across all AI interactions.
