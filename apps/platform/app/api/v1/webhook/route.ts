@@ -4,7 +4,10 @@ import { prisma } from '@governs-ai/db';
 const dbAny = prisma as any;
 import { unifiedContext } from '@/lib/services/unified-context';
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "dev-secret-key-change-in-production";
+if (!process.env.WEBHOOK_SECRET) {
+  throw new Error('WEBHOOK_SECRET environment variable is required');
+}
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 function verifySignature(raw: string, header: string | null) {
   if (!header) return false;

@@ -6,8 +6,15 @@ import speakeasy from 'speakeasy';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
-const PASSWORD_PEPPER = process.env.PASSWORD_PEPPER || '';
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+if (!process.env.PASSWORD_PEPPER) {
+  throw new Error('PASSWORD_PEPPER environment variable is required');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const PASSWORD_PEPPER = process.env.PASSWORD_PEPPER;
 
 export interface AuthUser {
   id: string;
