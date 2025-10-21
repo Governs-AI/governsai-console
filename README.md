@@ -1,4 +1,4 @@
-# GovernsAI — The AI Governance OS
+# 👁️ GovernsAI — The AI Governance OS
 
 **Version 0.1.0** - Production-ready secure control plane for AI interactions
 
@@ -43,7 +43,7 @@ graph TB
     %% CENTRAL PLATFORM (Hub)
     %% ============================================
     subgraph "⚙️ Platform Dashboard - Central Hub"
-        Platform[🌐 Next.js 15 Platform]
+        Platform[👁️ Governs AI]
 
         subgraph "Core Services"
             Passkey[🔑 Passkey/WebAuthn<br/>Payment Confirmation]
@@ -299,9 +299,9 @@ NEXT_PUBLIC_PLATFORM_DEV_URL="http://localhost:3002"
 NEXT_PUBLIC_DOCS_DEV_URL="http://localhost:3001"
 
 # Production URLs
-NEXT_PUBLIC_LANDING_URL="https://governs.ai"
-NEXT_PUBLIC_PLATFORM_URL="https://app.governs.ai"
-NEXT_PUBLIC_DOCS_URL="https://docs.governs.ai"
+NEXT_PUBLIC_LANDING_URL="https://governsai.com"
+NEXT_PUBLIC_PLATFORM_URL="https://app.governsai.com"
+NEXT_PUBLIC_DOCS_URL="https://docs.governsai.com"
 ```
 
 ## ✨ Current Features (v0.1.0)
@@ -562,7 +562,7 @@ For more information, visit https://www.elastic.co/licensing/elastic-license
 - 🔄 Automatic governance application via token claims
 
 **AI Proxy Gateway (Sidecar Mode)**
-- 🔄 Per-user/org proxy endpoints (governs.ai/u/{id})
+- 🔄 Per-user/org proxy endpoints (governsai.com/u/{id})
 - 🔄 Transparent request interception and governance
 - 🔄 Provider failover and load balancing
 - 🔄 Zero-trust AI access layer

@@ -13,7 +13,7 @@ We take the security of GovernsAI seriously. If you have discovered a security v
 ### How to Report
 
 1. **DO NOT** open a public GitHub issue
-2. Email security concerns to: [your-security-email@governs.ai]
+2. Email security concerns to: [your-security-email@governsai.com]
 3. Include the following information:
    - Description of the vulnerability
    - Steps to reproduce the issue
@@ -85,7 +85,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 In production, **NEVER** use `origin: '*'`. Always specify exact origins:
 
 ```bash
-ALLOWED_ORIGINS=https://governs.ai,https://app.governs.ai
+ALLOWED_ORIGINS=https://governsai.com,https://app.governsai.com
 ```
 
 ### HTTPS/TLS
@@ -196,7 +196,7 @@ We will announce security updates through:
 
 - GitHub Security Advisories
 - Release notes
-- Security mailing list (subscribe at [security@governs.ai])
+- Security mailing list (subscribe at [security@governsai.com])
 
 ## License and Liability
 

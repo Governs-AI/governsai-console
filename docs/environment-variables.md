@@ -44,7 +44,7 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT=587
 SMTP_USER="your-email@gmail.com"
 SMTP_PASSWORD="your-app-password"
-SMTP_FROM="noreply@governs.ai"
+SMTP_FROM="noreply@governsai.com"
 ```
 
 ### Precheck Service
@@ -135,7 +135,7 @@ JWT_SECRET="your-super-secret-jwt-key-here"  # Must match Platform
 ### CORS
 
 ```bash
-ALLOWED_ORIGINS="http://localhost:3002,https://governs.ai,https://your-domain.com"
+ALLOWED_ORIGINS="http://localhost:3002,https://governsai.com,https://your-domain.com"
 ```
 
 ### Service URLs
