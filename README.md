@@ -109,7 +109,7 @@ cd governs-ai
 pnpm install
 
 # Set up environment variables
-cp .env.example .env.local
+cp .env.example .env
 
 # Generate Prisma client
 pnpm run generate
@@ -273,7 +273,13 @@ We welcome contributions! Please see our `CONTRIBUTING.md` file for guidelines o
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is licensed under the Elastic License 2.0 (ELv2). See the `LICENSE` file for details.
+
+The ELv2 license allows you to use, modify, and redistribute this software freely, with the following key limitations:
+- You may not provide the software to third parties as a hosted or managed service
+- You may not circumvent the license key functionality
+
+For more information, visit https://www.elastic.co/licensing/elastic-license
 
 ## 🙏 Acknowledgments
 

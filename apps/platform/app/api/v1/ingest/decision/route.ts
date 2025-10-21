@@ -38,8 +38,12 @@ export async function POST(request: NextRequest) {
     
     // Verify HMAC signature
     const signature = request.headers.get('X-Governs-Signature');
-    const secret = process.env.GOVERNS_WEBHOOK_SECRET || 'dev-secret';
-    
+
+    if (!process.env.GOVERNS_WEBHOOK_SECRET) {
+      throw new Error('GOVERNS_WEBHOOK_SECRET environment variable is required');
+    }
+    const secret = process.env.GOVERNS_WEBHOOK_SECRET;
+
     if (!signature || !verifySignature(body, signature, secret)) {
       return NextResponse.json(
         { error: 'Invalid signature' },

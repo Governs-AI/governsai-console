@@ -63,13 +63,13 @@ class GovernsWebSocketService {
    * Setup Express middleware
    */
   setupExpress() {
-    
-    // TODO: Add allowed origins later
-    // origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3002', 'https://governs.ai'],
-
     // CORS configuration
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+      : ['http://localhost:3002', 'http://localhost:3000'];
+
     this.app.use(cors({
-      origin: '*',
+      origin: allowedOrigins,
       credentials: true
     }));
     
@@ -115,13 +115,10 @@ class GovernsWebSocketService {
     // WebSocket connection endpoint info
     this.app.get('/ws', (req, res) => {
       console.log('🔌 WebSocket connection endpoint info');
-      console.log(`🔌 WebSocket connection endpoint info: ${req.get('host')}`);
-      console.log(`🔌 WebSocket connection endpoint info: ${process.env.NODE_ENV}`);
-      console.log(`🔌 WebSocket connection endpoint info: ${process.env.ALLOWED_ORIGINS}`);
-      console.log(`🔌 WebSocket connection endpoint info: ${process.env.JWT_SECRET}`);
-      console.log(`🔌 WebSocket connection endpoint info: ${process.env.DATABASE_URL}`);
-      console.log(`🔌 WebSocket connection endpoint info: ${process.env.PLATFORM_URL}`);
-      console.log(`🔌 WebSocket connection endpoint info: ${process.env.WEBSOCKET_URL}`);
+      console.log(`🔌 Host: ${req.get('host')}`);
+      console.log(`🔌 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🔌 CORS Origins: ${process.env.ALLOWED_ORIGINS}`);
+      // Security: Never log sensitive environment variables (JWT_SECRET, DATABASE_URL, etc.)
       res.json({
         websocket: {
           url: `ws${process.env.NODE_ENV === 'production' ? 's' : ''}://${req.get('host')}/ws`,

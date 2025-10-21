@@ -459,7 +459,11 @@ export class SimpleWebSocketHandler {
     try {
       console.log('🚀 Emitting context.save event to Platform...');
       const webhookUrl = process.env.PLATFORM_WEBHOOK_URL || 'http://localhost:3002/api/v1/webhook';
-      const webhookSecret = process.env.WEBHOOK_SECRET || 'dev-secret-key-change-in-production';
+
+      if (!process.env.WEBHOOK_SECRET) {
+        throw new Error('WEBHOOK_SECRET environment variable is required');
+      }
+      const webhookSecret = process.env.WEBHOOK_SECRET;
 
       // Build context save payload
       const inText = data.raw_text_in || data.rawText || '';
