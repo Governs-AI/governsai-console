@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@governs-ai/ui';
 import { Button } from '@/components/ui/button';
 // Icons removed for simplicity
 import Link from 'next/link';
