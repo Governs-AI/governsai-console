@@ -4,7 +4,7 @@
   "types": "index.ts",
   "scripts": {
     "generate": "prisma generate",
-    "build": "rm -rf dist && tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r queries dist/",
+    "build": "tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r queries dist/",
     "dev": "tsc --watch",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
