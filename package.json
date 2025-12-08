@@ -17,12 +17,12 @@
     "postinstall": "pnpm run generate"
   },
   "dependencies": {
-    "@prisma/client": "^5.11.0"
+    "@prisma/client": "5.22.0"
   },
   "devDependencies": {
     "@prisma/nextjs-monorepo-workaround-plugin": "^6.11.1",
     "prettier": "^3.6.0",
-    "prisma": "^5.11.0",
+    "prisma": "5.22.0",
     "turbo": "^2.5.4",
     "typescript": "5.8.2"
   },

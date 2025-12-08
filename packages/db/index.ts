@@ -20,7 +20,7 @@ if (process.env.DATABASE_URL) {
     .then(() => {
       console.log("✅ Database connected successfully");
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
       console.error("❌ Database connection failed:", error);
     });
 } else {

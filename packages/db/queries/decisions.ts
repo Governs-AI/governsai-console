@@ -116,15 +116,15 @@ export async function getDecisionStats(orgId: string, timeRange: { start: Date; 
   
   return {
     total,
-    byDecision: byDecision.reduce((acc, item) => {
+    byDecision: byDecision.reduce((acc: Record<string, number>, item: { decision: string; _count: number }) => {
       acc[item.decision] = item._count;
       return acc;
     }, {} as Record<string, number>),
-    byDirection: byDirection.reduce((acc, item) => {
+    byDirection: byDirection.reduce((acc: Record<string, number>, item: { direction: string; _count: number }) => {
       acc[item.direction] = item._count;
       return acc;
     }, {} as Record<string, number>),
-    byTool: byTool.reduce((acc, item) => {
+    byTool: byTool.reduce((acc: Record<string, number>, item: { tool: string | null; _count: number }) => {
       acc[item.tool || 'unknown'] = item._count;
       return acc;
     }, {} as Record<string, number>),

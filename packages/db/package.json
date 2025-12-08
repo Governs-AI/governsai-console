@@ -3,13 +3,13 @@
   "main": "dist/index.js",
   "types": "index.ts",
   "scripts": {
-    "generate": "prisma generate",
-    "build": "tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r queries dist/",
+    "generate": "prisma generate --schema=./schema.prisma",
+    "build": "prisma generate --schema=./schema.prisma && sleep 1 && tsc --noEmitOnError false --skipLibCheck --outDir dist && cp -r queries dist/",
     "dev": "tsc --watch",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
+    "db:generate": "prisma generate --schema=./schema.prisma",
+    "db:push": "prisma db push --schema=./schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=./schema.prisma",
+    "db:studio": "prisma studio --schema=./schema.prisma",
     "db:seed": "tsx seed.ts"
   },
   "dependencies": {
