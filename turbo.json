@@ -28,6 +28,9 @@
     "@governs-ai/billing#build": {
       "dependsOn": [],
       "outputs": []
+    },
+    "@governs-ai/websocket-service#build": {
+      "outputs": []
     }
   }
 }
