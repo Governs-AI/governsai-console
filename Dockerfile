@@ -70,7 +70,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create non-root user
 RUN groupadd --system --gid 1001 nodejs && \
-    useradd --system --uid 1001 --gid nodejs nextjs
+    useradd --system --uid 1001 --gid nodejs --create-home nextjs
+
+# Ensure nextjs user owns the directory
+RUN chown -R nextjs:nodejs /home/nextjs
 
 # Copy built platform app
 COPY --from=builder --chown=nextjs:nodejs /app/apps/platform/.next/standalone ./
