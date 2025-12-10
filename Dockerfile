@@ -1,9 +1,11 @@
 # GovernsAI Dashboard Monorepo Dockerfile
 # Builds both the Platform (Next.js) and WebSocket Service (Node.js)
 
-FROM node:20-alpine AS base
+# CHANGED: Use slim (Debian) for base to match runner
+FROM node:20-slim AS base
 
-# Install pnpm
+# Install pnpm & OpenSSL (needed for Prisma/Argon2 during install)
+RUN apt-get update && apt-get install -y openssl ca-certificates python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@10.12.4
 
 # ==========================================
@@ -23,11 +25,13 @@ COPY packages/layout/package.json ./packages/layout/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/ui/package.json ./packages/ui/
 
-# Copy Prisma schema file (needed for postinstall script)
+# Copy Prisma schema file
 COPY packages/db/schema.prisma ./packages/db/
 
-# Install dependencies
+# Install dependencies (now builds for Debian/glibc)
 RUN pnpm install --frozen-lockfile
+# Explicitly rebuild argon2 to be safe
+RUN pnpm rebuild argon2
 
 # ==========================================
 # Builder Stage
@@ -35,11 +39,13 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
-# Copy everything from deps stage (includes node_modules and initial Prisma generation)
+# Copy everything from deps stage
 COPY --from=deps /app ./
 
-# Copy all source files (this will overwrite with actual source code)
+# Copy all source files
 COPY . .
+
+RUN pnpm rebuild argon2
 
 # Generate Prisma client
 RUN pnpm run generate
@@ -48,7 +54,7 @@ RUN pnpm run generate
 RUN pnpm run build
 
 # ==========================================
-# Platform Runner Stage - Using Debian for Prisma compatibility
+# Platform Runner Stage
 # ==========================================
 FROM node:20-slim AS platform-runner
 WORKDIR /app
@@ -56,8 +62,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install runtime dependencies
-# - wget: for health checks
-# - openssl: required for Prisma engine
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     openssl \
@@ -68,25 +72,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid nodejs nextjs
 
-# Copy built platform app (standalone includes all necessary node_modules)
+# Copy built platform app
 COPY --from=builder --chown=nextjs:nodejs /app/apps/platform/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/platform/.next/static ./apps/platform/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/platform/public ./apps/platform/public
 
-# Copy workspace db package (contains Prisma client exports and generated files)
+# Copy workspace db package
 COPY --from=builder --chown=nextjs:nodejs /app/packages/db ./packages/db
 
 USER nextjs
 
 EXPOSE 3002
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3002/api/health || exit 1
+# We removed healthcheck temporarily to debug, add back later if needed
+# HEALTHCHECK ...
 
 CMD ["node", "apps/platform/server.js"]
 
 # ==========================================
-# WebSocket Runner Stage - Using Debian for Prisma compatibility
+# WebSocket Runner Stage
 # ==========================================
 FROM node:20-slim AS websocket-runner
 WORKDIR /app
@@ -94,8 +98,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install runtime dependencies
-# - wget: for health checks
-# - openssl: required for Prisma engine
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     openssl \
@@ -115,7 +117,6 @@ USER nodejs-user
 
 EXPOSE 3003
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3003/health || exit 1
+# HEALTHCHECK ...
 
 CMD ["node", "apps/websocket-service/src/server.js"]

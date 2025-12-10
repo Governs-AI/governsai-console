@@ -125,3 +125,10 @@ temp/
 # Local development
 .env.example
 .env.local.example
+
+node_modules
+.next
+dist
+build
+.git
+.env
