@@ -172,7 +172,7 @@ export async function sendVerificationEmail(data: VerificationEmailData): Promis
     `;
 
     const result = await resend.emails.send({
-      from: 'GovernsAI <onboarding@resend.dev>',
+      from: 'GovernsAI <info@governsai.com>',
       to: [to],
       subject: 'Verify your email address',
       html,
@@ -248,7 +248,7 @@ export async function sendPasswordResetEmail(data: PasswordResetEmailData): Prom
     `;
 
     const result = await resend.emails.send({
-      from: 'GovernsAI <onboarding@resend.dev>',
+      from: 'GovernsAI <info@governsai.com>',
       to: [to],
       subject: 'Reset your password',
       html,
