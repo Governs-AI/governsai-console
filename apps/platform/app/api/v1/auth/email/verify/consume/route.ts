@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { consumeVerificationToken, markEmailVerified } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { updateEmailVerificationInKeycloak } from '@/lib/keycloak-admin';
+import {
+  enqueueKeycloakSyncJob,
+  recordKeycloakSyncFailure,
+  recordKeycloakSyncSuccess,
+} from '@/lib/keycloak-sync';
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,9 +45,18 @@ export async function GET(request: NextRequest) {
     await markEmailVerified(user.id);
 
     // Sync email verification to Keycloak (non-blocking)
-    updateEmailVerificationInKeycloak(user.email, true).catch((error) => {
-      console.error('Keycloak email verification sync failed:', error);
-    });
+    updateEmailVerificationInKeycloak(user.email, true)
+      .then(async (result) => {
+        if (result.success) {
+          await recordKeycloakSyncSuccess(user.id);
+        } else {
+          await recordKeycloakSyncFailure({ userId: user.id, error: result.error });
+        }
+      })
+      .catch(async (error) => {
+        console.error('Keycloak email verification sync failed:', error);
+        await recordKeycloakSyncFailure({ userId: user.id, error });
+      });
 
     // Get user's organizations to redirect to their dashboard
     const memberships = await prisma.orgMembership.findMany({
@@ -52,6 +66,20 @@ export async function GET(request: NextRequest) {
     });
 
     const activeOrg = memberships[0]?.org;
+
+    // If we have org context, enqueue a best-effort full sync job to update claims.
+    // (No password available here; this only updates existing Keycloak users.)
+    if (activeOrg) {
+      await enqueueKeycloakSyncJob({
+        userId: user.id,
+        email: user.email,
+        name: user.name || undefined,
+        orgId: activeOrg.id,
+        orgSlug: activeOrg.slug,
+        role: (memberships[0]?.role as any) || 'VIEWER',
+        emailVerified: true,
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -105,9 +133,18 @@ export async function POST(request: NextRequest) {
     await markEmailVerified(user.id);
 
     // Sync email verification to Keycloak (non-blocking)
-    updateEmailVerificationInKeycloak(user.email, true).catch((error) => {
-      console.error('Keycloak email verification sync failed:', error);
-    });
+    updateEmailVerificationInKeycloak(user.email, true)
+      .then(async (result) => {
+        if (result.success) {
+          await recordKeycloakSyncSuccess(user.id);
+        } else {
+          await recordKeycloakSyncFailure({ userId: user.id, error: result.error });
+        }
+      })
+      .catch(async (error) => {
+        console.error('Keycloak email verification sync failed:', error);
+        await recordKeycloakSyncFailure({ userId: user.id, error });
+      });
 
     // Get user's organizations to redirect to their dashboard
     const memberships = await prisma.orgMembership.findMany({
@@ -117,6 +154,18 @@ export async function POST(request: NextRequest) {
     });
 
     const activeOrg = memberships[0]?.org;
+
+    if (activeOrg) {
+      await enqueueKeycloakSyncJob({
+        userId: user.id,
+        email: user.email,
+        name: user.name || undefined,
+        orgId: activeOrg.id,
+        orgSlug: activeOrg.slug,
+        role: (memberships[0]?.role as any) || 'VIEWER',
+        emailVerified: true,
+      });
+    }
 
     return NextResponse.json({
       success: true,

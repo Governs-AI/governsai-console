@@ -573,6 +573,15 @@ All sync operations log to the application console:
 ⚠️  Keycloak user not found for email: user@example.com
 ```
 
+### Durable retries (recommended)
+
+Keycloak can be temporarily unavailable. The dashboard keeps user signup/login working and will surface an **SSO not ready** banner when sync is degraded.
+
+For durable retries, the platform maintains a DB-backed retry queue and can be driven by:
+
+- A cron calling `POST /api/v1/sso/keycloak/worker` with `Authorization: Bearer $KEYCLOAK_SYNC_WORKER_TOKEN`
+- Or a one-off local run: `npx tsx apps/platform/scripts/keycloak-sync-worker.ts`
+
 ## Additional Resources
 
 - [Keycloak Admin REST API Documentation](https://www.keycloak.org/docs-api/latest/rest-api/)

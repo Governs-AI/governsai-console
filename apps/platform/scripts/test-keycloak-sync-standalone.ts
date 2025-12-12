@@ -57,6 +57,39 @@ async function syncUserToKeycloak(params: {
   try {
     const admin = await getKeycloakAdmin();
 
+    if (!params.password) {
+      const existingUsers = await admin.users.find({
+        email: params.email,
+        exact: true,
+      });
+
+      const keycloakUserId = existingUsers[0]?.id;
+      if (!keycloakUserId) {
+        return {
+          success: false,
+          error: new Error('Keycloak user not found; password not provided for creation'),
+        };
+      }
+
+      await admin.users.update(
+        { id: keycloakUserId },
+        {
+          email: params.email,
+          emailVerified: params.emailVerified,
+          enabled: true,
+          attributes: {
+            governs_user_id: [params.userId],
+            org_id: [params.orgId],
+            org_slug: [params.orgSlug],
+            org_role: [params.role],
+          },
+        }
+      );
+
+      console.log(`✅ Updated Keycloak user: ${params.email}`);
+      return { success: true, keycloakUserId };
+    }
+
     try {
       const response = await admin.users.create({
         username: params.email,
@@ -75,7 +108,7 @@ async function syncUserToKeycloak(params: {
 
       const keycloakUserId = response.id;
 
-      if (params.password) {
+      try {
         await admin.users.resetPassword({
           id: keycloakUserId,
           credential: {
@@ -84,6 +117,17 @@ async function syncUserToKeycloak(params: {
             value: params.password,
           },
         });
+      } catch (passwordError) {
+        console.error(
+          `Keycloak user created but failed to set password for ${params.email}:`,
+          passwordError
+        );
+        try {
+          await admin.users.del({ id: keycloakUserId });
+        } catch {
+          // best-effort cleanup in test script
+        }
+        throw passwordError;
       }
 
       console.log(`✅ Created Keycloak user: ${params.email}`);
@@ -119,6 +163,22 @@ async function syncUserToKeycloak(params: {
           },
         }
       );
+
+      try {
+        await admin.users.resetPassword({
+          id: keycloakUserId,
+          credential: {
+            temporary: false,
+            type: 'password',
+            value: params.password,
+          },
+        });
+      } catch (passwordError) {
+        console.error(
+          `Keycloak user exists but failed to set password for ${params.email}:`,
+          passwordError
+        );
+      }
 
       console.log(`✅ Updated Keycloak user (after conflict): ${params.email}`);
       return { success: true, keycloakUserId };

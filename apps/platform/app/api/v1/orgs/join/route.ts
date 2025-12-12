@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { consumeVerificationToken, addUserToOrganization } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { syncUserToKeycloak } from '@/lib/keycloak-admin';
+import {
+  enqueueKeycloakSyncJob,
+  recordKeycloakSyncFailure,
+  recordKeycloakSyncSuccess,
+} from '@/lib/keycloak-sync';
 
 const joinSchema = z.object({
   token: z.string(),
@@ -84,9 +89,36 @@ export async function POST(request: NextRequest) {
         orgId: org.id,
         orgSlug: org.slug,
         role: membership.role,
-      }).catch((error) => {
-        console.error('Keycloak sync failed during org join:', error);
-      });
+      })
+        .then(async (result) => {
+          if (result.success) {
+            await recordKeycloakSyncSuccess(user.id);
+          } else {
+            await recordKeycloakSyncFailure({ userId: user.id, error: result.error });
+            await enqueueKeycloakSyncJob({
+              userId: user.id,
+              email: user.email,
+              name: user.name || undefined,
+              orgId: org.id,
+              orgSlug: org.slug,
+              role: membership.role as any,
+              emailVerified: !!user.emailVerified,
+            });
+          }
+        })
+        .catch(async (error) => {
+          console.error('Keycloak sync failed during org join:', error);
+          await recordKeycloakSyncFailure({ userId: user.id, error });
+          await enqueueKeycloakSyncJob({
+            userId: user.id,
+            email: user.email,
+            name: user.name || undefined,
+            orgId: org.id,
+            orgSlug: org.slug,
+            role: membership.role as any,
+            emailVerified: !!user.emailVerified,
+          });
+        });
     }
 
     return NextResponse.json({

@@ -35,6 +35,7 @@ model Org {
   conversations        Conversation[]
   contextAccessLog     ContextAccessLog[]
   documents            Document[]
+  keycloakSyncJobs     KeycloakSyncJob[]
 }
 
 model User {
@@ -63,6 +64,8 @@ model User {
   conversations        Conversation[]
   contextAccessLog     ContextAccessLog[]
   documents            Document[]
+  keycloakSyncState    KeycloakSyncState?
+  keycloakSyncJobs     KeycloakSyncJob[]
 }
 
 model Credential {
@@ -715,4 +718,70 @@ enum OrgRole {
   ADMIN
   DEVELOPER
   VIEWER
+}
+
+// ---------------------------------------------
+// Keycloak sync state + durable retry queue
+// ---------------------------------------------
+
+enum KeycloakSyncStatus {
+  HEALTHY        // last sync succeeded
+  DEGRADED       // last sync failed (retryable) or pending
+}
+
+enum KeycloakSyncJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model KeycloakSyncState {
+  id            String            @id @default(cuid())
+  userId        String            @unique @map("user_id")
+  status        KeycloakSyncStatus @default(DEGRADED)
+  lastSyncedAt  DateTime?         @map("last_synced_at")
+  lastAttemptAt DateTime?         @map("last_attempt_at")
+  retryCount    Int               @default(0) @map("retry_count")
+  nextRetryAt   DateTime?         @map("next_retry_at")
+  lastError     String?           @db.Text @map("last_error")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([nextRetryAt])
+  @@map("keycloak_sync_state")
+}
+
+model KeycloakSyncJob {
+  id        String              @id @default(cuid())
+  status    KeycloakSyncJobStatus @default(PENDING)
+  userId    String              @map("user_id")
+  email     String
+  name      String?
+  orgId     String              @map("org_id")
+  orgSlug   String              @map("org_slug")
+  role      OrgRole
+  emailVerified Boolean         @default(false) @map("email_verified")
+
+  // Optional encrypted password for short-lived retry of *creation* flows.
+  // NOTE: plaintext is never stored; encryption is application-level.
+  encryptedPassword Bytes?      @map("encrypted_password")
+  passwordExpiresAt DateTime?   @map("password_expires_at")
+
+  attempts     Int              @default(0)
+  nextRunAt    DateTime         @default(now()) @map("next_run_at")
+  lastError    String?          @db.Text @map("last_error")
+  lastAttemptAt DateTime?       @map("last_attempt_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRunAt])
+  @@index([userId, orgId])
+  @@map("keycloak_sync_jobs")
 }

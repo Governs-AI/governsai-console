@@ -78,6 +78,42 @@ export async function syncUserToKeycloak(
   try {
     const admin = await getKeycloakAdmin();
 
+    // If we don't have a plaintext password, we should NOT create a new Keycloak user.
+    // Creating a user without setting credentials can leave them unable to log in.
+    // In those cases, only update an existing Keycloak user (if present).
+    if (!params.password) {
+      const users = await admin.users.find({ email: params.email, exact: true });
+
+      if (users.length === 0 || !users[0].id) {
+        console.warn(
+          `⚠️  Skipping Keycloak user creation without password for ${params.email} (user not found in Keycloak)`
+        );
+        return {
+          success: false,
+          error: new Error('Keycloak user not found; password not provided for creation'),
+        };
+      }
+
+      const keycloakUserId = users[0].id;
+      await admin.users.update(
+        { id: keycloakUserId },
+        {
+          email: params.email,
+          emailVerified: params.emailVerified,
+          enabled: true,
+          attributes: {
+            governs_user_id: [params.userId],
+            org_id: [params.orgId],
+            org_slug: [params.orgSlug],
+            org_role: [params.role],
+          },
+        }
+      );
+
+      console.log(`✅ Updated Keycloak user: ${params.email}`);
+      return { success: true, keycloakUserId };
+    }
+
     // Create-first: in normal flows, users are not pre-registered in Keycloak.
     // If a conflict occurs (e.g. retries / race), we fall back to updating the
     // existing Keycloak user by email.
@@ -99,9 +135,10 @@ export async function syncUserToKeycloak(
 
       const keycloakUserId = response.id;
 
-      // Set user's password in Keycloak (when provided at signup time).
-      // If password is not provided, we intentionally avoid setting a random one.
-      if (params.password) {
+      // Password setting is a separate concern from user creation.
+      // If password setting fails, we roll back the created Keycloak user to avoid
+      // leaving a user that can never sign in (and to allow clean retries).
+      try {
         await admin.users.resetPassword({
           id: keycloakUserId,
           credential: {
@@ -110,10 +147,23 @@ export async function syncUserToKeycloak(
             value: params.password,
           },
         });
-      } else {
-        console.warn(
-          `⚠️  Keycloak user created without password (no password provided): ${params.email}`
+      } catch (passwordError) {
+        console.error(
+          `Keycloak user created but failed to set password for ${params.email}:`,
+          passwordError
         );
+        try {
+          await admin.users.del({ id: keycloakUserId });
+          console.warn(
+            `⚠️  Rolled back Keycloak user after password-set failure: ${params.email}`
+          );
+        } catch (cleanupError) {
+          console.error(
+            `❌ Failed to roll back Keycloak user after password-set failure for ${params.email}:`,
+            cleanupError
+          );
+        }
+        throw passwordError;
       }
 
       console.log(`✅ Created Keycloak user: ${params.email}`);
@@ -147,6 +197,24 @@ export async function syncUserToKeycloak(
           },
         }
       );
+
+      // If we are in a retry scenario during signup, allow the password to be set
+      // even though the user already exists (heals partial failures).
+      try {
+        await admin.users.resetPassword({
+          id: keycloakUserId,
+          credential: {
+            temporary: false,
+            type: 'password',
+            value: params.password,
+          },
+        });
+      } catch (passwordError) {
+        console.error(
+          `Keycloak user exists but failed to set password for ${params.email}:`,
+          passwordError
+        );
+      }
 
       console.log(`✅ Updated Keycloak user (after conflict): ${params.email}`);
       return { success: true, keycloakUserId };
