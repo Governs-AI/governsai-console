@@ -8,6 +8,11 @@ import {
 } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { syncUserToKeycloak } from '@/lib/keycloak-admin';
+import {
+  enqueueKeycloakSyncJob,
+  recordKeycloakSyncFailure,
+  recordKeycloakSyncSuccess,
+} from '@/lib/keycloak-sync';
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -88,13 +93,45 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       name: user.name || undefined,
+      password,
       emailVerified: !!user.emailVerified,
       orgId: org.id,
       orgSlug: org.slug,
       role: 'OWNER',
-    }).catch((error) => {
-      // Log but don't block signup if Keycloak sync fails
-      console.error('Keycloak sync failed during signup:', error);
+    })
+      .then(async (result) => {
+        if (result.success) {
+          await recordKeycloakSyncSuccess(user.id);
+        } else {
+          await recordKeycloakSyncFailure({ userId: user.id, error: result.error });
+          await enqueueKeycloakSyncJob({
+            userId: user.id,
+            email: user.email,
+            name: user.name || undefined,
+            orgId: org.id,
+            orgSlug: org.slug,
+            role: 'OWNER',
+            emailVerified: !!user.emailVerified,
+            password,
+            passwordTtlMs: 15 * 60_000,
+          });
+        }
+      })
+      .catch(async (error) => {
+        // Log but don't block signup if Keycloak sync fails
+        console.error('Keycloak sync failed during signup:', error);
+        await recordKeycloakSyncFailure({ userId: user.id, error });
+        await enqueueKeycloakSyncJob({
+          userId: user.id,
+          email: user.email,
+          name: user.name || undefined,
+          orgId: org.id,
+          orgSlug: org.slug,
+          role: 'OWNER',
+          emailVerified: !!user.emailVerified,
+          password,
+          passwordTtlMs: 15 * 60_000,
+        });
     });
 
     return NextResponse.json({
@@ -118,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }

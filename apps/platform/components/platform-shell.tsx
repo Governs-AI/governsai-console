@@ -22,6 +22,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { useUser } from '@/lib/user-context';
+import { KeycloakSsoBanner } from '@/components/keycloak-sso-banner';
 
 interface PlatformShellProps {
   children: React.ReactNode;
@@ -288,6 +289,7 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
 
         {/* Main content area */}
         <main className="p-6">
+          <KeycloakSsoBanner />
           {children}
         </main>
       </div>

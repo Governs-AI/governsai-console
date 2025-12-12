@@ -8,6 +8,11 @@ import {
 } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { syncUserToKeycloak } from '@/lib/keycloak-admin';
+import {
+    enqueueKeycloakSyncJob,
+    recordKeycloakSyncFailure,
+    recordKeycloakSyncSuccess,
+} from '@/lib/keycloak-sync';
 
 const invitedSignupSchema = z.object({
     email: z.string().email(),
@@ -52,23 +57,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if user is already a member of the organization
-        const existingMembership = await prisma.orgMembership.findUnique({
-            where: {
-                orgId_userId: {
-                    orgId: orgId!,
-                    userId: existingUser?.id || '',
-                },
-            },
-        });
-
-        if (existingMembership) {
-            return NextResponse.json(
-                { error: 'User is already a member of this organization' },
-                { status: 400 }
-            );
-        }
-
         // Create user
         const user = await createUser(email, password, name);
 
@@ -109,13 +97,45 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
                 email: user.email,
                 name: user.name || undefined,
+                password,
                 emailVerified: !!user.emailVerified,
                 orgId: org.id,
                 orgSlug: org.slug,
                 role: role as any,
-            }).catch((error) => {
-                console.error('Keycloak sync failed during invited signup:', error);
-            });
+            })
+                .then(async (result) => {
+                    if (result.success) {
+                        await recordKeycloakSyncSuccess(user.id);
+                    } else {
+                        await recordKeycloakSyncFailure({ userId: user.id, error: result.error });
+                        await enqueueKeycloakSyncJob({
+                            userId: user.id,
+                            email: user.email,
+                            name: user.name || undefined,
+                            orgId: org.id,
+                            orgSlug: org.slug,
+                            role: role as any,
+                            emailVerified: !!user.emailVerified,
+                            password,
+                            passwordTtlMs: 15 * 60_000,
+                        });
+                    }
+                })
+                .catch(async (error) => {
+                    console.error('Keycloak sync failed during invited signup:', error);
+                    await recordKeycloakSyncFailure({ userId: user.id, error });
+                    await enqueueKeycloakSyncJob({
+                        userId: user.id,
+                        email: user.email,
+                        name: user.name || undefined,
+                        orgId: org.id,
+                        orgSlug: org.slug,
+                        role: role as any,
+                        emailVerified: !!user.emailVerified,
+                        password,
+                        passwordTtlMs: 15 * 60_000,
+                    });
+                });
         }
 
         return NextResponse.json({
@@ -133,7 +153,6 @@ export async function POST(request: NextRequest) {
             },
             membership: {
                 role: membership.role,
-                status: membership.status,
             },
             message: 'Account created successfully! Please check your email to verify your account.',
         });
@@ -143,7 +162,7 @@ export async function POST(request: NextRequest) {
 
         if (error instanceof z.ZodError) {
             return NextResponse.json(
-                { error: 'Invalid input', details: error.errors },
+                { error: 'Invalid input', details: error.issues },
                 { status: 400 }
             );
         }

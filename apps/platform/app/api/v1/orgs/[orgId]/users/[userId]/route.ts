@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
 import { updateUserOrgInKeycloak, removeUserFromKeycloak } from '@/lib/keycloak-admin';
+import { enqueueKeycloakSyncJob, recordKeycloakSyncFailure, recordKeycloakSyncSuccess } from '@/lib/keycloak-sync';
 
 export async function PATCH(
   request: NextRequest,
@@ -72,9 +73,36 @@ export async function PATCH(
         org.id,
         org.slug,
         role.toUpperCase()
-      ).catch((error) => {
-        console.error('Keycloak role update sync failed:', error);
-      });
+      )
+        .then(async (result) => {
+          if (result.success) {
+            await recordKeycloakSyncSuccess(userId);
+          } else {
+            await recordKeycloakSyncFailure({ userId, error: result.error });
+            await enqueueKeycloakSyncJob({
+              userId,
+              email: user.email,
+              name: user.name || undefined,
+              orgId: org.id,
+              orgSlug: org.slug,
+              role: role.toUpperCase() as any,
+              emailVerified: !!user.emailVerified,
+            });
+          }
+        })
+        .catch(async (error) => {
+          console.error('Keycloak role update sync failed:', error);
+          await recordKeycloakSyncFailure({ userId, error });
+          await enqueueKeycloakSyncJob({
+            userId,
+            email: user.email,
+            name: user.name || undefined,
+            orgId: org.id,
+            orgSlug: org.slug,
+            role: role.toUpperCase() as any,
+            emailVerified: !!user.emailVerified,
+          });
+        });
     }
 
     return NextResponse.json({

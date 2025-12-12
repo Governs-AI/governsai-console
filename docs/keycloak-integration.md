@@ -527,9 +527,10 @@ curl -X POST https://auth.governsai.com/realms/governs-ai/protocol/openid-connec
    - Rotate credentials regularly
 
 2. **User Passwords**
-   - Users manage passwords in the dashboard, not Keycloak
-   - Keycloak passwords are randomly generated and temporary
-   - Users cannot login directly to Keycloak with password
+   - The dashboard remains the source of truth for authentication.
+   - On first sync (account creation), the dashboard sets the same password in Keycloak so OIDC logins work.
+   - The sync process never resets Keycloak passwords after creation.
+   - Passwords are never stored in plaintext in the dashboard database (only a hash is stored); plaintext is only used transiently at signup time to set Keycloak's credential.
 
 3. **Token Validation**
    - Chatbot apps should validate tokens using Keycloak's public keys
@@ -571,6 +572,15 @@ All sync operations log to the application console:
 ❌ Failed to sync user to Keycloak: [error details]
 ⚠️  Keycloak user not found for email: user@example.com
 ```
+
+### Durable retries (recommended)
+
+Keycloak can be temporarily unavailable. The dashboard keeps user signup/login working and will surface an **SSO not ready** banner when sync is degraded.
+
+For durable retries, the platform maintains a DB-backed retry queue and can be driven by:
+
+- A cron calling `POST /api/v1/sso/keycloak/worker` with `Authorization: Bearer $KEYCLOAK_SYNC_WORKER_TOKEN`
+- Or a one-off local run: `npx tsx apps/platform/scripts/keycloak-sync-worker.ts`
 
 ## Additional Resources
 

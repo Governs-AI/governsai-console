@@ -8,6 +8,13 @@ interface User {
   name: string | null;
   emailVerified: Date | null;
   createdAt: Date;
+  keycloakSync?: {
+    status: 'HEALTHY' | 'DEGRADED';
+    lastSyncedAt?: string | null;
+    lastAttemptAt?: string | null;
+    nextRetryAt?: string | null;
+    lastError?: string | null;
+  };
 }
 
 interface Organization {

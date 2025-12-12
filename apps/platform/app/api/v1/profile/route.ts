@@ -53,6 +53,18 @@ export async function GET(request: NextRequest) {
             where: { userId: user.id },
         });
 
+        // Keycloak SSO sync status (only returned when degraded to avoid noise)
+        const keycloakSyncState = await prisma.keycloakSyncState.findUnique({
+            where: { userId: user.id },
+            select: {
+                status: true,
+                lastSyncedAt: true,
+                lastAttemptAt: true,
+                nextRetryAt: true,
+                lastError: true,
+            },
+        });
+
         return NextResponse.json({
             user: {
                 id: user.id,
@@ -62,6 +74,7 @@ export async function GET(request: NextRequest) {
                 createdAt: user.createdAt,
                 mfaEnabled: mfaTotp?.enabled || false,
                 passkeysCount,
+                keycloakSync: keycloakSyncState?.status === 'DEGRADED' ? keycloakSyncState : { status: 'HEALTHY' },
             },
             organizations: memberships.map(m => ({
                 id: m.org.id,
