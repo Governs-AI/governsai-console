@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
                 email: user.email,
                 name: user.name || undefined,
+                password,
                 emailVerified: !!user.emailVerified,
                 orgId: org.id,
                 orgSlug: org.slug,

@@ -1,7 +1,6 @@
 import 'server-only';
 
 import KcAdminClient from '@keycloak/keycloak-admin-client';
-import { randomBytes } from 'crypto';
 
 let kcAdminClient: KcAdminClient | null = null;
 
@@ -53,6 +52,16 @@ export interface SyncUserToKeycloakParams {
   userId: string;
   email: string;
   name?: string;
+  /**
+   * Optional plaintext password to set in Keycloak.
+   *
+   * We cannot derive this from the dashboard DB (we only store a hash), so this
+   * should only be provided at the time the user enters it (e.g. signup).
+   *
+   * IMPORTANT: This is only used when creating a new Keycloak user. We do NOT
+   * reset passwords for existing Keycloak users during sync.
+   */
+  password?: string;
   emailVerified: boolean;
   orgId: string;
   orgSlug: string;
@@ -69,17 +78,60 @@ export async function syncUserToKeycloak(
   try {
     const admin = await getKeycloakAdmin();
 
-    // Check if user already exists
-    const existingUsers = await admin.users.find({
-      email: params.email,
-      exact: true,
-    });
+    // Create-first: in normal flows, users are not pre-registered in Keycloak.
+    // If a conflict occurs (e.g. retries / race), we fall back to updating the
+    // existing Keycloak user by email.
+    try {
+      const response = await admin.users.create({
+        username: params.email,
+        email: params.email,
+        emailVerified: params.emailVerified,
+        enabled: true,
+        firstName: params.name?.split(' ')[0],
+        lastName: params.name?.split(' ').slice(1).join(' '),
+        attributes: {
+          governs_user_id: [params.userId],
+          org_id: [params.orgId],
+          org_slug: [params.orgSlug],
+          org_role: [params.role],
+        },
+      });
 
-    let keycloakUserId: string;
+      const keycloakUserId = response.id;
 
-    if (existingUsers.length > 0) {
-      // Update existing user
-      keycloakUserId = existingUsers[0].id!;
+      // Set user's password in Keycloak (when provided at signup time).
+      // If password is not provided, we intentionally avoid setting a random one.
+      if (params.password) {
+        await admin.users.resetPassword({
+          id: keycloakUserId,
+          credential: {
+            temporary: false,
+            type: 'password',
+            value: params.password,
+          },
+        });
+      } else {
+        console.warn(
+          `⚠️  Keycloak user created without password (no password provided): ${params.email}`
+        );
+      }
+
+      console.log(`✅ Created Keycloak user: ${params.email}`);
+      return { success: true, keycloakUserId };
+    } catch (error: any) {
+      if (!isKeycloakConflictError(error)) throw error;
+
+      const existingUsers = await admin.users.find({
+        email: params.email,
+        exact: true,
+      });
+
+      if (existingUsers.length === 0 || !existingUsers[0].id) {
+        // Conflict but we can't resolve it to a user record (unexpected).
+        throw error;
+      }
+
+      const keycloakUserId = existingUsers[0].id;
 
       await admin.users.update(
         { id: keycloakUserId },
@@ -96,40 +148,10 @@ export async function syncUserToKeycloak(
         }
       );
 
-      console.log(`✅ Updated Keycloak user: ${params.email}`);
-    } else {
-      // Create new user
-      const response = await admin.users.create({
-        username: params.email,
-        email: params.email,
-        emailVerified: params.emailVerified,
-        enabled: true,
-        firstName: params.name?.split(' ')[0],
-        lastName: params.name?.split(' ').slice(1).join(' '),
-        attributes: {
-          governs_user_id: [params.userId],
-          org_id: [params.orgId],
-          org_slug: [params.orgSlug],
-          org_role: [params.role],
-        },
-      });
-
-      keycloakUserId = response.id;
-
-      // Set a temporary password (users should manage passwords via dashboard)
-      await admin.users.resetPassword({
-        id: keycloakUserId,
-        credential: {
-          temporary: true,
-          type: 'password',
-          value: generateSecureRandomPassword(),
-        },
-      });
-
-      console.log(`✅ Created Keycloak user: ${params.email}`);
+      console.log(`✅ Updated Keycloak user (after conflict): ${params.email}`);
+      return { success: true, keycloakUserId };
     }
 
-    return { success: true, keycloakUserId };
   } catch (error) {
     console.error('❌ Failed to sync user to Keycloak:', error);
     return { success: false, error };
@@ -232,14 +254,6 @@ export async function removeUserFromKeycloak(
   }
 }
 
-/**
- * Generate a secure random password for Keycloak users
- * Users manage passwords through the dashboard, not Keycloak
- */
-function generateSecureRandomPassword(): string {
-  return randomBytes(32).toString('hex');
-}
-
 function normalizeKeycloakBaseUrl(url: string): string {
   // Remove any trailing slashes first
   let cleaned = url.replace(/\/$/, '');
@@ -248,5 +262,16 @@ function normalizeKeycloakBaseUrl(url: string): string {
   // Matches: .../realms/<anything>(/admin...)?
   cleaned = cleaned.replace(/\/(realms\/[^/]+)(?:\/.*)?$/, '');
   return cleaned;
+}
+
+function isKeycloakConflictError(error: any): boolean {
+  // The keycloak-admin-client errors can vary; treat HTTP 409 as "already exists".
+  const status =
+    error?.response?.status ??
+    error?.response?.statusCode ??
+    error?.status ??
+    error?.statusCode;
+
+  return status === 409;
 }
 

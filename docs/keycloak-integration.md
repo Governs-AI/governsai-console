@@ -527,9 +527,10 @@ curl -X POST https://auth.governsai.com/realms/governs-ai/protocol/openid-connec
    - Rotate credentials regularly
 
 2. **User Passwords**
-   - Users manage passwords in the dashboard, not Keycloak
-   - Keycloak passwords are randomly generated and temporary
-   - Users cannot login directly to Keycloak with password
+   - The dashboard remains the source of truth for authentication.
+   - On first sync (account creation), the dashboard sets the same password in Keycloak so OIDC logins work.
+   - The sync process never resets Keycloak passwords after creation.
+   - Passwords are never stored in plaintext in the dashboard database (only a hash is stored); plaintext is only used transiently at signup time to set Keycloak's credential.
 
 3. **Token Validation**
    - Chatbot apps should validate tokens using Keycloak's public keys

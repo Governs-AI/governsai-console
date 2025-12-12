@@ -23,11 +23,25 @@ KEYCLOAK_ISSUER="http://localhost:8080/realms/governs"
 ### Keycloak Admin
 
 ```bash
-KEYCLOAK_ADMIN_URL="http://localhost:8080"
-KEYCLOAK_ADMIN_USERNAME="admin"
-KEYCLOAK_ADMIN_PASSWORD="admin"
-KEYCLOAK_ADMIN_CLIENT_ID="admin-cli"
-KEYCLOAK_REALM="governs"
+#
+# Keycloak Admin (Dashboard → Keycloak user sync)
+#
+# The dashboard uses a Keycloak service account (client credentials) to create/update
+# users and set org context attributes in Keycloak.
+#
+# See docs/keycloak-integration.md for the recommended production setup.
+#
+KEYCLOAK_BASE_URL="http://localhost:8080"
+KEYCLOAK_REALM="governs-ai"
+KEYCLOAK_ADMIN_CLIENT_ID="admin-sync-client"
+KEYCLOAK_ADMIN_CLIENT_SECRET="your-admin-client-secret"
+
+# Legacy / alternative settings (not used by current dashboard sync code):
+# KEYCLOAK_ADMIN_URL="http://localhost:8080"
+# KEYCLOAK_ADMIN_USERNAME="admin"
+# KEYCLOAK_ADMIN_PASSWORD="admin"
+# KEYCLOAK_ADMIN_CLIENT_ID="admin-cli"
+# KEYCLOAK_REALM="governs"
 ```
 
 ### Webhook Configuration
