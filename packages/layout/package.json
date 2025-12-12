@@ -13,7 +13,7 @@
   "dependencies": {
     "@governs-ai/common-utils": "workspace:*",
     "react": "^18.0.0",
-    "next": "^15.4.8",
+    "next": "^15.4.10",
     "next-auth": "^4.24.0",
     "next-themes": "^0.2.1",
     "lucide-react": "^0.294.0",
@@ -31,7 +31,7 @@
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "next": "^15.4.8"
+    "next": "^15.4.10"
   },
   "keywords": [
     "layout",
