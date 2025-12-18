@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     // Fetch stats if requested
     let stats = null;
     if (includeStats) {
-      const [total, byDecision, byDirection, byTool] = await Promise.all([
+      const [total, byDecision, byDirection, byTool, avgLatency] = await Promise.all([
         // Total decisions
         prisma.decision.count({
           where: {
@@ -150,6 +150,21 @@ export async function GET(request: NextRequest) {
           orderBy: { _count: { tool: 'desc' } },
           take: 10,
         }),
+
+        // Average latency (ms)
+        prisma.decision.aggregate({
+          where: {
+            orgId,
+            ts: {
+              gte: startTime,
+              lte: endTime,
+            },
+            latencyMs: { not: null },
+          },
+          _avg: {
+            latencyMs: true,
+          },
+        }),
       ]);
       
       stats = {
@@ -166,6 +181,7 @@ export async function GET(request: NextRequest) {
           acc[item.tool || 'unknown'] = item._count;
           return acc;
         }, {}),
+        avgLatency: Math.round(avgLatency._avg.latencyMs || 0),
       };
     }
     

@@ -21,6 +21,8 @@ import {
 import PlatformShell from '@/components/platform-shell';
 import { useRoleCheck } from '@/components/role-guard';
 
+type Trend = 'up' | 'down' | 'neutral';
+
 interface User {
   id: string;
   email: string;
@@ -41,6 +43,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { userRole, canAccessAdmin, canManageUsers, canViewSpend } = useRoleCheck();
+  const [kpiMeta, setKpiMeta] = useState({
+    totalDecisions: { delta: undefined as string | undefined, trend: 'neutral' as Trend },
+    allowRate: { delta: undefined as string | undefined, trend: 'neutral' as Trend },
+    avgLatency: { delta: undefined as string | undefined, trend: 'neutral' as Trend },
+    toolCalls: { delta: undefined as string | undefined, trend: 'neutral' as Trend },
+  });
   const [dashboardData, setDashboardData] = useState({
     decisions: {
       total: 0,
@@ -61,6 +69,19 @@ export default function DashboardPage() {
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
+
+  const formatPercentChange = (current: number, previous: number) => {
+    if (previous <= 0) return undefined;
+    const percent = ((current - previous) / previous) * 100;
+    return `${percent >= 0 ? '+' : ''}${percent.toFixed(1)}%`;
+  };
+
+  const formatPpChange = (currentPp: number, previousPp: number) => {
+    const delta = currentPp - previousPp;
+    const abs = Math.abs(delta);
+    const dir = delta >= 0 ? 'higher' : 'lower';
+    return { deltaPp: delta, label: `${abs.toFixed(1)} pp ${dir}` };
+  };
 
   useEffect(() => {
     fetchUserData();
@@ -99,37 +120,126 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async (orgId: string) => {
     try {
-      // Fetch decisions data
-      const decisionsResponse = await fetch(`/api/v1/decisions?orgId=${orgId}&includeStats=true&limit=10`, {
-        credentials: 'include',
+      const now = new Date();
+      const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const prevEndTime = startTime;
+      const prevStartTime = new Date(prevEndTime.getTime() - 24 * 60 * 60 * 1000);
+
+      const currentDecisionsParams = new URLSearchParams({
+        orgId,
+        includeStats: 'true',
+        limit: '10',
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
       });
-      
-      // Fetch tool calls data
-      const toolCallsResponse = await fetch(`/api/v1/toolcalls?orgId=${orgId}&includeStats=true&limit=10`, {
-        credentials: 'include',
+      const previousDecisionsParams = new URLSearchParams({
+        orgId,
+        includeStats: 'true',
+        limit: '10',
+        startTime: prevStartTime.toISOString(),
+        endTime: prevEndTime.toISOString(),
       });
 
-      const [decisionsData, toolCallsData] = await Promise.all([
-        decisionsResponse.ok ? decisionsResponse.json() : { decisions: [], stats: null },
-        toolCallsResponse.ok ? toolCallsResponse.json() : { toolcalls: [], stats: null }
+      const currentToolcallsParams = new URLSearchParams({
+        orgId,
+        includeStats: 'true',
+        limit: '10',
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+      });
+      const previousToolcallsParams = new URLSearchParams({
+        orgId,
+        includeStats: 'true',
+        limit: '10',
+        startTime: prevStartTime.toISOString(),
+        endTime: prevEndTime.toISOString(),
+      });
+
+      const [
+        currentDecisionsResponse,
+        previousDecisionsResponse,
+        currentToolcallsResponse,
+        previousToolcallsResponse,
+      ] = await Promise.all([
+        fetch(`/api/v1/decisions?${currentDecisionsParams}`, { credentials: 'include' }),
+        fetch(`/api/v1/decisions?${previousDecisionsParams}`, { credentials: 'include' }),
+        fetch(`/api/v1/toolcalls?${currentToolcallsParams}`, { credentials: 'include' }),
+        fetch(`/api/v1/toolcalls?${previousToolcallsParams}`, { credentials: 'include' }),
       ]);
+
+      const [currentDecisionsData, previousDecisionsData, currentToolcallsData, previousToolcallsData] =
+        await Promise.all([
+          currentDecisionsResponse.ok ? currentDecisionsResponse.json() : { decisions: [], stats: null },
+          previousDecisionsResponse.ok ? previousDecisionsResponse.json() : { decisions: [], stats: null },
+          currentToolcallsResponse.ok ? currentToolcallsResponse.json() : { toolcalls: [], stats: null },
+          previousToolcallsResponse.ok ? previousToolcallsResponse.json() : { toolcalls: [], stats: null },
+        ]);
+
+      const currentDecisionStats = currentDecisionsData.stats || {};
+      const previousDecisionStats = previousDecisionsData.stats || {};
+      const currentToolcallStats = currentToolcallsData.stats || {};
+      const previousToolcallStats = previousToolcallsData.stats || {};
+
+      const currentDecisionsTotal = currentDecisionStats.total || 0;
+      const previousDecisionsTotal = previousDecisionStats.total || 0;
+      const currentAllowed = currentDecisionStats.byDecision?.allow || 0;
+      const previousAllowed = previousDecisionStats.byDecision?.allow || 0;
+
+      const currentAllowRate = currentDecisionsTotal > 0 ? (currentAllowed / currentDecisionsTotal) * 100 : 0;
+      const previousAllowRate = previousDecisionsTotal > 0 ? (previousAllowed / previousDecisionsTotal) * 100 : 0;
+
+      const allowRateDelta = formatPpChange(currentAllowRate, previousAllowRate);
+
+      const currentAvgLatency = currentDecisionStats.avgLatency || 0;
+      const previousAvgLatency = previousDecisionStats.avgLatency || 0;
+      const latencyDeltaMs = currentAvgLatency - previousAvgLatency;
+
+      const currentToolcallsTotal = currentToolcallStats.total || 0;
+      const previousToolcallsTotal = previousToolcallStats.total || 0;
 
       setDashboardData({
         decisions: {
-          total: decisionsData.stats?.total || 0,
-          allowed: decisionsData.stats?.byDecision?.allow || 0,
-          denied: decisionsData.stats?.byDecision?.deny || 0,
-          avgLatency: 0 // This would need to be calculated from the data
+          total: currentDecisionsTotal,
+          allowed: currentAllowed,
+          denied: currentDecisionStats.byDecision?.deny || 0,
+          avgLatency: currentAvgLatency
         },
         toolCalls: {
-          total: toolCallsData.stats?.total || 0,
-          byTool: toolCallsData.stats?.byTool || {}
+          total: currentToolcallsTotal,
+          byTool: currentToolcallStats.byTool || {}
         },
-        recentDecisions: decisionsData.decisions || [],
+        recentDecisions: currentDecisionsData.decisions || [],
         spend: {
           current: 0, // This would need a separate API
           monthly: 0
         }
+      });
+
+      setKpiMeta({
+        totalDecisions: {
+          delta: formatPercentChange(currentDecisionsTotal, previousDecisionsTotal),
+          trend: currentDecisionsTotal >= previousDecisionsTotal ? 'up' : 'down',
+        },
+        allowRate: {
+          delta: previousDecisionsTotal > 0 ? allowRateDelta.label : undefined,
+          trend: previousDecisionsTotal > 0 ? (allowRateDelta.deltaPp >= 0 ? 'up' : 'down') : 'neutral',
+        },
+        avgLatency: {
+          delta:
+            previousAvgLatency > 0
+              ? latencyDeltaMs < 0
+                ? `${Math.abs(latencyDeltaMs)} ms faster`
+                : latencyDeltaMs > 0
+                  ? `${latencyDeltaMs} ms slower`
+                  : '0 ms'
+              : undefined,
+          trend:
+            previousAvgLatency > 0 ? (latencyDeltaMs <= 0 ? 'up' : 'down') : 'neutral',
+        },
+        toolCalls: {
+          delta: formatPercentChange(currentToolcallsTotal, previousToolcallsTotal),
+          trend: currentToolcallsTotal >= previousToolcallsTotal ? 'up' : 'down',
+        },
       });
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
@@ -193,8 +303,8 @@ export default function DashboardPage() {
           <KpiCard 
             label="Total Decisions" 
             value={dashboardData.decisions.total.toLocaleString()} 
-            delta="+3.1%" 
-            trend="up" 
+            delta={kpiMeta.totalDecisions.delta}
+            trend={kpiMeta.totalDecisions.trend}
           />
           <KpiCard 
             label="Allow Rate" 
@@ -202,20 +312,24 @@ export default function DashboardPage() {
               ? `${((dashboardData.decisions.allowed / dashboardData.decisions.total) * 100).toFixed(1)}%` 
               : "0%"
             } 
-            delta="+0.7%" 
-            trend="up" 
+            delta={kpiMeta.allowRate.delta}
+            trend={kpiMeta.allowRate.trend}
           />
           <KpiCard 
             label="Avg Latency" 
-            value={`${dashboardData.decisions.avgLatency} ms`} 
-            delta="-12 ms" 
-            trend="down" 
+            value={
+              dashboardData.decisions.avgLatency > 0
+                ? `${dashboardData.decisions.avgLatency} ms`
+                : '—'
+            }
+            delta={kpiMeta.avgLatency.delta}
+            trend={kpiMeta.avgLatency.trend}
           />
           <KpiCard 
             label="Tool Calls" 
             value={dashboardData.toolCalls.total.toLocaleString()} 
-            delta="+5.2%" 
-            trend="up" 
+            delta={kpiMeta.toolCalls.delta}
+            trend={kpiMeta.toolCalls.trend}
           />
         </div>
 
