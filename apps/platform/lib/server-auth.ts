@@ -4,7 +4,7 @@ import { verifySessionToken, SessionData } from './auth';
 import { prisma } from '@governs-ai/db';
 
 export async function getServerSession(): Promise<SessionData | null> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const sessionToken = cookieStore.get('session')?.value;
 
   if (!sessionToken) {

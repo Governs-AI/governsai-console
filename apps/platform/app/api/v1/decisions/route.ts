@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     const authHeader = request.headers.get('authorization');
     const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await import('next/headers')).cookies().get('session')?.value;
+    const sessionCookie = request.cookies.get('session')?.value;
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice('Bearer '.length).trim();

@@ -47,7 +47,7 @@ export function RoleGuard({
         <p className="text-muted-foreground mb-4">
           You need to be a member of an organization to access this feature.
         </p>
-        <Button onClick={() => router.push('/dashboard')}>
+        <Button onClick={() => router.push('/auth/login')}>
           Go to Dashboard
         </Button>
       </div>
