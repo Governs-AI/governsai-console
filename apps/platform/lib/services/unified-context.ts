@@ -3,6 +3,8 @@ import { prisma } from '@governs-ai/db';
 const dbAny = prisma as any;
 import { contextPrecheck } from '@/lib/services/context-precheck';
 import { UniversalEmbeddingService, createEmbeddingService, embeddingConfigs } from './embedding-service';
+import { queueChunking } from '../workers/chunk-worker';
+import { RAG_CONFIG } from '../config/rag-config';
 
 export interface StoreContextInput {
   userId: string;
@@ -277,6 +279,22 @@ export class UnifiedContextService {
       await this.updateConversationMetadata(conversationId);
     }
 
+    // Step 5: Queue REFRAG chunking (if enabled, non-blocking)
+    if (RAG_CONFIG.REFRAG.ENABLED) {
+      try {
+        await queueChunking({
+          contextMemoryId: context.id,
+          content: contentToStore,
+          userId,
+          orgId,
+        });
+        console.log(`📋 Queued REFRAG chunking for context ${context.id}`);
+      } catch (error) {
+        // Log error but don't fail the request
+        console.error(`Failed to queue chunking for ${context.id}:`, error);
+      }
+    }
+
     return context.id;
   }
 
@@ -321,6 +339,7 @@ export class UnifiedContextService {
         1 - (embedding <=> $1::vector(${dim})) as similarity
       FROM context_memory
       WHERE is_archived = false
+        AND embedding IS NOT NULL
     `;
 
     const params: any[] = [embeddingStr];

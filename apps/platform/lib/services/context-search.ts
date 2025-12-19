@@ -1,6 +1,8 @@
 import { unifiedContext } from './unified-context';
 import { ContextScoringService, type MemoryItem, type ScoredMemoryItem } from './context-scoring';
 import { ContextFormatterService } from './context-formatter';
+import { RefragMemoryService } from './refrag-memory-service';
+import { RAG_CONFIG } from '../config/rag-config';
 
 const DEFAULTS = {
   SIMILARITY_WEIGHT: 0.7,
@@ -22,10 +24,12 @@ const DEFAULTS = {
 export class ContextSearchService {
   private scoring: ContextScoringService;
   private formatter: ContextFormatterService;
+  private refrag: RefragMemoryService;
 
   constructor() {
     this.scoring = new ContextScoringService(DEFAULTS);
     this.formatter = new ContextFormatterService(DEFAULTS);
+    this.refrag = new RefragMemoryService();
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
@@ -189,6 +193,127 @@ export class ContextSearchService {
     // Stage 5: Compression
     const compressed = this.formatter.formatLLM(tiered);
     return compressed;
+  }
+
+  /**
+   * REFRAG-based search with full detailed results
+   *
+   * Uses fine-grained chunking and selective expansion
+   */
+  async searchRefragFull(params: {
+    userId: string;
+    orgId?: string;
+    query: string;
+    agentId?: string;
+    conversationId?: string;
+    scope?: 'user' | 'org' | 'both';
+    limit?: number;
+    threshold?: number;
+    compressionRatio?: number;
+  }) {
+    if (!RAG_CONFIG.REFRAG.ENABLED) {
+      throw new Error('REFRAG is not enabled. Set REFRAG_ENABLED=true in environment.');
+    }
+
+    const limit = params.limit ?? 50;
+    const threshold = params.threshold ?? DEFAULTS.MIN_SIMILARITY;
+    const compressionRatio = params.compressionRatio ?? RAG_CONFIG.REFRAG.COMPRESSION_RATIO;
+
+    // Use REFRAG retrieval
+    const result = await this.refrag.retrieve({
+      userId: params.userId,
+      orgId: params.orgId,
+      query: params.query,
+      conversationId: params.conversationId,
+      agentId: params.agentId,
+      limit,
+      compressionRatio,
+      minSimilarity: threshold,
+    });
+
+    return {
+      success: true,
+      method: 'refrag',
+      expanded: result.expanded.map(chunk => ({
+        id: chunk.contextMemory.id,
+        chunkId: chunk.chunk.id,
+        chunkIndex: chunk.chunk.chunkIndex,
+        content: chunk.chunk.content,
+        tokenCount: chunk.chunk.tokenCount,
+        score: chunk.score,
+        timestamp: chunk.contextMemory.timestamp,
+        agentId: chunk.contextMemory.agentId,
+        conversationId: chunk.contextMemory.conversationId,
+      })),
+      stats: {
+        totalChunks: result.totalChunks,
+        expandedChunks: result.expanded.length,
+        compressedChunks: result.compressed.length,
+        tokenSavings: result.tokenSavings,
+        tokenSavingsPercent: result.tokenSavingsPercent,
+        originalTokens: result.originalTokens,
+        expandedTokens: result.expandedTokens,
+        compressionRatio: compressionRatio,
+      },
+    };
+  }
+
+  /**
+   * REFRAG-based search optimized for LLM consumption
+   *
+   * Returns formatted context string ready for LLM injection
+   */
+  async searchRefragLLM(params: {
+    userId: string;
+    orgId?: string;
+    query: string;
+    agentId?: string;
+    conversationId?: string;
+    scope?: 'user' | 'org' | 'both';
+    limit?: number;
+    threshold?: number;
+    compressionRatio?: number;
+    maxTokens?: number;
+  }) {
+    if (!RAG_CONFIG.REFRAG.ENABLED) {
+      throw new Error('REFRAG is not enabled. Set REFRAG_ENABLED=true in environment.');
+    }
+
+    const limit = params.limit ?? 50;
+    const threshold = params.threshold ?? DEFAULTS.MIN_SIMILARITY;
+    const compressionRatio = params.compressionRatio ?? RAG_CONFIG.REFRAG.COMPRESSION_RATIO;
+    const maxTokens = params.maxTokens ?? RAG_CONFIG.TOKENS.MAX_CONTEXT_TOKENS;
+
+    // Use REFRAG retrieval
+    const result = await this.refrag.retrieve({
+      userId: params.userId,
+      orgId: params.orgId,
+      query: params.query,
+      conversationId: params.conversationId,
+      agentId: params.agentId,
+      limit,
+      compressionRatio,
+      minSimilarity: threshold,
+    });
+
+    // Format expanded chunks for LLM
+    const formattedContext = this.refrag.formatForLLM(result.expanded, maxTokens);
+
+    return {
+      success: true,
+      method: 'refrag',
+      context: formattedContext,
+      metadata: {
+        totalChunks: result.totalChunks,
+        expandedChunks: result.expanded.length,
+        compressedChunks: result.compressed.length,
+        tokenSavings: result.tokenSavings,
+        tokenSavingsPercent: result.tokenSavingsPercent,
+        originalTokens: result.originalTokens,
+        expandedTokens: result.expandedTokens,
+        estimatedTokens: Math.ceil(formattedContext.length / RAG_CONFIG.TOKENS.CHARS_PER_TOKEN),
+      },
+    };
   }
 }
 

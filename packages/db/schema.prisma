@@ -523,8 +523,22 @@ model ContextMemory {
   agentId     String?  @map("agent_id") // Which app/agent created this? 'demo-chat', 'platform', 'docs-chat'
   agentName   String?  @map("agent_name") // Human-readable name
   
-  // Vector embedding - pgvector type (768 dims)
-  embedding   Unsupported("vector(768)")? @map("embedding")
+  // Vector embedding - pgvector type (1536 dims for OpenAI)
+  embedding   Unsupported("vector(1536)")? @map("embedding")
+
+  // REFRAG support
+  chunks          ContextChunk[]
+  chunksComputed  Boolean  @default(false) @map("chunks_computed")
+
+  // Tiered retention
+  retention       String   @default("hot") @map("retention") // 'hot', 'warm', 'cold', 'deleted'
+  archivedAt      DateTime? @map("archived_at")
+  archivedUrl     String?  @map("archived_url") // S3 URL if archived
+
+  // Importance flags (override retention)
+  starred         Boolean  @default(false)
+  upvoted         Boolean  @default(false)
+  importance      Int      @default(0) // 0-10 scale
   
   // Context tracking
   conversationId String? @map("conversation_id")
@@ -562,7 +576,34 @@ model ContextMemory {
   @@index([createdAt(sort: Desc)])
   @@index([contentType])
   @@index([scope, visibility])
+  @@index([retention])
+  @@index([retention, createdAt])
+  @@index([starred])
   @@map("context_memory")
+}
+
+// REFRAG: Context Memory Chunks for fine-grained retrieval
+model ContextChunk {
+  id                String   @id @default(cuid())
+  contextMemoryId   String   @map("context_memory_id")
+  chunkIndex        Int      @map("chunk_index")
+
+  // Chunk content
+  content           String   @db.Text
+  tokenCount        Int      @map("token_count")
+
+  // Vector embedding - pgvector type (1536 dims for OpenAI)
+  embedding         Unsupported("vector(1536)")? @map("embedding")
+
+  // Temporal
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  contextMemory     ContextMemory @relation(fields: [contextMemoryId], references: [id], onDelete: Cascade)
+
+  @@unique([contextMemoryId, chunkIndex])
+  @@index([contextMemoryId])
+  @@map("context_chunks")
 }
 
 model Conversation {
@@ -667,8 +708,8 @@ model DocumentChunk {
   content    String @db.Text
   chunkIndex Int    @map("chunk_index") // Position in document
   
-  // Vector embedding - pgvector type (768 dims)
-  embedding  Unsupported("vector(768)")?  @map("embedding")
+  // Vector embedding - pgvector type (1536 dims for OpenAI)
+  embedding  Unsupported("vector(1536)")?  @map("embedding")
   
   // Metadata
   metadata   Json   @default("{}")
