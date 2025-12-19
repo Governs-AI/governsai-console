@@ -41,6 +41,7 @@ export interface RefragRetrievalParams {
   limit?: number;
   compressionRatio?: number;
   minSimilarity?: number;
+  includeTiers?: string[]; // Default: ['hot', 'warm']
 }
 
 export interface RefragRetrievalResult {
@@ -84,6 +85,7 @@ export class RefragMemoryService {
       limit = 50,
       compressionRatio = this.compressionRatio,
       minSimilarity = RAG_CONFIG.SIMILARITY.MIN_THRESHOLD,
+      includeTiers = ['hot', 'warm'], // Only search recent tiers by default
     } = params;
 
     // 1. Generate query embedding
@@ -98,6 +100,7 @@ export class RefragMemoryService {
       queryEmbedding,
       limit,
       minSimilarity,
+      includeTiers,
     });
 
     if (rawChunks.length === 0) {
@@ -163,6 +166,7 @@ export class RefragMemoryService {
     queryEmbedding: number[];
     limit: number;
     minSimilarity: number;
+    includeTiers?: string[];
   }): Promise<ScoredChunk[]> {
     const {
       userId,
@@ -172,6 +176,7 @@ export class RefragMemoryService {
       queryEmbedding,
       limit,
       minSimilarity,
+      includeTiers = ['hot', 'warm'],
     } = params;
 
     const embeddingStr = `[${queryEmbedding.join(',')}]`;
@@ -203,6 +208,12 @@ export class RefragMemoryService {
     // Add minimum similarity filter
     conditions.push(`cc.embedding IS NOT NULL`);
     conditions.push(`cm.chunks_computed = true`);
+
+    // Filter by retention tier (only search hot/warm by default)
+    const tierPlaceholders = includeTiers.map((_, i) => `$${paramIndex + i}`).join(', ');
+    conditions.push(`cm.retention IN (${tierPlaceholders})`);
+    sqlParams.push(...includeTiers);
+    paramIndex += includeTiers.length;
 
     const whereClause = conditions.join(' AND ');
 

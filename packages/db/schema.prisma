@@ -529,6 +529,16 @@ model ContextMemory {
   // REFRAG support
   chunks          ContextChunk[]
   chunksComputed  Boolean  @default(false) @map("chunks_computed")
+
+  // Tiered retention
+  retention       String   @default("hot") @map("retention") // 'hot', 'warm', 'cold', 'deleted'
+  archivedAt      DateTime? @map("archived_at")
+  archivedUrl     String?  @map("archived_url") // S3 URL if archived
+
+  // Importance flags (override retention)
+  starred         Boolean  @default(false)
+  upvoted         Boolean  @default(false)
+  importance      Int      @default(0) // 0-10 scale
   
   // Context tracking
   conversationId String? @map("conversation_id")
@@ -566,6 +576,9 @@ model ContextMemory {
   @@index([createdAt(sort: Desc)])
   @@index([contentType])
   @@index([scope, visibility])
+  @@index([retention])
+  @@index([retention, createdAt])
+  @@index([starred])
   @@map("context_memory")
 }
 
