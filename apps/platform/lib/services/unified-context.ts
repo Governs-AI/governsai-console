@@ -339,6 +339,7 @@ export class UnifiedContextService {
         1 - (embedding <=> $1::vector(${dim})) as similarity
       FROM context_memory
       WHERE is_archived = false
+        AND embedding IS NOT NULL
     `;
 
     const params: any[] = [embeddingStr];
