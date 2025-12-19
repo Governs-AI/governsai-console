@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
       scope,
       limit,
       threshold,
+      useRefrag = false,
+      compressionRatio,
+      maxTokens,
     } = body;
 
     if (!query) {
@@ -52,17 +55,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await contextSearch.searchLLM({
-      userId,
-      orgId,
-      query,
-      agentId,
-      contentTypes,
-      conversationId,
-      scope: scope || 'user',
-      limit,
-      threshold,
-    });
+    // Choose between REFRAG and standard search
+    let result;
+    if (useRefrag) {
+      result = await contextSearch.searchRefragLLM({
+        userId,
+        orgId,
+        query,
+        agentId,
+        conversationId,
+        scope: scope || 'user',
+        limit,
+        threshold,
+        compressionRatio,
+        maxTokens,
+      });
+    } else {
+      result = await contextSearch.searchLLM({
+        userId,
+        orgId,
+        query,
+        agentId,
+        contentTypes,
+        conversationId,
+        scope: scope || 'user',
+        limit,
+        threshold,
+      });
+    }
 
     return NextResponse.json(result);
   } catch (error) {
