@@ -32,11 +32,12 @@ export interface ChunkJobResult {
  * ChunkWorker - Manages background chunk processing
  */
 export class ChunkWorker {
-  private queue: Queue<ChunkJob>;
-  private worker: Worker<ChunkJob, ChunkJobResult>;
+  private queue: Queue<ChunkJob> | null = null;
+  private worker: Worker<ChunkJob, ChunkJobResult> | null = null;
   private chunkService: ChunkService;
   private embeddingService: UniversalEmbeddingService;
   private isInitialized: boolean = false;
+  private redisAvailable: boolean = false;
 
   constructor() {
     const redisConfig = {
@@ -50,9 +51,10 @@ export class ChunkWorker {
       provider: RAG_CONFIG.EMBEDDING.DEFAULT_PROVIDER,
     });
 
-    // Create queue
-    this.queue = new Queue<ChunkJob>('chunk-processing', {
-      connection: redisConfig,
+    try {
+      // Create queue
+      this.queue = new Queue<ChunkJob>('chunk-processing', {
+        connection: redisConfig,
       defaultJobOptions: {
         attempts: RAG_CONFIG.PROCESSING.MAX_RETRIES,
         backoff: {
@@ -67,26 +69,35 @@ export class ChunkWorker {
           age: 7 * 24 * 3600, // Keep failed jobs for 7 days
         },
       },
-    });
+      });
 
-    // Create worker
-    this.worker = new Worker<ChunkJob, ChunkJobResult>(
-      'chunk-processing',
-      (job) => this.processChunks(job),
-      {
-        connection: redisConfig,
-        concurrency: RAG_CONFIG.PROCESSING.CHUNK_WORKER_CONCURRENCY,
-      }
-    );
+      // Create worker
+      this.worker = new Worker<ChunkJob, ChunkJobResult>(
+        'chunk-processing',
+        (job) => this.processChunks(job),
+        {
+          connection: redisConfig,
+          concurrency: RAG_CONFIG.PROCESSING.CHUNK_WORKER_CONCURRENCY,
+        }
+      );
 
-    this.setupEventHandlers();
-    this.isInitialized = true;
+      this.setupEventHandlers();
+      this.redisAvailable = true;
+      this.isInitialized = true;
+    } catch (error) {
+      console.warn('⚠️  Redis not available - REFRAG chunking will be disabled');
+      console.warn('   To enable: Install Redis and set REDIS_HOST/REDIS_PORT');
+      this.redisAvailable = false;
+      this.isInitialized = false;
+    }
   }
 
   /**
    * Setup event handlers for worker
    */
   private setupEventHandlers(): void {
+    if (!this.worker || !this.queue) return;
+
     this.worker.on('completed', (job, result) => {
       console.log(
         `✅ Chunk job ${job.id} completed: ${result.chunksCreated} chunks for ${result.contextMemoryId}`
@@ -100,12 +111,17 @@ export class ChunkWorker {
       );
     });
 
+    // Only log errors if DEBUG_REDIS is enabled (avoid spam when Redis is down)
     this.worker.on('error', (error) => {
-      console.error('❌ Worker error:', error);
+      if (process.env.DEBUG_REDIS === 'true') {
+        console.error('❌ Worker error:', error);
+      }
     });
 
     this.queue.on('error', (error) => {
-      console.error('❌ Queue error:', error);
+      if (process.env.DEBUG_REDIS === 'true') {
+        console.error('❌ Queue error:', error);
+      }
     });
   }
 
@@ -116,6 +132,11 @@ export class ChunkWorker {
    * @returns Job ID
    */
   async queueChunking(data: ChunkJob): Promise<string> {
+    if (!this.redisAvailable || !this.queue) {
+      console.log('⏭️  Skipping chunking (Redis not available)');
+      return 'skipped';
+    }
+
     if (!this.isInitialized) {
       throw new Error('ChunkWorker not initialized');
     }
@@ -175,33 +196,44 @@ export class ChunkWorker {
       const chunkTexts = chunkingResult.chunks.map(c => c.content);
       const embeddings = await this.generateEmbeddingsBatch(chunkTexts);
 
-      // 3. Store chunks with embeddings in a transaction
-      await prisma.$transaction(async (tx) => {
-        // Delete existing chunks for this context memory (idempotency)
-        await tx.contextChunk.deleteMany({
-          where: { contextMemoryId },
-        });
+      // 3. Store chunks with embeddings
+      // Delete existing chunks for this context memory (idempotency)
+      await prisma.contextChunk.deleteMany({
+        where: { contextMemoryId },
+      });
 
-        // Create new chunks
-        const chunkData = chunkingResult.chunks.map((chunk, idx) => ({
-          id: `${contextMemoryId}-chunk-${chunk.index}`,
-          contextMemoryId,
-          chunkIndex: chunk.index,
-          content: chunk.content,
-          tokenCount: chunk.tokenCount,
-          embedding: embeddings[idx],
-        }));
+      // Create chunks without embeddings first (Prisma doesn't support Unsupported type in create)
+      const chunks = await Promise.all(
+        chunkingResult.chunks.map((chunk) =>
+          prisma.contextChunk.create({
+            data: {
+              id: `${contextMemoryId}-chunk-${chunk.index}`,
+              contextMemoryId,
+              chunkIndex: chunk.index,
+              content: chunk.content,
+              tokenCount: chunk.tokenCount,
+            },
+          })
+        )
+      );
 
-        // Batch insert chunks
-        for (const data of chunkData) {
-          await tx.contextChunk.create({ data });
-        }
+      // 4. Set embeddings using raw SQL (pgvector Unsupported type)
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const embedding = embeddings[i];
+        const embeddingStr = `[${embedding.join(',')}]`;
 
-        // 4. Mark context memory as computed
-        await tx.contextMemory.update({
-          where: { id: contextMemoryId },
-          data: { chunksComputed: true },
-        });
+        await prisma.$executeRawUnsafe(
+          `UPDATE context_chunks SET embedding = $1::vector(1536) WHERE id = $2`,
+          embeddingStr,
+          chunk.id
+        );
+      }
+
+      // 5. Mark context memory as computed
+      await prisma.contextMemory.update({
+        where: { id: contextMemoryId },
+        data: { chunksComputed: true },
       });
 
       console.log(
@@ -307,8 +339,8 @@ export class ChunkWorker {
    * Close worker and queue
    */
   async close(): Promise<void> {
-    await this.worker.close();
-    await this.queue.close();
+    if (this.worker) await this.worker.close();
+    if (this.queue) await this.queue.close();
     this.isInitialized = false;
     console.log('🔴 ChunkWorker closed');
   }
