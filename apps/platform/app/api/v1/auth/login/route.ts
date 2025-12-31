@@ -6,6 +6,7 @@ import {
   getUserOrganizations 
 } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
+import speakeasy from 'speakeasy';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const isValidTotp = require('speakeasy').totp.verify({
+      const isValidTotp = speakeasy.totp.verify({
         secret: mfaTotp.secretBase32,
         encoding: 'base32',
         token: totpCode,
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     // Use the first organization as default (could be improved with user preference)
     const activeOrg = memberships[0];
-    const roles = memberships.map(m => m.role);
+    const roles = [activeOrg.role];
 
     // Create session token
     const sessionToken = createSessionToken(

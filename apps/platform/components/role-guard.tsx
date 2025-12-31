@@ -89,7 +89,7 @@ export function RoleGuard({
             <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
             <p className="text-muted-foreground mb-4">
-              You don't have permission to access this feature.
+              You don&apos;t have permission to access this feature.
             </p>
             <Button onClick={() => router.back()}>
               Go Back

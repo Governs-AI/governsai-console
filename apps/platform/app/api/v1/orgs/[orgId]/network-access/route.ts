@@ -12,13 +12,6 @@ const createRuleSchema = z.object({
   expiresAt: z.string().datetime().optional(),
 });
 
-const updateRuleSchema = z.object({
-  isActive: z.boolean().optional(),
-  label: z.string().optional(),
-  notes: z.string().optional(),
-  expiresAt: z.string().datetime().optional().nullable(),
-});
-
 // Get network access rules for organization
 export async function GET(
   request: NextRequest,

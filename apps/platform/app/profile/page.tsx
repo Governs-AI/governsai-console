@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { 
   Card, 
   CardContent, 
@@ -14,7 +13,6 @@ import {
 } from '@governs-ai/ui';
 import {
   User,
-  Mail,
   Calendar,
   Shield,
   Save,
@@ -51,8 +49,7 @@ interface OrganizationMembership {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const { user: contextUser, refetch } = useUser();
+  const { refetch } = useUser();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [memberships, setMemberships] = useState<OrganizationMembership[]>([]);
   const [loading, setLoading] = useState(true);

@@ -20,36 +20,19 @@ import {
   Badge
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
+import { useUser } from '@/lib/user-context';
+import { useOrgReady } from '@/lib/use-org-ready';
 import { 
-  Settings, 
   Shield, 
-  Activity, 
   Users, 
   Plus,
   Edit,
-  Trash2,
   Eye
 } from 'lucide-react';
 
 type Trend = 'up' | 'down' | 'neutral';
 
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  emailVerified: string | null;
-}
-
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  role: string;
-}
-
 export default function AdminPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [kpis, setKpis] = useState({
@@ -65,10 +48,13 @@ export default function AdminPage() {
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
+  const { user, organizations } = useUser();
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (!isReady || !org) return;
+    fetchAdminKpis(org.id);
+  }, [isReady, org?.id]);
 
   const formatPercentChange = (current: number, previous: number) => {
     if (previous <= 0) return undefined;
@@ -83,35 +69,9 @@ export default function AdminPage() {
     return { deltaPp: delta, label: `${abs.toFixed(1)} pp ${dir}` };
   };
 
-  const fetchUserData = async () => {
-    try {
-      const response = await fetch('/api/v1/profile', {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        setError('Failed to load user data');
-        router.push('/auth/login');
-        return;
-      }
-
-      const data = await response.json();
-      setUser(data.user);
-      setOrganizations(data.organizations || []);
-      const currentOrg = (data.organizations || []).find((org: any) => org.slug === orgSlug);
-      if (currentOrg) {
-        await fetchAdminKpis(currentOrg.id);
-      }
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to fetch user data:', err);
-      setError('Failed to load user data');
-      setLoading(false);
-    }
-  };
-
   const fetchAdminKpis = async (orgId: string) => {
+    setLoading(true);
+    setError('');
     try {
       const now = new Date();
       const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -184,8 +144,21 @@ export default function AdminPage() {
       });
     } catch (err) {
       console.error('Failed to fetch admin KPIs:', err);
+      setError('Failed to load admin data');
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   if (loading) {
     return (

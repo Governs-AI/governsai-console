@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
+import type { Prisma } from '@prisma/client';
 
 // PUT: Update budget limit
 export async function PUT(
@@ -12,16 +13,23 @@ export async function PUT(
     const body = await req.json();
     const { monthlyLimit, alertAt, isActive } = body;
 
-    // Get user from session for authorization
-    const { userId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
-    const updateData: any = {};
+    const existingLimit = await prisma.budgetLimit.findFirst({
+      where: { id, orgId },
+    });
+
+    if (!existingLimit) {
+      return NextResponse.json({ error: 'Budget limit not found' }, { status: 404 });
+    }
+
+    const updateData: Prisma.BudgetLimitUpdateInput = {};
     if (monthlyLimit !== undefined) updateData.monthlyLimit = parseFloat(monthlyLimit);
     if (alertAt !== undefined) updateData.alertAt = alertAt ? parseFloat(alertAt) : null;
     if (isActive !== undefined) updateData.isActive = Boolean(isActive);
 
     const limit = await prisma.budgetLimit.update({
-      where: { id },
+      where: { id: existingLimit.id },
       data: updateData,
       include: {
         user: {
@@ -56,12 +64,19 @@ export async function DELETE(
   try {
     const { id } = params;
 
-    // Get user from session for authorization
-    const { userId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
+
+    const existingLimit = await prisma.budgetLimit.findFirst({
+      where: { id, orgId },
+    });
+
+    if (!existingLimit) {
+      return NextResponse.json({ error: 'Budget limit not found' }, { status: 404 });
+    }
 
     // Soft delete by setting isActive to false
     const limit = await prisma.budgetLimit.update({
-      where: { id },
+      where: { id: existingLimit.id },
       data: { isActive: false },
     });
 

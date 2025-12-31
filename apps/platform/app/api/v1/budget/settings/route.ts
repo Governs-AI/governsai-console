@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
+import type { Prisma } from '@prisma/client';
 
 // GET: Get budget settings for organization
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId');
-    
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId required' }, { status: 400 });
-    }
-
     // Get user from session for authorization
-    const { userId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
     const org = await prisma.org.findUnique({
       where: { id: orgId },
@@ -52,17 +46,10 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { orgId, budgetEnabled, budgetOnError } = body;
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: 'orgId required' },
-        { status: 400 }
-      );
-    }
+    const { budgetEnabled, budgetOnError } = body;
 
     // Get user from session for authorization
-    const { userId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
     // Validate budgetOnError value
     if (budgetOnError && !['block', 'pass'].includes(budgetOnError)) {
@@ -72,7 +59,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.OrgUpdateInput = {};
     if (budgetEnabled !== undefined) updateData.budgetEnabled = Boolean(budgetEnabled);
     if (budgetOnError !== undefined) updateData.budgetOnError = budgetOnError;
 

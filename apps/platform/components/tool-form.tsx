@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button, Card, CardContent } from '@governs-ai/ui';
-import { Save, X } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 interface ToolFormData {
   id?: string;
@@ -15,7 +15,7 @@ interface ToolFormData {
   direction: string;
   requiresApproval: boolean;
   isActive: boolean;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 interface ToolFormProps {
@@ -245,4 +245,3 @@ export function ToolForm({ tool, onSave, onCancel }: ToolFormProps) {
     </form>
   );
 }
-

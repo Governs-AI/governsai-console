@@ -285,7 +285,7 @@ export class RefragMemoryService {
     let context = '';
     let usedTokens = 0;
 
-    for (const [contextId, groupedChunks] of grouped.entries()) {
+    for (const [, groupedChunks] of grouped.entries()) {
       // Sort chunks by index to maintain order
       const sortedChunks = groupedChunks.sort((a, b) => a.chunk.chunkIndex - b.chunk.chunkIndex);
 
@@ -353,12 +353,13 @@ export class RefragMemoryService {
   /**
    * Get retrieval statistics for a user
    */
-  async getStats(userId: string, days: number = 7): Promise<{
+  async getStats(userId: string): Promise<{
     totalChunks: number;
     avgTokenSavings: number;
     avgExpandedChunks: number;
     avgCompressedChunks: number;
   }> {
+    void userId;
     // This would query from RefragAnalytics table (to be implemented)
     // For now, return placeholder
     return {

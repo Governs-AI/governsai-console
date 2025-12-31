@@ -133,7 +133,7 @@ export default function ConfirmationPage() {
         throw new Error(errorData.error || 'Failed to verify authentication');
       }
 
-      const result = await verifyResponse.json();
+      await verifyResponse.json();
       setSuccess('Confirmation approved successfully! You can close this window.');
 
       // Refresh confirmation details

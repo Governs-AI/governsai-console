@@ -31,7 +31,7 @@ export function HealthPill() {
       
       // Fetch ingest API health
       const ingestResponse = await fetch('/api/v1/ingest/decision');
-      const ingestData = await ingestResponse.json();
+      await ingestResponse.json();
       
       const now = new Date();
       const lastIngest = decisionsData.lastIngestTime ? new Date(decisionsData.lastIngestTime) : null;

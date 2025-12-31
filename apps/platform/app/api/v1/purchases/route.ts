@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
+import type { Prisma } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
       userId,
-      orgId,
       tool,
       amount,
       currency = 'USD',
@@ -19,8 +19,11 @@ export async function POST(req: NextRequest) {
       apiKeyId,
     } = body;
 
+    const { userId: sessionUserId, orgId } = await requireAuth(req);
+    const finalUserId = userId || sessionUserId;
+
     console.log('💰 Purchase API received:', {
-      userId,
+      userId: finalUserId,
       orgId,
       tool,
       amount,
@@ -30,9 +33,9 @@ export async function POST(req: NextRequest) {
     });
 
     // Validate required fields
-    if (!userId || !orgId || !tool || amount === undefined || amount <= 0) {
+    if (!finalUserId || !orgId || !tool || amount === undefined || amount <= 0) {
       console.error('❌ Missing required fields:', {
-        hasUserId: !!userId,
+        hasUserId: !!finalUserId,
         hasOrgId: !!orgId,
         hasTool: !!tool,
         amount
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Record the purchase
     const purchase = await prisma.purchaseRecord.create({
       data: {
-        userId,
+        userId: finalUserId,
         orgId,
         tool,
         amount: Number(amount),
@@ -74,6 +77,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('❌ Purchase recording error:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to record purchase' },
       { status: 500 }
@@ -84,20 +93,15 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId');
     const userId = searchParams.get('userId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100');
 
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId required' }, { status: 400 });
-    }
-
     // Get user from session for auth
-    const { userId: sessionUserId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
-    const where: any = {
+    const where: Prisma.PurchaseRecordWhereInput = {
       orgId,
     };
 
@@ -129,6 +133,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ purchases });
   } catch (error) {
     console.error('Error fetching purchases:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to fetch purchases' },
       { status: 500 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { 
   Button, 
@@ -72,8 +73,8 @@ export default function MfaSettingsPage() {
           setTotpStatus({ enabled: false });
         }
       }
-    } catch (err) {
-      console.error('Failed to check TOTP status:', err);
+    } catch (error) {
+      console.error('Failed to check TOTP status:', error);
       setTotpStatus({ enabled: false });
     } finally {
       setInitialLoading(false);
@@ -108,7 +109,7 @@ export default function MfaSettingsPage() {
         const qrDataUrl = await QRCode.toDataURL(data.qrCodeUrl);
         setQrCodeDataUrl(qrDataUrl);
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -147,7 +148,7 @@ export default function MfaSettingsPage() {
       setQrCodeDataUrl('');
       // Refresh status to ensure UI is in sync
       await checkTotpStatus();
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -185,7 +186,7 @@ export default function MfaSettingsPage() {
       setVerificationCode('');
       // Refresh status to ensure UI is in sync
       await checkTotpStatus();
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -305,7 +306,14 @@ export default function MfaSettingsPage() {
                 {qrCodeDataUrl && (
                   <div className="flex justify-center">
                     <div className="p-4 bg-white rounded-lg border-2 border-dashed border-border">
-                      <img src={qrCodeDataUrl} alt="QR Code" className="w-48 h-48" />
+                      <Image
+                        src={qrCodeDataUrl}
+                        alt="QR Code"
+                        width={192}
+                        height={192}
+                        className="w-48 h-48"
+                        unoptimized
+                      />
                     </div>
                   </div>
                 )}

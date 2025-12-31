@@ -6,16 +6,11 @@ import { requireAuth } from '@/lib/session';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId');
     const userId = searchParams.get('userId');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
 
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId required' }, { status: 400 });
-    }
-
     // Get user from session for authorization
-    const { userId: sessionUserId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
     const alerts = await getBudgetAlerts(orgId, userId || undefined, unreadOnly);
 
@@ -51,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user from session for authorization
-    const { userId } = await requireAuth(req);
+    await requireAuth(req);
 
     await markBudgetAlertAsRead(alertId);
 

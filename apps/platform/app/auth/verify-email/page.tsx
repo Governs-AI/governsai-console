@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui';
 import Link from 'next/link';
@@ -14,23 +14,14 @@ export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  useEffect(() => {
-    if (token) {
-      verifyToken(token);
-    } else {
-      setStatus('resend');
-      setMessage('Please check your email for the verification link.');
-    }
-  }, [token]);
-
-  const verifyToken = async (token: string) => {
+  const verifyToken = useCallback(async (tokenValue: string) => {
     try {
       const response = await fetch('/api/v1/auth/email/verify/consume', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: tokenValue }),
       });
 
       const data = await response.json();
@@ -49,11 +40,20 @@ export default function VerifyEmailPage() {
         setStatus('error');
         setMessage(data.error || 'Verification failed');
       }
-    } catch (err) {
+    } catch {
       setStatus('error');
       setMessage('An error occurred during verification');
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (token) {
+      verifyToken(token);
+    } else {
+      setStatus('resend');
+      setMessage('Please check your email for the verification link.');
+    }
+  }, [token, verifyToken]);
 
   const handleResendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +75,7 @@ export default function VerifyEmailPage() {
       } else {
         setMessage(data.error || 'Failed to send verification email');
       }
-    } catch (err) {
+    } catch {
       setMessage('An error occurred. Please try again.');
     } finally {
       setLoading(false);

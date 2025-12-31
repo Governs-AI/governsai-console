@@ -7,6 +7,7 @@ import { Badge } from '@governs-ai/ui';
 import { Button } from '@/components/ui/button';
 // Icons removed for simplicity
 import Link from 'next/link';
+import PlatformShell from '@/components/platform-shell';
 
 interface OrgStats {
   policies: number;
@@ -104,24 +105,27 @@ export default function OrganizationOverview() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading organization data...</p>
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Loading organization data...</p>
+          </div>
         </div>
-      </div>
+      </PlatformShell>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 capitalize">{orgSlug} Dashboard</h1>
-        <p className="mt-2 text-gray-600">
-          AI governance and policy management overview
-        </p>
-      </div>
+    <PlatformShell orgSlug={orgSlug}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 capitalize">{orgSlug} Dashboard</h1>
+          <p className="mt-2 text-gray-600">
+            AI governance and policy management overview
+          </p>
+        </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -327,6 +331,7 @@ export default function OrganizationOverview() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PlatformShell>
   );
 }

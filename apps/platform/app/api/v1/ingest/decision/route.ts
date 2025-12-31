@@ -116,7 +116,7 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       version: '1.0.0'
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { 
         status: 'unhealthy',

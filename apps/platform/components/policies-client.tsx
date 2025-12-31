@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { PolicyForm } from './policy-form';
 import { useRoleCheck } from './role-guard';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface Policy {
   id: string;
@@ -66,7 +67,8 @@ interface PoliciesClientProps {
 }
 
 export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
-  const { canManagePolicies, userRole } = useRoleCheck();
+  const { canManagePolicies } = useRoleCheck();
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [tools, setTools] = useState<ToolConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,39 +80,15 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   const [success, setSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(new Set());
-  const [orgId, setOrgId] = useState<string | null>(null);
-
-  // Fetch org ID from slug
-  const fetchOrgId = async () => {
-    try {
-      const response = await fetch(`/api/v1/orgs?slug=${orgSlug}`);
-      const data = await response.json();
-      if (data.org) {
-        setOrgId(data.org.id);
-        return data.org.id;
-      }
-      throw new Error('Organization not found');
-    } catch (error) {
-      console.error('Error fetching org ID:', error);
-      setError('Failed to load organization');
-      return null;
-    }
-  };
+  
 
   // Fetch policies and tools
   useEffect(() => {
-    const initializeData = async () => {
-      const orgId = await fetchOrgId();
-      if (orgId) {
-        await fetchData(orgId);
-      }
-    };
-    
-    initializeData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(initializeData, 30000);
+    if (!isReady || !org) return;
+    fetchData(org.id);
+    const interval = setInterval(() => fetchData(org.id), 30000);
     return () => clearInterval(interval);
-  }, [orgSlug]);
+  }, [orgSlug, isReady, org?.id]);
 
   // Filter policies based on search term
   const filteredPolicies = policies.filter(policy =>
@@ -127,7 +105,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
 
   const fetchPolicies = async (orgIdParam?: string) => {
     try {
-      const actualOrgId = orgIdParam || orgId;
+      const actualOrgId = orgIdParam || org?.id;
       if (!actualOrgId) {
         console.error('No orgId available for fetching policies');
         return;
@@ -156,9 +134,15 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
 
   const handleSavePolicy = async (policyData: any) => {
     try {
+      if (!org?.id) {
+        setError('Organization not found');
+        setTimeout(() => setError(null), 5000);
+        return;
+      }
+
       const payload = {
         ...policyData,
-        orgId: orgId,
+        orgId: org.id,
       };
 
       let response;
@@ -279,6 +263,14 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        Organization not found.
+      </div>
+    );
+  }
 
   if (loading) {
     return (

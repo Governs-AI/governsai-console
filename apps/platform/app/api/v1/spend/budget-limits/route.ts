@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { requireAuth, requireRole } from '@/lib/session';
+import { requireAuth } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {

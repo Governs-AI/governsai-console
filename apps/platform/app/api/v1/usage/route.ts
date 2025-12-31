@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       userId,
-      orgId,
       model,
       inputTokens,
       outputTokens,
@@ -58,19 +57,18 @@ export async function POST(req: NextRequest) {
       apiKeyId,
     } = body;
 
+    const finalUserId = userId || authUserId;
+    const finalOrgId = authOrgId;
+
     console.log('📊 Usage API received:', {
-      userId,
-      orgId,
+      userId: finalUserId,
+      orgId: finalOrgId,
       model,
       inputTokens,
       outputTokens,
       tool,
       correlationId
     });
-
-    // Use auth context or body params
-    const finalUserId = userId || authUserId;
-    const finalOrgId = orgId || authOrgId;
 
     // Validate required fields
     if (!finalUserId || !finalOrgId || !model || inputTokens === undefined || outputTokens === undefined) {
@@ -171,11 +169,11 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId') || authOrgId;
     const userId = searchParams.get('userId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const limit = parseInt(searchParams.get('limit') || '100');
+    const orgId = authOrgId;
 
     const { getUsageRecords } = await import('@governs-ai/db');
     
@@ -196,4 +194,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

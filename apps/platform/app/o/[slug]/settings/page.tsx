@@ -21,7 +21,7 @@ import {
   Clock
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
-import { RoleGuard, useRoleCheck } from '@/components/role-guard';
+import { useRoleCheck } from '@/components/role-guard';
 
 interface SettingsSection {
   id: string;

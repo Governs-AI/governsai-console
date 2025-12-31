@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
 import { RoleGuard, useRoleCheck } from '@/components/role-guard';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface SpendData {
   totalSpend: number;
@@ -148,16 +149,19 @@ export default function SpendPage() {
 
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   useEffect(() => {
+    if (!isReady) return;
     fetchSpendData();
-  }, [selectedTimeRange]);
+  }, [selectedTimeRange, isReady, org?.id]);
 
   useEffect(() => {
+    if (!isReady) return;
     if (selectedView === 'calls') {
       fetchCallRecords();
     }
-  }, [selectedView, selectedTimeRange]);
+  }, [selectedView, selectedTimeRange, isReady, org?.id]);
 
   const fetchSpendData = async () => {
     try {
@@ -516,6 +520,16 @@ export default function SpendPage() {
     setError('');
     setSuccess('');
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   if (loading) {
     return (

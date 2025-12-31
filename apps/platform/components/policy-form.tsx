@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button, Card, CardContent, Badge } from '@governs-ai/ui';
-import { X, Plus, Trash2, Save, Copy } from 'lucide-react';
+import { X, Plus, Trash2, Save } from 'lucide-react';
 
 interface PolicyFormData {
   id?: string;
@@ -36,7 +36,6 @@ interface ToolConfig {
 
 interface PolicyFormProps {
   policy?: PolicyFormData;
-  orgSlug: string;
   availableTools: ToolConfig[];
   onSave: (data: PolicyFormData) => Promise<void>;
   onCancel: () => void;
@@ -44,9 +43,8 @@ interface PolicyFormProps {
 
 const ACTION_OPTIONS = ['allow', 'block', 'redact', 'confirm'];
 const DIRECTION_OPTIONS = ['ingress', 'egress', 'both'];
-const PII_ACTIONS = ['pass_through', 'redact', 'tokenize', 'block'];
 
-export function PolicyForm({ policy, orgSlug, availableTools, onSave, onCancel }: PolicyFormProps) {
+export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyFormProps) {
   const [formData, setFormData] = useState<PolicyFormData>(
     policy || {
       name: '',
@@ -528,4 +526,3 @@ export function PolicyForm({ policy, orgSlug, availableTools, onSave, onCancel }
     </form>
   );
 }
-

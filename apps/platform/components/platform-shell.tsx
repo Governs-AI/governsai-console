@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn, Button } from '@governs-ai/ui';
 import { 
@@ -16,10 +16,11 @@ import {
   User,
   Users,
   ChevronDown,
+  CheckCircle,
   MoreVertical,
   LogOut,
-  UserCircle,
-  CreditCard
+  RefreshCw,
+  UserCircle
 } from 'lucide-react';
 import { useUser } from '@/lib/user-context';
 import { KeycloakSsoBanner } from '@/components/keycloak-sso-banner';
@@ -78,8 +79,12 @@ const getNavigation = (orgSlug: string, userRole?: string): NavigationItem[] => 
 export default function PlatformShell({ children, orgSlug = 'acme-inc' }: PlatformShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const [orgMenuOpen, setOrgMenuOpen] = React.useState(false);
+  const [orgSyncState, setOrgSyncState] = React.useState<'idle' | 'syncing' | 'error'>('idle');
+  const [orgSyncError, setOrgSyncError] = React.useState<string | null>(null);
+  const pathname = usePathname();
   const router = useRouter();
-  const { user, loading: userLoading, activeOrg } = useUser();
+  const { user, loading: userLoading, activeOrg, organizations, switchActiveOrg } = useUser();
   
   // Debug logging
   React.useEffect(() => {
@@ -87,10 +92,49 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
     console.log('PlatformShell - User loading:', userLoading);
     console.log('PlatformShell - Active org:', activeOrg);
   }, [user, userLoading, activeOrg]);
+
+  const orgMatch = React.useMemo(
+    () => organizations.find((org) => org.slug === orgSlug),
+    [organizations, orgSlug]
+  );
+  const orgMatchId = orgMatch?.id;
+  const resolvedOrg = orgMatch || activeOrg;
+  const resolvedOrgSlug = resolvedOrg?.slug || orgSlug;
+  const shouldSyncOrg = Boolean(orgMatchId) && activeOrg?.id !== orgMatchId;
+  const isOrgMismatch = Boolean(orgMatchId) && activeOrg?.id !== orgMatchId;
+
+  React.useEffect(() => {
+    if (userLoading || !orgMatchId || !shouldSyncOrg || orgSyncState !== 'idle') {
+      return;
+    }
+
+    let cancelled = false;
+    setOrgSyncState('syncing');
+    setOrgSyncError(null);
+
+    switchActiveOrg(orgMatchId).then((ok) => {
+      if (cancelled) return;
+      if (!ok) {
+        setOrgSyncState('error');
+        setOrgSyncError('Failed to switch organizations.');
+      } else {
+        setOrgSyncState('idle');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userLoading, orgMatchId, shouldSyncOrg, orgSyncState, switchActiveOrg]);
+
+  React.useEffect(() => {
+    setOrgSyncState('idle');
+    setOrgSyncError(null);
+  }, [orgMatchId]);
   
   // Get role-based navigation
-  const userRole = activeOrg?.role;
-  const navigation = getNavigation(orgSlug, userRole);
+  const userRole = resolvedOrg?.role;
+  const navigation = getNavigation(resolvedOrgSlug, userRole);
 
   const handleLogout = async () => {
     try {
@@ -109,22 +153,52 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
     }
   };
 
-  // Close user menu when clicking outside
+  const handleOrgSelect = async (org: { id: string; slug: string }) => {
+    setOrgMenuOpen(false);
+
+    if (org.id === resolvedOrg?.id) {
+      return;
+    }
+
+    setOrgSyncState('syncing');
+    setOrgSyncError(null);
+    const ok = await switchActiveOrg(org.id);
+
+    if (!ok) {
+      setOrgSyncState('error');
+      setOrgSyncError('Failed to switch organizations.');
+      return;
+    }
+
+    setOrgSyncState('idle');
+
+    const currentPath = pathname || '';
+    const targetPath = currentPath.startsWith('/o/')
+      ? currentPath.replace(/^\/o\/[^/]+/, `/o/${org.slug}`)
+      : `/o/${org.slug}/dashboard`;
+
+    router.push(targetPath);
+  };
+
+  // Close menus when clicking outside
   React.useEffect(() => {
     const handleClickOutside = () => {
       if (userMenuOpen) {
         setUserMenuOpen(false);
       }
+      if (orgMenuOpen) {
+        setOrgMenuOpen(false);
+      }
     };
 
-    if (userMenuOpen) {
+    if (userMenuOpen || orgMenuOpen) {
       document.addEventListener('click', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, orgMenuOpen]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -247,13 +321,56 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
               </Button>
 
               {/* Org switcher */}
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium">
-                  {orgSlug}
-                </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setOrgMenuOpen(!orgMenuOpen)}
+                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
+                  disabled={userLoading || organizations.length === 0}
+                >
+                  <span className="max-w-[160px] truncate">
+                    {userLoading ? 'Loading...' : resolvedOrg?.name || resolvedOrgSlug}
+                  </span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+
+                {orgMenuOpen && (
+                  <div
+                    className="absolute left-0 mt-2 w-64 rounded-md border border-border bg-card shadow-lg z-50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                      Organizations
+                    </div>
+                    <div className="max-h-64 overflow-auto">
+                      {organizations.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No organizations found
+                        </div>
+                      ) : (
+                        organizations.map((org) => {
+                          const isActive = resolvedOrg?.id === org.id;
+                          return (
+                            <button
+                              key={org.id}
+                              type="button"
+                              onClick={() => handleOrgSelect(org)}
+                              className={cn(
+                                'flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted transition-colors',
+                                isActive ? 'text-foreground' : 'text-muted-foreground'
+                              )}
+                            >
+                              <span className="truncate">{org.name}</span>
+                              {isActive && (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Search */}
@@ -289,8 +406,36 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
 
         {/* Main content area */}
         <main className="p-6">
-          <KeycloakSsoBanner />
-          {children}
+          {isOrgMismatch ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              {orgSyncState === 'error' ? (
+                <div className="text-center space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    {orgSyncError || 'Failed to switch organizations.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setOrgSyncState('idle');
+                      setOrgSyncError(null);
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Switching organization...
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <KeycloakSsoBanner />
+              {children}
+            </>
+          )}
         </main>
       </div>
 

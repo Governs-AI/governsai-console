@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
+import type { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +43,6 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const queryUserId = searchParams.get('userId');
-    const queryOrgId = searchParams.get('orgId');
     const agentId = searchParams.get('agentId');
     const contentType = searchParams.get('contentType');
     const scope = searchParams.get('scope');
@@ -50,12 +50,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Use auth orgId or query orgId
-    const targetOrgId = queryOrgId || orgId;
+    const targetOrgId = orgId;
     const targetUserId = queryUserId || userId;
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.ContextMemoryWhereInput = {
       isArchived: includeArchived ? undefined : false,
     };
 

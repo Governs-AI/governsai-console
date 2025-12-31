@@ -5,15 +5,10 @@ import { requireAuth } from '@/lib/session';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId');
     const userId = searchParams.get('userId');
 
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId required' }, { status: 400 });
-    }
-
     // Get user from session for authorization
-    const { userId: sessionUserId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
     const status = await getBudgetStatus(orgId, userId || undefined);
 

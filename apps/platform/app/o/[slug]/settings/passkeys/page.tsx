@@ -24,9 +24,10 @@ import {
   Laptop,
   Monitor
 } from 'lucide-react';
-// @ts-ignore - TypeScript has issues with this import in the workspace
+// @ts-expect-error - TypeScript has issues with this import in the workspace
 import { startRegistration } from '@simplewebauthn/browser';
 import PlatformShell from '@/components/platform-shell';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface Passkey {
   id: string;
@@ -50,10 +51,12 @@ export default function PasskeySettingsPage() {
 
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   useEffect(() => {
+    if (!isReady) return;
     fetchPasskeys();
-  }, []);
+  }, [isReady, org?.id]);
 
   const fetchPasskeys = async () => {
     try {
@@ -211,6 +214,26 @@ export default function PasskeySettingsPage() {
       minute: '2-digit',
     });
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   return (
     <PlatformShell orgSlug={orgSlug}>

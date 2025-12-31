@@ -23,6 +23,7 @@ import {
   Clock
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface Member {
   id: string;
@@ -44,10 +45,12 @@ export default function MembersPage() {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   useEffect(() => {
+    if (!isReady) return;
     loadMembers();
-  }, []);
+  }, [isReady, org?.id]);
 
   const loadMembers = async () => {
     try {
@@ -106,7 +109,7 @@ export default function MembersPage() {
       setSuccess('Invitation sent successfully!');
       setInviteEmail('');
       setInviteRole('VIEWER');
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -127,6 +130,26 @@ export default function MembersPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   return (
     <PlatformShell orgSlug={orgSlug}>

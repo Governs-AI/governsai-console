@@ -84,7 +84,7 @@ export class ChunkWorker {
       this.setupEventHandlers();
       this.redisAvailable = true;
       this.isInitialized = true;
-    } catch (error) {
+    } catch {
       console.warn('⚠️  Redis not available - REFRAG chunking will be disabled');
       console.warn('   To enable: Install Redis and set REDIS_HOST/REDIS_PORT');
       this.redisAvailable = false;
@@ -169,7 +169,7 @@ export class ChunkWorker {
    * @returns Job result
    */
   private async processChunks(job: Job<ChunkJob>): Promise<ChunkJobResult> {
-    const { contextMemoryId, content, userId, orgId } = job.data;
+    const { contextMemoryId, content } = job.data;
 
     try {
       console.log(`🔄 Processing chunks for ${contextMemoryId}...`);

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user from session
-    const { userId, orgId } = await requireAuth(request);
+    const { orgId } = await requireAuth(request);
 
     // Calculate date range
     const now = new Date();

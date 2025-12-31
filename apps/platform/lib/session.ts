@@ -18,12 +18,17 @@ export async function getRequestContext(request: NextRequest): Promise<RequestCo
   const session = verifySessionToken(sessionToken);
   if (!session) return null;
 
-  // Get user's first org membership (in a real app, you'd select based on context)
-  const membership = await prisma.orgMembership.findFirst({
-    where: { userId: session.sub },
-    include: { org: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  // Prefer the orgId from the session context, fallback to earliest membership if missing.
+  const membership = session.orgId
+    ? await prisma.orgMembership.findFirst({
+        where: { userId: session.sub, orgId: session.orgId },
+        include: { org: true },
+      })
+    : await prisma.orgMembership.findFirst({
+        where: { userId: session.sub },
+        include: { org: true },
+        orderBy: { createdAt: 'asc' },
+      });
 
   if (!membership) return null;
 
@@ -45,7 +50,6 @@ export async function requireAuth(request: NextRequest): Promise<RequestContext>
 }
 
 export async function requireRole(request: NextRequest, requiredRole: string): Promise<RequestContext> {
-  console.log('requireRole', request, requiredRole);
   const context = await requireAuth(request);
 
   const roleHierarchy = ['VIEWER', 'DEVELOPER', 'ADMIN', 'OWNER'];

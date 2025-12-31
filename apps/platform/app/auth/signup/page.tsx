@@ -49,7 +49,7 @@ export default function SignupPage() {
       }
 
       setSuccess(true);
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export default function SignupPage() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-green-600">Check your email</CardTitle>
             <p className="text-gray-600">
-              We've sent a verification link to <strong>{email}</strong>
+              We&apos;ve sent a verification link to <strong>{email}</strong>
             </p>
           </CardHeader>
           <CardContent className="text-center">
@@ -168,7 +168,7 @@ export default function SignupPage() {
                 placeholder="Enter your organization name"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Leave blank to create "{name || email.split('@')[0]}'s org" automatically
+                Leave blank to create &quot;{name || email.split('@')[0]}&apos;s org&quot; automatically
               </p>
             </div>
 

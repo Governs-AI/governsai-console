@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 
 const PRECHECK_SERVICE_URL = process.env.PRECHECK_URL || 'http://localhost:1234';
@@ -24,9 +24,7 @@ interface HealthCheckResponse {
   environment: string;
 }
 
-export async function GET(req: NextRequest) {
-  const startTime = Date.now();
-  
+export async function GET() {
   const health: HealthCheckResponse = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -112,4 +110,3 @@ export async function OPTIONS() {
     },
   });
 }
-

@@ -9,14 +9,11 @@ import {
   CardTitle,
   Button,
   Input,
-  Badge,
   PageHeader
 } from '@governs-ai/ui';
 import {
-  Settings,
   Building2,
   Globe,
-  Mail,
   Shield,
   Save,
   RefreshCw,
@@ -25,6 +22,7 @@ import {
   Info
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface OrganizationSettings {
   name: string;
@@ -43,6 +41,7 @@ interface OrganizationSettings {
 export default function GeneralSettingsPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   const [settings, setSettings] = useState<OrganizationSettings>({
     name: '',
@@ -64,8 +63,9 @@ export default function GeneralSettingsPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
+    if (!isReady) return;
     fetchSettings();
-  }, [orgSlug]);
+  }, [orgSlug, isReady, org?.id]);
 
   const fetchSettings = async () => {
     try {
@@ -128,6 +128,26 @@ export default function GeneralSettingsPage() {
       [field]: value
     }));
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   if (loading) {
     return (

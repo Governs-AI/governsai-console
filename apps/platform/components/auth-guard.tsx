@@ -3,21 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-// Public routes that don't require authentication
-const PUBLIC_ROUTES = [
-  '/auth/login',
-  '/auth/signup', 
-  '/auth/forgot-password',
-  '/auth/reset-password',
-  '/onboarding',
-  '/', // Landing page
-];
-
-// Routes that require email verification
-const EMAIL_VERIFICATION_ROUTES = [
-  '/auth/verify-email'
-];
-
 interface User {
   id: string;
   email: string;

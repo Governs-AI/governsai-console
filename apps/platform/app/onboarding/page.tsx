@@ -35,7 +35,7 @@ export default function OnboardingPage() {
 
       // Redirect to the new organization's dashboard
       router.push(`/o/${data.org.slug}/dashboard`);
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);

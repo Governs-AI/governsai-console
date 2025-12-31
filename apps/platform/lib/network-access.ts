@@ -127,7 +127,7 @@ export function validateNetworkRule(kind: string, value: string): { valid: boole
       }
       return { valid: false, error: 'Invalid IP address format' };
       
-    case 'cidr':
+    case 'cidr': {
       const [network, prefixStr] = value.split('/');
       const prefix = parseInt(prefixStr, 10);
       
@@ -150,6 +150,7 @@ export function validateNetworkRule(kind: string, value: string): { valid: boole
       }
       
       return { valid: false, error: 'Invalid network address in CIDR' };
+    }
       
     default:
       return { valid: false, error: 'Invalid rule kind. Must be origin, ip, or cidr' };

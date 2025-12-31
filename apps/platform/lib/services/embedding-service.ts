@@ -8,6 +8,8 @@
  * - Cohere (embed-english-v3.0)
  */
 
+import OpenAI from 'openai';
+
 export interface EmbeddingProvider {
   name: string;
   generateEmbedding(text: string): Promise<number[]>;
@@ -29,7 +31,6 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   private model: string;
 
   constructor(config: { apiKey: string; model?: string }) {
-    const OpenAI = require('openai');
     this.client = new OpenAI({ apiKey: config.apiKey });
     this.model = config.model || 'text-embedding-3-small';
   }

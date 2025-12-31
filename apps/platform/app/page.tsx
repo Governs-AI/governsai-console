@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoadingSpinner } from '@governs-ai/ui';
 
 export default function RootPage() {
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -40,8 +39,6 @@ export default function RootPage() {
       console.error('Auth check failed:', error);
       // On error, redirect to login
       router.replace('/auth/login');
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -44,7 +44,6 @@ interface RoleInfoProps {
 }
 
 export function RoleInfo({ role, showDescription = false }: RoleInfoProps) {
-  const displayName = getRoleDisplayName(role);
   const description = getRoleDescription(role);
   
   return (
@@ -58,4 +57,3 @@ export function RoleInfo({ role, showDescription = false }: RoleInfoProps) {
     </div>
   );
 }
-

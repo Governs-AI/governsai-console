@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
     createUser,
-    consumeVerificationToken,
     addUserToOrganization,
     createEmailVerificationToken
 } from '@/lib/auth';
@@ -26,16 +25,34 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { email, password, name, inviteToken } = invitedSignupSchema.parse(body);
 
-        // Validate invitation token first
-        const tokenData = await consumeVerificationToken(inviteToken, 'invite');
-        if (!tokenData) {
+        // Validate invitation token first (do not consume yet)
+        const verificationToken = await prisma.verificationToken.findUnique({
+            where: { token: inviteToken },
+        });
+
+        if (!verificationToken || verificationToken.purpose !== 'invite') {
             return NextResponse.json(
                 { error: 'Invalid or expired invitation token' },
                 { status: 400 }
             );
         }
 
-        const { email: invitedEmail, orgId, role } = tokenData;
+        if (verificationToken.expiresAt < new Date()) {
+            await prisma.verificationToken.delete({ where: { id: verificationToken.id } });
+            return NextResponse.json(
+                { error: 'Invalid or expired invitation token' },
+                { status: 400 }
+            );
+        }
+
+        const { email: invitedEmail, orgId, role } = verificationToken;
+
+        if (!orgId || !role) {
+            return NextResponse.json(
+                { error: 'Invalid invitation token' },
+                { status: 400 }
+            );
+        }
 
         // Verify email matches invitation
         if (email.toLowerCase() !== invitedEmail.toLowerCase()) {
@@ -52,8 +69,8 @@ export async function POST(request: NextRequest) {
 
         if (existingUser) {
             return NextResponse.json(
-                { error: 'User already exists. Please log in instead.' },
-                { status: 400 }
+                { error: 'User already exists. Please log in instead.', requiresLogin: true },
+                { status: 409 }
             );
         }
 
@@ -61,7 +78,8 @@ export async function POST(request: NextRequest) {
         const user = await createUser(email, password, name);
 
         // Add user to organization immediately
-        const membership = await addUserToOrganization(user.id, orgId!, role as any);
+        const membership = await addUserToOrganization(user.id, orgId, role as any);
+        await prisma.verificationToken.delete({ where: { id: verificationToken.id } });
 
         // Get organization details
         const org = await prisma.org.findUnique({

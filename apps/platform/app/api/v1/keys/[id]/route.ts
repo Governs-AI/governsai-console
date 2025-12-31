@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { requireAuth } from '@/lib/session';
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = await params;
-    const orgId = 'default-org'; // TODO: Get from session/auth
+    const { orgId } = await requireAuth(request);
 
     // Verify the key belongs to the organization
     const apiKey = await prisma.apiKey.findFirst({
@@ -25,19 +26,22 @@ export async function DELETE(
     return NextResponse.json({ message: 'API key deleted successfully' });
   } catch (error) {
     console.error('Error deleting API key:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = await params;
     const body = await request.json();
     const { isActive } = body;
-    const orgId = 'default-org'; // TODO: Get from session/auth
+    const { orgId } = await requireAuth(request);
 
     // Verify the key belongs to the organization
     const apiKey = await prisma.apiKey.findFirst({
@@ -63,6 +67,9 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('Error updating API key:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

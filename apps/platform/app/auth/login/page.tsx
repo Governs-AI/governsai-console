@@ -54,7 +54,7 @@ export default function LoginPage() {
       } else {
         router.push('/onboarding');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -144,7 +144,7 @@ export default function LoginPage() {
               Forgot your password?
             </Link>
             <div className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link
                 href="/auth/signup"
                 className="text-blue-600 hover:text-blue-500 font-medium"

@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
       }
 
       setSuccess(true);
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-green-600">Check your email</CardTitle>
             <p className="text-gray-600">
-              We've sent a password reset link to <strong>{email}</strong>
+              We&apos;ve sent a password reset link to <strong>{email}</strong>
             </p>
           </CardHeader>
           <CardContent className="text-center">
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Reset your password</CardTitle>
           <p className="text-gray-600">
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset your password
           </p>
         </CardHeader>
         <CardContent>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { 
+import {
   KpiCard, 
   PageHeader, 
   Button, 
@@ -20,29 +20,14 @@ import {
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
 import { useRoleCheck } from '@/components/role-guard';
+import { useUser } from '@/lib/user-context';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 type Trend = 'up' | 'down' | 'neutral';
 
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  emailVerified: string | null;
-}
-
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  role: string;
-}
-
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const { userRole, canAccessAdmin, canManageUsers, canViewSpend } = useRoleCheck();
+  const { canAccessAdmin } = useRoleCheck();
   const [kpiMeta, setKpiMeta] = useState({
     totalDecisions: { delta: undefined as string | undefined, trend: 'neutral' as Trend },
     allowRate: { delta: undefined as string | undefined, trend: 'neutral' as Trend },
@@ -69,6 +54,8 @@ export default function DashboardPage() {
   const params = useParams();
   const router = useRouter();
   const orgSlug = params.slug as string;
+  const { user } = useUser();
+  const { org, loading: orgLoading, isReady } = useOrgReady(orgSlug);
 
   const formatPercentChange = (current: number, previous: number) => {
     if (previous <= 0) return undefined;
@@ -84,41 +71,12 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      const response = await fetch('/api/v1/profile', {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        setError('Failed to load user data');
-        router.push('/auth/login');
-        return;
-      }
-
-      const data = await response.json();
-      setUser(data.user);
-      setOrganizations(data.organizations || []);
-      
-      // Find the current organization
-      const currentOrg = data.organizations.find((org: any) => org.slug === orgSlug);
-      if (currentOrg) {
-        await fetchDashboardData(currentOrg.id);
-      }
-      
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to fetch user data:', err);
-      setError('Failed to load user data');
-      setLoading(false);
-    }
-  };
+    if (!isReady || !org) return;
+    fetchDashboardData(org.id);
+  }, [isReady, org?.id]);
 
   const fetchDashboardData = async (orgId: string) => {
+    setLoading(true);
     try {
       const now = new Date();
       const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -244,6 +202,8 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
       // Don't set error here, just use default values
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -258,25 +218,22 @@ export default function DashboardPage() {
     }
   };
 
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <Button onClick={() => router.push('/auth/login')}>
-            Go to Login
-          </Button>
         </div>
       </div>
     );

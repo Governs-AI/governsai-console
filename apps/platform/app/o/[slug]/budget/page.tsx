@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { BudgetStatus } from '@/components/budget-status';
+import PlatformShell from '@/components/platform-shell';
+import { useOrgReady } from '@/lib/use-org-ready';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +34,8 @@ interface BudgetAlert {
 }
 
 export default function BudgetPage({ params }: { params: { slug: string } }) {
+  const orgSlug = params.slug;
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
   const [limits, setLimits] = useState<BudgetLimit[]>([]);
   const [alerts, setAlerts] = useState<BudgetAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +54,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function fetchLimits() {
     try {
-      const res = await fetch(`/api/v1/budget/limits?orgId=${params.slug}`);
+      const res = await fetch(`/api/v1/budget/limits?orgId=${orgSlug}`);
       if (!res.ok) throw new Error('Failed to fetch budget limits');
       const data = await res.json();
       setLimits(data.limits);
@@ -62,7 +66,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function fetchAlerts() {
     try {
-      const res = await fetch(`/api/v1/budget/alerts?orgId=${params.slug}&unreadOnly=true`);
+      const res = await fetch(`/api/v1/budget/alerts?orgId=${orgSlug}&unreadOnly=true`);
       if (res.ok) {
         const data = await res.json();
         setAlerts(data.alerts);
@@ -74,7 +78,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
 
   async function fetchSettings() {
     try {
-      const res = await fetch(`/api/v1/budget/settings?orgId=${params.slug}`);
+      const res = await fetch(`/api/v1/budget/settings?orgId=${orgSlug}`);
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
@@ -90,7 +94,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orgId: params.slug,
+          orgId: orgSlug,
           ...settings,
         }),
       });
@@ -119,7 +123,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orgId: params.slug,
+          orgId: orgSlug,
           type: newLimit.type,
           userId: newLimit.type === 'user' ? newLimit.userId : undefined,
           monthlyLimit: parseFloat(newLimit.monthlyLimit),
@@ -177,29 +181,43 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
   }
 
   useEffect(() => {
+    if (!isReady) return;
     async function loadData() {
       setLoading(true);
       await Promise.all([fetchLimits(), fetchAlerts(), fetchSettings()]);
       setLoading(false);
     }
     loadData();
-  }, [params.slug]);
+  }, [isReady, org?.id, orgSlug]);
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Budget Management</h1>
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span className="ml-2">Loading...</span>
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="space-y-6">
+          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-2">Loading...</span>
+          </div>
         </div>
-      </div>
+      </PlatformShell>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Budget Management</h1>
+    <PlatformShell orgSlug={orgSlug}>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Budget Management</h1>
 
       {error && (
         <Alert variant="destructive">
@@ -209,7 +227,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <BudgetStatus orgId={params.slug} />
+        <BudgetStatus orgId={org?.id ?? orgSlug} />
 
         <Card>
           <CardHeader>
@@ -429,6 +447,7 @@ export default function BudgetPage({ params }: { params: { slug: string } }) {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PlatformShell>
   );
 }

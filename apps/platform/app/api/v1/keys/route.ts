@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
+import { requireAuth } from '@/lib/session';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get('orgId') || 'default-org'; // TODO: Get from session/auth
+    const { orgId } = await requireAuth(request);
 
     const keys = await prisma.apiKey.findMany({
       where: { orgId },
@@ -25,18 +25,23 @@ export async function GET(request: Request) {
     return NextResponse.json(safeKeys);
   } catch (error) {
     console.error('Error fetching API keys:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { label, scopes, orgId = 'default-org' } = body; // TODO: Get orgId from session/auth
+    const { label, scopes } = body;
 
     if (!label || !scopes || !Array.isArray(scopes)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    const { orgId } = await requireAuth(request);
 
     // Generate a secure API key
     const keyValue = `gai_${randomBytes(32).toString('hex')}`;
@@ -62,6 +67,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error creating API key:', error);
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

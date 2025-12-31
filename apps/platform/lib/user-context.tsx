@@ -32,6 +32,7 @@ interface UserContextType {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  switchActiveOrg: (orgIdOrSlug: string) => Promise<boolean>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -39,7 +40,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+  const [activeOrg, setActiveOrgState] = useState<Organization | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       console.log('Profile API response:', data);
       setUser(data.user);
       setOrganizations(data.organizations);
-      setActiveOrg(data.activeOrg);
+      setActiveOrgState(data.activeOrg);
       setOrgId(data.activeOrg?.id || null);
     } catch (err) {
       console.error('Error fetching user data:', err);
@@ -75,6 +76,43 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     fetchUserData();
   }, []);
 
+  const switchActiveOrg = async (orgIdOrSlug: string) => {
+    try {
+      const matchedOrg = organizations.find(
+        (org) => org.id === orgIdOrSlug || org.slug === orgIdOrSlug
+      );
+      const payload = matchedOrg
+        ? { orgId: matchedOrg.id }
+        : { orgSlug: orgIdOrSlug };
+
+      const response = await fetch('/api/v1/orgs/active', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to switch organization');
+      }
+
+      const data = await response.json();
+      if (data.activeOrg) {
+        setActiveOrgState(data.activeOrg);
+        setOrgId(data.activeOrg.id);
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Error switching organization:', err);
+      setError(err instanceof Error ? err.message : 'Failed to switch organization');
+      return false;
+    }
+  };
+
   return (
     <UserContext.Provider
       value={{
@@ -85,6 +123,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         loading,
         error,
         refetch: fetchUserData,
+        switchActiveOrg,
       }}
     >
       {children}

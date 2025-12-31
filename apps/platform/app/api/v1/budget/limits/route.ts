@@ -5,15 +5,8 @@ import { requireAuth } from '@/lib/session';
 // GET: List budget limits
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get('orgId');
-    
-    if (!orgId) {
-      return NextResponse.json({ error: 'orgId required' }, { status: 400 });
-    }
-
     // Get user from session for authorization
-    const { userId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
     const limits = await prisma.budgetLimit.findMany({
       where: { orgId, isActive: true },
@@ -47,17 +40,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { orgId, userId, type, monthlyLimit, alertAt } = body;
+    const { userId, type, monthlyLimit, alertAt } = body;
 
-    if (!orgId || !type || !monthlyLimit) {
+    if (!type || !monthlyLimit) {
       return NextResponse.json(
-        { error: 'Missing required fields: orgId, type, monthlyLimit' },
+        { error: 'Missing required fields: type, monthlyLimit' },
         { status: 400 }
       );
     }
 
     // Get user from session for authorization
-    const { userId: sessionUserId } = await requireAuth(req);
+    const { orgId } = await requireAuth(req);
 
     // Validate type
     if (!['organization', 'user'].includes(type)) {

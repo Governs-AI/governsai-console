@@ -131,37 +131,41 @@ export class UnifiedContextService {
 
     // For different content types, use different summarization strategies
     switch (contentType) {
-      case 'user_message':
+      case 'user_message': {
         // Extract key points from user messages
         const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
         if (sentences.length <= 2) {
           return content.substring(0, maxLength) + '...';
         }
         return sentences[0].trim() + '...';
+      }
         
-      case 'agent_message':
+      case 'agent_message': {
         // For agent responses, try to extract the main point
         const lines = content.split('\n').filter(line => line.trim().length > 0);
         if (lines.length === 1) {
           return content.substring(0, maxLength) + '...';
         }
         return lines[0].trim() + '...';
+      }
         
-      case 'decision':
+      case 'decision': {
         // For decisions, extract the key decision point
         const decisionMatch = content.match(/(?:decision|decided|chose|selected):\s*(.+)/i);
         if (decisionMatch) {
           return decisionMatch[1].substring(0, maxLength) + '...';
         }
         return content.substring(0, maxLength) + '...';
+      }
         
-      case 'tool_result':
+      case 'tool_result': {
         // For tool results, extract the outcome
         const resultMatch = content.match(/(?:result|outcome|output):\s*(.+)/i);
         if (resultMatch) {
           return resultMatch[1].substring(0, maxLength) + '...';
         }
         return content.substring(0, maxLength) + '...';
+      }
         
       default:
         // Generic summarization - take first part

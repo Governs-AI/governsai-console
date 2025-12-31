@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { PoliciesClient } from '@/components/policies-client';
 import { useParams } from 'next/navigation';
 import PlatformShell from '@/components/platform-shell';
-import { RoleGuard } from '@/components/role-guard';
 
 export default function PoliciesPage() {
   const params = useParams();

@@ -18,10 +18,12 @@ import {
   Clock,
   Zap,
   AlertCircle,
+  FileText,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface Decision {
   id: string;
@@ -56,6 +58,7 @@ interface DecisionStats {
 export default function DecisionsPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [stats, setStats] = useState<DecisionStats | null>(null);
@@ -71,35 +74,21 @@ export default function DecisionsPage() {
   const [expandedDecisions, setExpandedDecisions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
+    if (!isReady || !org) return;
+    fetchData(org.id);
+    const interval = setInterval(() => fetchData(org.id), 30000);
     return () => clearInterval(interval);
-  }, [orgSlug, filters]);
+  }, [orgSlug, filters, isReady, org?.id]);
 
-  const fetchData = async () => {
+  const fetchData = async (orgId: string) => {
     if (!loading) setRefreshing(true);
     
     try {
-      // First, get the organization ID from the profile API
-      const profileResponse = await fetch('/api/v1/profile', { credentials: 'include' });
-      if (!profileResponse.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-      const profileData = await profileResponse.json();
-      
-      // Find the organization by slug
-      const org = profileData.organizations.find((o: any) => o.slug === orgSlug);
-      if (!org) {
-        throw new Error('Organization not found');
-      }
-      
-      // Fetch decisions using the actual organization ID
       const decisionsParams = new URLSearchParams({
-        orgId: org.id,
+        orgId,
         includeStats: 'true',
         limit: '100',
-        ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
+        ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
       });
 
       const decisionsResponse = await fetch(`/api/v1/decisions?${decisionsParams}`, { credentials: 'include' });
@@ -195,6 +184,16 @@ export default function DecisionsPage() {
       </Badge>
     );
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   if (loading) {
     return (

@@ -12,7 +12,6 @@ import {
 } from '@governs-ai/ui';
 import {
   RefreshCw,
-  Activity,
   CheckCircle,
   XCircle,
   Clock,
@@ -26,7 +25,7 @@ import {
   Code
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
-import { RoleGuard, useRoleCheck } from '@/components/role-guard';
+import { useOrgReady } from '@/lib/use-org-ready';
 
 interface ToolCall {
   id: string;
@@ -57,7 +56,7 @@ interface ToolCallStats {
 export default function ToolCallsPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
-  const { canManageTools, canAccessAdmin } = useRoleCheck();
+  const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
 
   const [toolcalls, setToolcalls] = useState<ToolCall[]>([]);
   const [stats, setStats] = useState<ToolCallStats | null>(null);
@@ -72,35 +71,21 @@ export default function ToolCallsPage() {
   const [expandedToolcalls, setExpandedToolcalls] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
+    if (!isReady || !org) return;
+    fetchData(org.id);
+    const interval = setInterval(() => fetchData(org.id), 30000);
     return () => clearInterval(interval);
-  }, [orgSlug, filters]);
+  }, [orgSlug, filters, isReady, org?.id]);
 
-  const fetchData = async () => {
+  const fetchData = async (orgId: string) => {
     if (!loading) setRefreshing(true);
     
     try {
-      // First, get the organization ID from the profile API
-      const profileResponse = await fetch('/api/v1/profile', { credentials: 'include' });
-      if (!profileResponse.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-      const profileData = await profileResponse.json();
-      
-      // Find the organization by slug
-      const org = profileData.organizations.find((o: any) => o.slug === orgSlug);
-      if (!org) {
-        throw new Error('Organization not found');
-      }
-      
-      // Fetch toolcalls using the actual organization ID
       const toolcallsParams = new URLSearchParams({
-        orgId: org.id,
+        orgId,
         includeStats: 'true',
         limit: '100',
-        ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
+        ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value))
       });
 
       const toolcallsResponse = await fetch(`/api/v1/toolcalls?${toolcallsParams}`, { credentials: 'include' });
@@ -217,6 +202,16 @@ export default function ToolCallsPage() {
       </Badge>
     );
   };
+
+  if (!orgLoading && !org) {
+    return (
+      <PlatformShell orgSlug={orgSlug}>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Organization not found.</p>
+        </div>
+      </PlatformShell>
+    );
+  }
 
   // Get unique tools for filter dropdown
   const uniqueTools = Array.from(new Set(toolcalls.map(tc => tc.tool).filter(Boolean)));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -37,7 +37,7 @@ interface ToolConfig {
   direction: string;
   requiresApproval: boolean;
   isActive: boolean;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +45,8 @@ interface ToolConfig {
 interface ToolsClientProps {
   orgSlug: string;
 }
+
+type ToolFormPayload = Partial<ToolConfig>;
 
 export function ToolsClient({ orgSlug }: ToolsClientProps) {
   const [tools, setTools] = useState<ToolConfig[]>([]);
@@ -59,10 +61,24 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolConfig | null>(null);
 
+  const fetchTools = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const response = await fetch('/api/v1/tools');
+      const data = await response.json();
+      setTools(data.tools || []);
+    } catch {
+      setError('Failed to fetch tools');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
   // Fetch tools
   useEffect(() => {
     fetchTools();
-  }, [orgSlug]);
+  }, [fetchTools, orgSlug]);
 
   // Filter tools
   useEffect(() => {
@@ -87,22 +103,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
     setFilteredTools(filtered);
   }, [tools, searchTerm, categoryFilter, riskLevelFilter]);
 
-  const fetchTools = async () => {
-    if (!loading) setRefreshing(true);
-    try {
-      const response = await fetch('/api/v1/tools');
-      const data = await response.json();
-      setTools(data.tools || []);
-    } catch (error) {
-      console.error('Error fetching tools:', error);
-      setError('Failed to fetch tools');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const handleSaveTool = async (toolData: any) => {
+  const handleSaveTool = async (toolData: ToolFormPayload) => {
     try {
       let response;
       if (editingTool) {
@@ -132,8 +133,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
         setError(errorData.error || 'Failed to save tool');
         setTimeout(() => setError(null), 5000);
       }
-    } catch (error) {
-      console.error('Error saving tool:', error);
+    } catch {
       setError('Failed to save tool');
       setTimeout(() => setError(null), 5000);
     }
@@ -160,8 +160,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
         setError('Failed to update tool status');
         setTimeout(() => setError(null), 5000);
       }
-    } catch (error) {
-      console.error('Error updating tool status:', error);
+    } catch {
       setError('Failed to update tool status');
       setTimeout(() => setError(null), 5000);
     }
@@ -183,8 +182,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
         setError('Failed to delete tool');
         setTimeout(() => setError(null), 5000);
       }
-    } catch (error) {
-      console.error('Error deleting tool:', error);
+    } catch {
       setError('Failed to delete tool');
       setTimeout(() => setError(null), 5000);
     }
