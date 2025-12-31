@@ -49,6 +49,13 @@ interface InviteUserData {
   role: string;
 }
 
+const ROLE_OPTIONS = [
+  { value: 'OWNER', label: 'Owner' },
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'DEVELOPER', label: 'Developer' },
+  { value: 'VIEWER', label: 'Viewer' },
+];
+
 export default function AdminUsersPage() {
   const params = useParams();
   const orgSlug = params.slug as string;
@@ -63,10 +70,13 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editRole, setEditRole] = useState('VIEWER');
+  const [savingEdit, setSavingEdit] = useState(false);
   const [inviteData, setInviteData] = useState<InviteUserData>({
     email: '',
     name: '',
-    role: 'member'
+    role: 'VIEWER'
   });
   const [inviting, setInviting] = useState(false);
 
@@ -236,11 +246,13 @@ export default function AdminUsersPage() {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'admin':
+      case 'OWNER':
+        return <Badge variant="default" className="bg-purple-100 text-purple-800">Owner</Badge>;
+      case 'ADMIN':
         return <Badge variant="default" className="bg-red-100 text-red-800">Admin</Badge>;
-      case 'member':
-        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Member</Badge>;
-      case 'viewer':
+      case 'DEVELOPER':
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Developer</Badge>;
+      case 'VIEWER':
         return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Viewer</Badge>;
       default:
         return <Badge variant="outline">{role}</Badge>;
@@ -309,9 +321,10 @@ export default function AdminUsersPage() {
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="all">All Roles</option>
-                  <option value="admin">Admin</option>
-                  <option value="member">Member</option>
-                  <option value="viewer">Viewer</option>
+                  <option value="OWNER">Owner</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="DEVELOPER">Developer</option>
+                  <option value="VIEWER">Viewer</option>
                 </select>
                 <select
                   value={statusFilter}
@@ -398,7 +411,8 @@ export default function AdminUsersPage() {
                               <button
                                 onClick={() => {
                                   setShowUserMenu(null);
-                                  // Handle edit user
+                                  setEditingUser(user);
+                                  setEditRole(user.role || 'VIEWER');
                                 }}
                                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                               >
@@ -408,12 +422,13 @@ export default function AdminUsersPage() {
                               <button
                                 onClick={() => {
                                   setShowUserMenu(null);
-                                  handleUpdateUserRole(user.id, user.role === 'admin' ? 'member' : 'admin');
+                                  const nextRole = user.role === 'ADMIN' ? 'VIEWER' : 'ADMIN';
+                                  handleUpdateUserRole(user.id, nextRole);
                                 }}
                                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                               >
-                                {user.role === 'admin' ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-                                {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                                {user.role === 'ADMIN' ? <UserMinus className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                                {user.role === 'ADMIN' ? 'Remove Admin' : 'Make Admin'}
                               </button>
                               <button
                                 onClick={() => {
@@ -483,9 +498,10 @@ export default function AdminUsersPage() {
                     onChange={(e) => setInviteData(prev => ({ ...prev, role: e.target.value }))}
                     className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="member">Member</option>
-                    <option value="viewer">Viewer</option>
-                    <option value="admin">Admin</option>
+                    <option value="VIEWER">Viewer</option>
+                    <option value="DEVELOPER">Developer</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="OWNER">Owner</option>
                   </select>
                 </div>
               </div>
@@ -512,6 +528,78 @@ export default function AdminUsersPage() {
                   variant="outline"
                   onClick={() => setShowInviteModal(false)}
                   disabled={inviting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editingUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">Edit User</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingUser(null)}
+                >
+                  ×
+                </Button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Name</p>
+                  <p className="font-medium">{editingUser.name || 'No name'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-medium">{editingUser.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Role
+                  </label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {ROLE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={async () => {
+                    if (!editingUser) return;
+                    setSavingEdit(true);
+                    await handleUpdateUserRole(editingUser.id, editRole);
+                    setSavingEdit(false);
+                    setEditingUser(null);
+                  }}
+                  disabled={savingEdit}
+                  className="flex-1"
+                >
+                  {savingEdit ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingUser(null)}
+                  disabled={savingEdit}
                 >
                   Cancel
                 </Button>
