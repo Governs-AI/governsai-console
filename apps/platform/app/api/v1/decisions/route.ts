@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
     const decision = searchParams.get('decision') as 'allow' | 'transform' | 'deny' | undefined;
     const tool = searchParams.get('tool') || undefined;
     const correlationId = searchParams.get('correlationId') || undefined;
+    const policyId = searchParams.get('policyId') || undefined;
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
     
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
       decision,
       tool,
       correlationId,
+      policyId,
       startTime,
       endTime,
     };
@@ -79,6 +81,7 @@ export async function GET(request: NextRequest) {
     if (filters.decision) where.decision = filters.decision;
     if (filters.tool) where.tool = filters.tool;
     if (filters.correlationId) where.correlationId = filters.correlationId;
+    if (filters.policyId) where.policyId = filters.policyId;
     
     if (filters.startTime || filters.endTime) {
       where.ts = {};
@@ -97,55 +100,48 @@ export async function GET(request: NextRequest) {
     // Fetch stats if requested
     let stats = null;
     if (includeStats) {
+      const statsWhere: any = {
+        orgId,
+        ts: {
+          gte: startTime,
+          lte: endTime,
+        },
+      };
+
+      if (filters.direction) statsWhere.direction = filters.direction;
+      if (filters.decision) statsWhere.decision = filters.decision;
+      if (filters.tool) statsWhere.tool = filters.tool;
+      if (filters.correlationId) statsWhere.correlationId = filters.correlationId;
+      if (filters.policyId) statsWhere.policyId = filters.policyId;
+
+      const toolStatsWhere = statsWhere.tool
+        ? statsWhere
+        : { ...statsWhere, tool: { not: null } };
+
       const [total, byDecision, byDirection, byTool, avgLatency] = await Promise.all([
         // Total decisions
         prisma.decision.count({
-          where: {
-            orgId,
-            ts: {
-              gte: startTime,
-              lte: endTime,
-            },
-          },
+          where: statsWhere,
         }),
         
         // By decision type
         prisma.decision.groupBy({
           by: ['decision'],
-          where: {
-            orgId,
-            ts: {
-              gte: startTime,
-              lte: endTime,
-            },
-          },
+          where: statsWhere,
           _count: true,
         }),
         
         // By direction
         prisma.decision.groupBy({
           by: ['direction'],
-          where: {
-            orgId,
-            ts: {
-              gte: startTime,
-              lte: endTime,
-            },
-          },
+          where: statsWhere,
           _count: true,
         }),
         
         // By tool (top 10)
         prisma.decision.groupBy({
           by: ['tool'],
-          where: {
-            orgId,
-            ts: {
-              gte: startTime,
-              lte: endTime,
-            },
-            tool: { not: null },
-          },
+          where: toolStatsWhere,
           _count: true,
           orderBy: { _count: { tool: 'desc' } },
           take: 10,
@@ -154,11 +150,7 @@ export async function GET(request: NextRequest) {
         // Average latency (ms)
         prisma.decision.aggregate({
           where: {
-            orgId,
-            ts: {
-              gte: startTime,
-              lte: endTime,
-            },
+            ...statsWhere,
             latencyMs: { not: null },
           },
           _avg: {

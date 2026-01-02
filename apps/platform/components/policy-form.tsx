@@ -72,6 +72,12 @@ export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyF
   const [selectedToolForAccess, setSelectedToolForAccess] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const toolAccessCount = Object.keys(formData.toolAccess).length;
+  const denyToolCount = formData.denyTools.length;
+  const allowToolCount = formData.allowTools.length;
+  const networkScopeCount = formData.networkScopes.length;
+  const networkToolCount = formData.networkTools.length;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -507,6 +513,49 @@ export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyF
                     </Badge>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Policy Summary */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-lg font-semibold">Policy Summary</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Default Actions</p>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="outline" className="text-xs">
+                    Ingress: {formData.defaults.ingress.action}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Egress: {formData.defaults.egress.action}
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Tool Rules</p>
+                <p className="text-sm font-medium">{toolAccessCount} scoped rules</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Allow/Deny Lists</p>
+                <p className="text-sm font-medium">{allowToolCount} allow / {denyToolCount} block</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Network Coverage</p>
+                <p className="text-sm font-medium">{networkScopeCount} scopes / {networkToolCount} tools</p>
+              </div>
+            </div>
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant={formData.isActive ? 'default' : 'secondary'} className="text-xs">
+                  {formData.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  Priority: {formData.priority || 0}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  On Error: {formData.onError}
+                </Badge>
               </div>
             </div>
           </div>
