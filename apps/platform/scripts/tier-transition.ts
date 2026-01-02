@@ -81,7 +81,7 @@ async function main() {
   console.log(`                 ${dryRun ? 'Would delete' : 'Deleted'} chunk embeddings`);
   console.log();
   console.log(`WARM → COLD:     ${action} ${result.warmToCold.toLocaleString()} contexts`);
-  console.log(`                 ${dryRun ? 'Would archive' : 'Archived'} to S3 (if enabled)`);
+  console.log(`                 ${dryRun ? 'Would archive' : 'Archived'} externally (if enabled)`);
   console.log(`                 ${dryRun ? 'Would clear' : 'Cleared'} full embeddings`);
   console.log();
   console.log(`COLD → DELETED:  ${action} ${result.coldToDeleted.toLocaleString()} contexts`);

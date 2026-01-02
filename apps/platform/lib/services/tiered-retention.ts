@@ -4,7 +4,7 @@
  * Implements intelligent data retention with 4 tiers:
  * - HOT (0-30 days): Full REFRAG, all embeddings, instant search
  * - WARM (30-90 days): Searchable, no chunk embeddings (saves 60% space)
- * - COLD (90-365 days): Archived to S3, no embeddings in DB (saves 95% space)
+ * - COLD (90-365 days): Archived externally (manual export or S3), no embeddings in DB (saves 95% space)
  * - DELETED (365+ days): Permanently removed (compliance)
  *
  * Benefits:
@@ -150,7 +150,7 @@ export class TieredRetentionService {
   }
 
   /**
-   * Transition WARM → COLD: Archive to S3, drop embeddings
+   * Transition WARM → COLD: Archive externally, drop embeddings
    */
   private async transitionWarmToCold(cutoffDate: Date, dryRun: boolean): Promise<number> {
     const contexts = await prisma.contextMemory.findMany({
@@ -269,6 +269,10 @@ export class TieredRetentionService {
 
     if (!context.archivedUrl) {
       throw new Error('Context not archived');
+    }
+
+    if (context.archivedUrl.startsWith('manual://')) {
+      throw new Error('Context archived offline; restore via retention restore endpoint');
     }
 
     // TODO: Restore from S3

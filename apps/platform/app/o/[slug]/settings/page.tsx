@@ -15,6 +15,7 @@ import {
   Shield,
   Key,
   Settings as SettingsIcon,
+  Database,
   ChevronRight,
   CheckCircle,
   AlertCircle,
@@ -76,6 +77,15 @@ export default function SettingsPage() {
         href: `/o/${orgSlug}/settings/general`,
         status: 'not-configured',
         lastUpdated: undefined
+      },
+      {
+        id: 'data',
+        title: 'Data & Retention',
+        description: 'Export and restore AI interaction logs and embeddings',
+        icon: Database,
+        href: `/o/${orgSlug}/settings/data`,
+        status: 'not-configured',
+        lastUpdated: undefined
       }
     ];
 
@@ -88,6 +98,7 @@ export default function SettingsPage() {
         case 'mfa':
           return canManageKeys();
         case 'general':
+        case 'data':
           return canManageSettings();
         default:
           return true;
