@@ -4,7 +4,8 @@ const dbAny = prisma as any;
 import { contextPrecheck } from '@/lib/services/context-precheck';
 import { UniversalEmbeddingService, createEmbeddingService, embeddingConfigs } from './embedding-service';
 import { queueChunking } from '../workers/chunk-worker';
-import { RAG_CONFIG } from '../config/rag-config';
+import { RAG_CONFIG, getDatabaseVectorDimension } from '../config/rag-config';
+import { normalizeEmbeddingDimensions, toVectorString } from './embedding-utils';
 
 export interface StoreContextInput {
   userId: string;
@@ -106,16 +107,6 @@ export class UnifiedContextService {
       console.error('Error generating embedding:', error);
       throw new Error(`Failed to generate embedding using ${this.embeddingService.getProviderName()}`);
     }
-  }
-
-  /** Ensure embeddings match DB vector dimension (pad/truncate) */
-  private normalizeEmbeddingDimensions(values: number[]): number[] {
-    const targetDim = Number(process.env.PGVECTOR_DIM || 1536);
-    if (values.length === targetDim) return values;
-    if (values.length > targetDim) return values.slice(0, targetDim);
-    const padded = values.slice();
-    while (padded.length < targetDim) padded.push(0);
-    return padded;
   }
 
   /** Generate a concise summary of the content */
@@ -235,7 +226,7 @@ export class UnifiedContextService {
     // Step 2: Generate summary and embedding
     const summary = this.generateSummary(contentToStore, contentType);
     const embeddingRaw = await this.generateEmbedding(contentToStore);
-    const embedding = this.normalizeEmbeddingDimensions(embeddingRaw);
+    const embedding = normalizeEmbeddingDimensions(embeddingRaw);
 
     // Step 3: Store in database (save first, then set pgvector via raw SQL)
     const context = await dbAny.contextMemory.create({
@@ -266,8 +257,8 @@ export class UnifiedContextService {
 
     // Persist vector using pgvector casting (Unsupported type)
     try {
-      const embeddingStr = `[${embedding.join(',')}]`;
-      const dim = Number(process.env.PGVECTOR_DIM || 1536);
+      const embeddingStr = toVectorString(embedding);
+      const dim = getDatabaseVectorDimension();
       await dbAny.$executeRawUnsafe(
         `UPDATE context_memory SET embedding = $1::vector(${dim}) WHERE id = $2`,
         embeddingStr,
@@ -322,11 +313,11 @@ export class UnifiedContextService {
 
     // Step 1: Generate query embedding and normalize
     const queryEmbeddingRaw = await this.generateEmbedding(query);
-    const queryEmbedding = this.normalizeEmbeddingDimensions(queryEmbeddingRaw);
-    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+    const queryEmbedding = normalizeEmbeddingDimensions(queryEmbeddingRaw);
+    const embeddingStr = toVectorString(queryEmbedding);
 
     // Step 2: Build native pgvector SQL
-    const dim = Number(process.env.PGVECTOR_DIM || 1536);
+    const dim = getDatabaseVectorDimension();
     let sql = `
       SELECT
         id,

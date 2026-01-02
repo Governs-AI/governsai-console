@@ -11,7 +11,8 @@ import { Queue, Worker, Job } from 'bullmq';
 import { ChunkService } from '../services/chunk-service';
 import { UniversalEmbeddingService } from '../services/embedding-service';
 import { prisma } from '@governs-ai/db';
-import { RAG_CONFIG } from '../config/rag-config';
+import { RAG_CONFIG, getDatabaseVectorDimension } from '../config/rag-config';
+import { normalizeEmbeddingDimensions, toVectorString } from '../services/embedding-utils';
 
 export interface ChunkJob {
   contextMemoryId: string;
@@ -218,13 +219,14 @@ export class ChunkWorker {
       );
 
       // 4. Set embeddings using raw SQL (pgvector Unsupported type)
+      const vectorDim = getDatabaseVectorDimension();
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        const embedding = embeddings[i];
-        const embeddingStr = `[${embedding.join(',')}]`;
+        const embedding = normalizeEmbeddingDimensions(embeddings[i], vectorDim);
+        const embeddingStr = toVectorString(embedding);
 
         await prisma.$executeRawUnsafe(
-          `UPDATE context_chunks SET embedding = $1::vector(1536) WHERE id = $2`,
+          `UPDATE context_chunks SET embedding = $1::vector(${vectorDim}) WHERE id = $2`,
           embeddingStr,
           chunk.id
         );

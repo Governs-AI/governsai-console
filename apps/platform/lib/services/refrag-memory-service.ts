@@ -10,6 +10,7 @@
 import { prisma } from '@governs-ai/db';
 import { UniversalEmbeddingService } from './embedding-service';
 import { RAG_CONFIG, getDatabaseVectorDimension } from '../config/rag-config';
+import { normalizeEmbeddingDimensions, toVectorString } from './embedding-utils';
 
 export interface ScoredChunk {
   chunk: {
@@ -89,7 +90,8 @@ export class RefragMemoryService {
     } = params;
 
     // 1. Generate query embedding
-    const queryEmbedding = await this.embeddingService.generateEmbedding(query);
+    const queryEmbeddingRaw = await this.embeddingService.generateEmbedding(query);
+    const queryEmbedding = normalizeEmbeddingDimensions(queryEmbeddingRaw);
 
     // 2. Search for relevant chunks using vector similarity
     const rawChunks = await this.searchChunks({
@@ -179,7 +181,7 @@ export class RefragMemoryService {
       includeTiers = ['hot', 'warm'],
     } = params;
 
-    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+    const embeddingStr = toVectorString(queryEmbedding);
     const vectorDim = getDatabaseVectorDimension();
 
     // Build WHERE clause conditions
