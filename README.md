@@ -31,7 +31,7 @@ The AI Governance OS — a unified control plane for AI interactions across your
 |---------|-------------|
 | 🔐 **Login with GovernsAI** | OAuth/OIDC provider via Keycloak - external apps use GovernsAI as SSO |
 | 💰 **Budget Control** | Real-time spending limits with automatic request blocking |
-| 🧠 **Context Memory** | Semantic search across all conversations with [REFRAG](https://github.com/Shaivpidadi/refrag) (5.8x faster retrieval) |
+| 🧠 **Context Memory** | Semantic search across all conversations with [REFRAG](https://github.com/Shaivpidadi/refrag) chunk-based optimization |
 | 🔍 **PII Detection** | Automatic compliance checks via Precheck API integration |
 | 🌐 **AI Agnostic** | OpenAI, Anthropic, Google, Ollama, or any provider |
 | 📊 **Complete Audit** | Every request logged with tokens, cost, and latency |
@@ -337,7 +337,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 **Memory System**
 - Semantic search with vector embeddings
 - Multi-provider support (OpenAI, Ollama, Hugging Face, Cohere)
-- [REFRAG integration](https://github.com/Shaivpidadi/refrag) (5.8x faster retrieval)
+- [REFRAG integration](https://github.com/Shaivpidadi/refrag) with chunk-based optimization
 - Cross-agent memory sharing
 
 ### 🔜 Coming Soon
@@ -391,16 +391,20 @@ docker run -p 3002:3002 governsai-console
 
 ## 📄 License
 
-This project is licensed under the **Elastic License 2.0 (ELv2)**.
+GovernsAI uses an **open-core licensing model**:
 
-**What you can do:**
-- Use, modify, and redistribute freely
-- Use in production (commercial or non-commercial)
-- Create derivative works
+**Open Source Components (MIT)**:
+- **Precheck Service** - PII detection and policy evaluation
+- **TypeScript SDK** - Client library for integration
+- **Browser Extension** - Shadow AI protection
+- **No restrictions** - Use, modify, host, or offer as a service
 
-**Key limitations:**
-- Cannot provide as a hosted/managed service to third parties
-- Cannot circumvent license key functionality
+**Platform Console (ELv2 - Source-Available)**:
+- Platform Dashboard licensed under **Elastic License 2.0 (ELv2)**
+- **Full source code access** - Clone, modify, and self-host
+- **Commercial use** - Run in production for your organization
+- Cannot offer the console as a hosted/managed service to third parties
+
 
 **[Read full license →](LICENSE)** | **[Learn more about ELv2 →](https://www.elastic.co/licensing/elastic-license)**
 
