@@ -50,3 +50,4 @@ export type Conversation = any;
 export type Document = any;
 export type DocumentChunk = any;
 export type ContextAccessLog = any;
+export type RefragAnalytics = any;

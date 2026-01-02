@@ -40,7 +40,7 @@ The Unified Context Memory System enables cross-agent memory sharing across all 
 - Agent-specific filtering for targeted searches
 
 ### 🔒 Governance & Security
-- PII detection and redaction using GovernsAI precheck
+- PII detection and redaction via GovernsAI precheck (Presidio-backed)
 - Content filtering and blocking for sensitive information
 - Audit logging for all context access
 

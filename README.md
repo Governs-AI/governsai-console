@@ -16,7 +16,7 @@ The AI Governance OS — a unified control plane for AI interactions across your
 
 - 🔐 **Single sign-on for AI apps** — "Login with GovernsAI" OAuth/OIDC provider
 - 💰 **Real-time budget enforcement** — Control spending across all AI providers
-- 🧠 **Unified semantic memory** — Cross-conversation search with REFRAG optimization
+- 🧠 **Context Memory** — Unified semantic search with REFRAG optimization
 - 🔍 **Automatic PII detection** — Compliance checks before data hits AI models
 - 📊 **Complete audit trail** — Every AI interaction logged and searchable
 - 🌐 **AI-agnostic** — Works with OpenAI, Anthropic, Google, or any provider
@@ -31,7 +31,7 @@ The AI Governance OS — a unified control plane for AI interactions across your
 |---------|-------------|
 | 🔐 **Login with GovernsAI** | OAuth/OIDC provider via Keycloak - external apps use GovernsAI as SSO |
 | 💰 **Budget Control** | Real-time spending limits with automatic request blocking |
-| 🧠 **Unified Memory** | Semantic search across all conversations with [REFRAG](https://github.com/Shaivpidadi/refrag) (5.8x faster retrieval) |
+| 🧠 **Context Memory** | Semantic search across all conversations with [REFRAG](https://github.com/Shaivpidadi/refrag) (5.8x faster retrieval) |
 | 🔍 **PII Detection** | Automatic compliance checks via Precheck API integration |
 | 🌐 **AI Agnostic** | OpenAI, Anthropic, Google, Ollama, or any provider |
 | 📊 **Complete Audit** | Every request logged with tokens, cost, and latency |
@@ -109,7 +109,7 @@ User/App → Keycloak SSO → Platform Dashboard → WebSocket Gateway → AI Pr
 - **Platform Dashboard** — Next.js 15 admin interface for configuration and monitoring
 - **WebSocket Gateway** — Real-time proxy with budget enforcement and policy checks
 - **Keycloak SSO** — OAuth/OIDC identity provider ("Login with GovernsAI")
-- **Unified Memory** — Semantic search with pgvector + [REFRAG](https://github.com/Shaivpidadi/refrag) optimization
+- **Context Memory** — Semantic search with pgvector + [REFRAG](https://github.com/Shaivpidadi/refrag) optimization
 - **Precheck API** — Standalone PII detection service
 
 **[View Full Architecture Diagram →](docs/architecture.md)**

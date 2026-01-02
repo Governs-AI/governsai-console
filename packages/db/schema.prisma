@@ -35,6 +35,7 @@ model Org {
   conversations        Conversation[]
   contextAccessLog     ContextAccessLog[]
   documents            Document[]
+  refragAnalytics     RefragAnalytics[]
   keycloakSyncJobs     KeycloakSyncJob[]
 }
 
@@ -64,6 +65,7 @@ model User {
   conversations        Conversation[]
   contextAccessLog     ContextAccessLog[]
   documents            Document[]
+  refragAnalytics     RefragAnalytics[]
   keycloakSyncState    KeycloakSyncState?
   keycloakSyncJobs     KeycloakSyncJob[]
 }
@@ -604,6 +606,28 @@ model ContextChunk {
   @@unique([contextMemoryId, chunkIndex])
   @@index([contextMemoryId])
   @@map("context_chunks")
+}
+
+// REFRAG analytics for token savings and retrieval performance
+model RefragAnalytics {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  orgId              String   @map("org_id")
+  query              String
+  totalChunks        Int      @map("total_chunks")
+  expandedChunks     Int      @map("expanded_chunks")
+  compressedChunks   Int      @map("compressed_chunks")
+  tokenSavings       Int      @map("token_savings")
+  tokenSavingsPercent Decimal @map("token_savings_percent") @db.Decimal(5, 2)
+  latencyMs          Int      @map("latency_ms")
+  timestamp          DateTime @default(now()) @map("timestamp")
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([orgId, timestamp(sort: Desc)])
+  @@map("refrag_analytics")
 }
 
 model Conversation {

@@ -53,7 +53,8 @@ export class RefragAnalyticsService {
           totalChunks: data.totalChunks,
           expandedChunks: data.expandedChunks,
           compressedChunks: data.compressedChunks,
-          tokenSavings: data.tokenSavingsPercent, // Store as percentage
+          tokenSavings: data.tokenSavings,
+          tokenSavingsPercent: data.tokenSavingsPercent,
           latencyMs: data.latencyMs,
           timestamp: new Date(),
         },
@@ -84,6 +85,7 @@ export class RefragAnalyticsService {
         _count: { id: true },
         _avg: {
           tokenSavings: true,
+          tokenSavingsPercent: true,
           latencyMs: true,
           expandedChunks: true,
           compressedChunks: true,
@@ -94,19 +96,24 @@ export class RefragAnalyticsService {
         },
       });
 
-      const avgCompressionRatio = stats._avg.compressedChunks && stats._avg.expandedChunks
-        ? stats._avg.compressedChunks / (stats._avg.compressedChunks + stats._avg.expandedChunks)
+      const avgExpandedChunks = Number(stats._avg.expandedChunks || 0);
+      const avgCompressedChunks = Number(stats._avg.compressedChunks || 0);
+      const avgCompressionRatio = avgExpandedChunks + avgCompressedChunks > 0
+        ? avgCompressedChunks / (avgExpandedChunks + avgCompressedChunks)
         : 0;
+      const avgTokenSavings = Number(stats._avg.tokenSavings || 0);
+      const avgTokenSavingsPercent = Number(stats._avg.tokenSavingsPercent || 0);
+      const totalTokensSaved = Number(stats._sum.tokenSavings || 0);
 
       return {
         totalSearches: stats._count.id || 0,
-        avgTokenSavings: 0, // Calculated from percentage
-        avgTokenSavingsPercent: stats._avg.tokenSavings || 0,
-        avgLatency: stats._avg.latencyMs || 0,
+        avgTokenSavings,
+        avgTokenSavingsPercent,
+        avgLatency: Number(stats._avg.latencyMs || 0),
         avgCompressionRatio: avgCompressionRatio,
-        avgExpandedChunks: stats._avg.expandedChunks || 0,
-        avgCompressedChunks: stats._avg.compressedChunks || 0,
-        totalTokensSaved: 0, // Would need to track actual tokens
+        avgExpandedChunks,
+        avgCompressedChunks,
+        totalTokensSaved,
       };
     } catch (error) {
       console.error('Failed to get REFRAG stats:', error);
@@ -143,6 +150,7 @@ export class RefragAnalyticsService {
         _count: { id: true },
         _avg: {
           tokenSavings: true,
+          tokenSavingsPercent: true,
           latencyMs: true,
           expandedChunks: true,
           compressedChunks: true,
@@ -153,19 +161,24 @@ export class RefragAnalyticsService {
         },
       });
 
-      const avgCompressionRatio = stats._avg.compressedChunks && stats._avg.expandedChunks
-        ? stats._avg.compressedChunks / (stats._avg.compressedChunks + stats._avg.expandedChunks)
+      const avgExpandedChunks = Number(stats._avg.expandedChunks || 0);
+      const avgCompressedChunks = Number(stats._avg.compressedChunks || 0);
+      const avgCompressionRatio = avgExpandedChunks + avgCompressedChunks > 0
+        ? avgCompressedChunks / (avgExpandedChunks + avgCompressedChunks)
         : 0;
+      const avgTokenSavings = Number(stats._avg.tokenSavings || 0);
+      const avgTokenSavingsPercent = Number(stats._avg.tokenSavingsPercent || 0);
+      const totalTokensSaved = Number(stats._sum.tokenSavings || 0);
 
       return {
         totalSearches: stats._count.id || 0,
-        avgTokenSavings: 0,
-        avgTokenSavingsPercent: stats._avg.tokenSavings || 0,
-        avgLatency: stats._avg.latencyMs || 0,
+        avgTokenSavings,
+        avgTokenSavingsPercent,
+        avgLatency: Number(stats._avg.latencyMs || 0),
         avgCompressionRatio: avgCompressionRatio,
-        avgExpandedChunks: stats._avg.expandedChunks || 0,
-        avgCompressedChunks: stats._avg.compressedChunks || 0,
-        totalTokensSaved: 0,
+        avgExpandedChunks,
+        avgCompressedChunks,
+        totalTokensSaved,
       };
     } catch (error) {
       console.error('Failed to get org REFRAG stats:', error);
@@ -202,6 +215,7 @@ export class RefragAnalyticsService {
           expandedChunks: true,
           compressedChunks: true,
           tokenSavings: true,
+          tokenSavingsPercent: true,
           latencyMs: true,
           timestamp: true,
         },
