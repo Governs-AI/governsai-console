@@ -170,8 +170,6 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
       return;
     }
 
-    setOrgSyncState('idle');
-
     const currentPath = pathname || '';
     const targetPath = currentPath.startsWith('/o/')
       ? currentPath.replace(/^\/o\/[^/]+/, `/o/${org.slug}`)

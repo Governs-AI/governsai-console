@@ -72,10 +72,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isReady || !org) return;
-    fetchDashboardData(org.id);
+    fetchDashboardData(org.id, org.slug);
   }, [isReady, org?.id]);
 
-  const fetchDashboardData = async (orgId: string) => {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+
+  const fetchDashboardData = async (orgId: string, resolvedOrgSlug: string) => {
     setLoading(true);
     try {
       const now = new Date();
@@ -113,25 +119,43 @@ export default function DashboardPage() {
         endTime: prevEndTime.toISOString(),
       });
 
+      const usageParams = new URLSearchParams({
+        startDate: startTime.toISOString(),
+        endDate: now.toISOString(),
+        limit: '500',
+      });
+
       const [
         currentDecisionsResponse,
         previousDecisionsResponse,
         currentToolcallsResponse,
         previousToolcallsResponse,
+        spendResponse,
+        usageResponse,
       ] = await Promise.all([
         fetch(`/api/v1/decisions?${currentDecisionsParams}`, { credentials: 'include' }),
         fetch(`/api/v1/decisions?${previousDecisionsParams}`, { credentials: 'include' }),
         fetch(`/api/v1/toolcalls?${currentToolcallsParams}`, { credentials: 'include' }),
         fetch(`/api/v1/toolcalls?${previousToolcallsParams}`, { credentials: 'include' }),
+        fetch(`/api/v1/spend?orgSlug=${resolvedOrgSlug}&timeRange=30d`, { credentials: 'include' }),
+        fetch(`/api/v1/usage?${usageParams}`, { credentials: 'include' }),
       ]);
 
-      const [currentDecisionsData, previousDecisionsData, currentToolcallsData, previousToolcallsData] =
-        await Promise.all([
-          currentDecisionsResponse.ok ? currentDecisionsResponse.json() : { decisions: [], stats: null },
-          previousDecisionsResponse.ok ? previousDecisionsResponse.json() : { decisions: [], stats: null },
-          currentToolcallsResponse.ok ? currentToolcallsResponse.json() : { toolcalls: [], stats: null },
-          previousToolcallsResponse.ok ? previousToolcallsResponse.json() : { toolcalls: [], stats: null },
-        ]);
+      const [
+        currentDecisionsData,
+        previousDecisionsData,
+        currentToolcallsData,
+        previousToolcallsData,
+        spendData,
+        usageData,
+      ] = await Promise.all([
+        currentDecisionsResponse.ok ? currentDecisionsResponse.json() : { decisions: [], stats: null },
+        previousDecisionsResponse.ok ? previousDecisionsResponse.json() : { decisions: [], stats: null },
+        currentToolcallsResponse.ok ? currentToolcallsResponse.json() : { toolcalls: [], stats: null },
+        previousToolcallsResponse.ok ? previousToolcallsResponse.json() : { toolcalls: [], stats: null },
+        spendResponse.ok ? spendResponse.json() : { spend: null },
+        usageResponse.ok ? usageResponse.json() : { records: [] },
+      ]);
 
       const currentDecisionStats = currentDecisionsData.stats || {};
       const previousDecisionStats = previousDecisionsData.stats || {};
@@ -155,6 +179,30 @@ export default function DashboardPage() {
       const currentToolcallsTotal = currentToolcallStats.total || 0;
       const previousToolcallsTotal = previousToolcallStats.total || 0;
 
+      const costByCorrelationId = new Map<string, number>();
+      (usageData.records || []).forEach((record: any) => {
+        if (!record?.correlationId) return;
+        const cost = Number(record.cost || 0);
+        costByCorrelationId.set(
+          record.correlationId,
+          (costByCorrelationId.get(record.correlationId) || 0) + cost
+        );
+      });
+
+      const decisionsWithCost = (currentDecisionsData.decisions || []).map((decision: any) => ({
+        ...decision,
+        cost: decision.correlationId
+          ? costByCorrelationId.get(decision.correlationId) ?? null
+          : null,
+      }));
+
+      const spendSummary = spendData?.spend
+        ? {
+            current: Number(spendData.spend.dailySpend || 0),
+            monthly: Number(spendData.spend.monthlySpend || 0),
+          }
+        : { current: 0, monthly: 0 };
+
       setDashboardData({
         decisions: {
           total: currentDecisionsTotal,
@@ -166,11 +214,8 @@ export default function DashboardPage() {
           total: currentToolcallsTotal,
           byTool: currentToolcallStats.byTool || {}
         },
-        recentDecisions: currentDecisionsData.decisions || [],
-        spend: {
-          current: 0, // This would need a separate API
-          monthly: 0
-        }
+        recentDecisions: decisionsWithCost,
+        spend: spendSummary
       });
 
       setKpiMeta({
@@ -290,6 +335,23 @@ export default function DashboardPage() {
           />
         </div>
 
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">Spend Overview</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/o/${orgSlug}/spend`)}
+            >
+              View Spend →
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <KpiCard label="Today" value={formatCurrency(dashboardData.spend.current)} />
+            <KpiCard label="Last 30 Days" value={formatCurrency(dashboardData.spend.monthly)} />
+          </div>
+        </section>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="interactive-card">
@@ -391,7 +453,11 @@ export default function DashboardPage() {
                         {decision.decision?.toUpperCase() || 'UNKNOWN'}
                       </span>
                     </DataTableCell>
-                    <DataTableCell>$0.00</DataTableCell>
+                    <DataTableCell>
+                      {typeof decision.cost === 'number'
+                        ? formatCurrency(decision.cost)
+                        : '—'}
+                    </DataTableCell>
                     <DataTableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         decision.decision === 'allow' 
