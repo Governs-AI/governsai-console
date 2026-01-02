@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button, Card, CardContent } from '@governs-ai/ui';
+import { Button, Card, CardContent, Badge } from '@governs-ai/ui';
 import { Save } from 'lucide-react';
 
 interface ToolFormData {
@@ -57,6 +57,12 @@ export function ToolForm({ tool, onSave, onCancel }: ToolFormProps) {
   );
 
   const [saving, setSaving] = useState(false);
+
+  const getRiskVariant = (riskLevel: string) => {
+    if (riskLevel === 'critical' || riskLevel === 'high') return 'destructive';
+    if (riskLevel === 'medium') return 'warning';
+    return 'success';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,6 +234,40 @@ export function ToolForm({ tool, onSave, onCancel }: ToolFormProps) {
             <p className="text-xs text-muted-foreground ml-6">
               Inactive tools will not be available for governance
             </p>
+          </div>
+
+          {/* Tool Summary */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-lg font-semibold">Tool Summary</h3>
+            <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Tool identifier</p>
+                <p className="font-mono text-sm">{formData.toolName || 'tool.action'}</p>
+                {formData.displayName && (
+                  <p className="text-sm text-muted-foreground">{formData.displayName}</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {formData.category}
+                </Badge>
+                <Badge variant={getRiskVariant(formData.riskLevel)} className="text-xs">
+                  {formData.riskLevel} risk
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {formData.scope}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {formData.direction}
+                </Badge>
+                <Badge variant={formData.requiresApproval ? 'warning' : 'outline'} className="text-xs">
+                  {formData.requiresApproval ? 'Approval required' : 'No approval'}
+                </Badge>
+                <Badge variant={formData.isActive ? 'default' : 'secondary'} className="text-xs">
+                  {formData.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+            </div>
           </div>
 
           {/* Form Actions */}
