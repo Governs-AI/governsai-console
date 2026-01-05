@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { contextSearch } from '@/lib/services/context-search';
 import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
+import { userResolverService } from '@/lib/services/user-resolver';
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,8 +31,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!orgId) {
+      return NextResponse.json({ error: 'Unauthorized - missing org context' }, { status: 401 });
     }
 
     const body = await req.json();
@@ -45,7 +46,25 @@ export async function POST(req: NextRequest) {
       threshold,
       useRefrag = false,
       compressionRatio,
+      externalUserId,
+      externalSource = 'default',
     } = body;
+
+    // If externalUserId is provided, resolve it to internal userId
+    if (externalUserId) {
+      const user = await userResolverService.getUserByExternalId(externalUserId, externalSource);
+      if (!user) {
+        return NextResponse.json(
+          { error: 'User not found. Use /api/v1/context to create memory first.' },
+          { status: 404 }
+        );
+      }
+      userId = user.id;
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized - missing user context' }, { status: 401 });
+    }
 
     if (!query) {
       return NextResponse.json(

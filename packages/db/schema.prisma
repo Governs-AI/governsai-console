@@ -45,6 +45,8 @@ model User {
   emailVerified        DateTime?
   name                 String?
   image                String?
+  externalId           String?               @unique @map("external_id")
+  externalSource       String?               @map("external_source")
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   apiKeys              APIKey[]
