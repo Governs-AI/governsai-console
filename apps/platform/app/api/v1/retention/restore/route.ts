@@ -4,6 +4,9 @@ import { verifySessionToken } from '@/lib/auth-server';
 import { restoreArchive } from '@/lib/services/log-archive';
 
 export const runtime = 'nodejs';
+export const maxDuration = 300;
+
+const MAX_ARCHIVE_BYTES = parseInt(process.env.ARCHIVE_MAX_BYTES || '104857600', 10);
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +52,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing archive file' }, { status: 400 });
     }
 
-    const text = await (file as File).text();
+    const fileObj = file as File;
+
+    if (fileObj.size > MAX_ARCHIVE_BYTES) {
+      return NextResponse.json(
+        {
+          error: `Archive exceeds max upload size (${Math.round(MAX_ARCHIVE_BYTES / (1024 * 1024))} MB).`,
+        },
+        { status: 413 }
+      );
+    }
+
+    const text = await fileObj.text();
     let payload: any;
 
     try {
@@ -59,6 +73,21 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await restoreArchive(payload, orgId);
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        orgId,
+        action: 'retention.restore',
+        resource: 'retention',
+        details: {
+          exportId: payload?.exportId || null,
+          restored: result.restored,
+          fileName: fileObj.name || null,
+          fileSize: fileObj.size,
+        },
+      },
+    });
 
     return NextResponse.json({
       success: true,

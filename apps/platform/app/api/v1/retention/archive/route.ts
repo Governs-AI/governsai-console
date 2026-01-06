@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
-import { buildArchive } from '@/lib/services/log-archive';
+import { buildArchive, resolveArchiveInclude } from '@/lib/services/log-archive';
 
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
 
     const mode = body?.mode === 'move' ? 'move' : 'copy';
     const include = body?.include || undefined;
+    const resolvedInclude = resolveArchiveInclude(include);
 
     const archive = await buildArchive({
       orgId,
@@ -68,6 +70,22 @@ export async function POST(request: NextRequest) {
       endTime,
       mode,
       include,
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        orgId,
+        action: 'retention.archive',
+        resource: 'retention',
+        details: {
+          exportId: archive.exportId,
+          mode: archive.mode,
+          range: archive.range,
+          counts: archive.counts,
+          include: resolvedInclude,
+        },
+      },
     });
 
     const safeTimestamp = archive.exportedAt.replace(/[:.]/g, '-');

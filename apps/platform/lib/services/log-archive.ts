@@ -180,7 +180,7 @@ export interface ArchivePayload {
   };
 }
 
-const DEFAULT_INCLUDE: ArchiveInclude = {
+export const DEFAULT_ARCHIVE_INCLUDE: ArchiveInclude = {
   contextMemory: true,
   contextChunks: true,
   conversations: true,
@@ -190,8 +190,8 @@ const DEFAULT_INCLUDE: ArchiveInclude = {
   contextAccessLogs: true,
 };
 
-function resolveInclude(overrides?: Partial<ArchiveInclude>): ArchiveInclude {
-  return { ...DEFAULT_INCLUDE, ...(overrides || {}) };
+export function resolveArchiveInclude(overrides?: Partial<ArchiveInclude>): ArchiveInclude {
+  return { ...DEFAULT_ARCHIVE_INCLUDE, ...(overrides || {}) };
 }
 
 function toIso(value: Date | null | undefined): string | null {
@@ -310,7 +310,7 @@ async function setChunkEmbeddings(
 
 export async function buildArchive(options: ArchiveOptions): Promise<ArchivePayload> {
   const { orgId, startTime, endTime } = options;
-  const include = resolveInclude(options.include);
+  const include = resolveArchiveInclude(options.include);
   const mode: ArchiveMode = options.mode || 'copy';
   const exportId = randomUUID();
   const exportedAt = new Date();

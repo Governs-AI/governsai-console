@@ -680,7 +680,11 @@ model Document {
   id     String @id @default(cuid())
   userId String @map("user_id") // Who uploaded it
   orgId  String @map("org_id")
-  
+
+  // External user mapping
+  externalUserId   String?  @map("external_user_id")
+  externalSource   String?  @map("external_source")
+
   // Document metadata
   filename    String
   contentType String  @map("content_type") // 'pdf', 'txt', 'md', 'docx'
@@ -722,6 +726,7 @@ model Document {
   @@index([fileHash])
   @@index([scope, visibility])
   @@index([status])
+  @@index([externalUserId, externalSource])
   @@map("documents")
 }
 
