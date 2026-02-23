@@ -785,6 +785,17 @@ model ContextAccessLog {
   @@map("context_access_log")
 }
 
+model WebhookIdempotencyKey {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique @map("idempotency_key")
+  eventType      String   @map("event_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([idempotencyKey])
+  @@index([createdAt])
+  @@map("webhook_idempotency_keys")
+}
+
 enum OrgRole {
   OWNER
   ADMIN

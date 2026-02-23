@@ -34,7 +34,15 @@ function verifySignature(raw: string, header: string | null) {
     return false;
   }
   
-  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  if (!crypto.timingSafeEqual(expectedBuffer, providedBuffer)) return false;
+
+  // Reject webhooks with a timestamp older than 5 minutes (replay attack prevention)
+  const tsSeconds = parseInt(parts["t"], 10);
+  if (isNaN(tsSeconds)) return false;
+  const ageSeconds = Math.floor(Date.now() / 1000) - tsSeconds;
+  if (Math.abs(ageSeconds) > 300) return false;
+
+  return true;
 }
 
 export async function POST(req: NextRequest) {
@@ -50,6 +58,20 @@ export async function POST(req: NextRequest) {
     const event = JSON.parse(raw);
 
     console.log("[governs:webhook] received event type=%s schema=%s", event.type, event.schema);
+
+    // Idempotency: reject duplicate events by idempotencyKey
+    if (event.idempotencyKey) {
+      const existing = await (prisma as any).webhookIdempotencyKey.findUnique({
+        where: { idempotencyKey: event.idempotencyKey },
+        select: { id: true },
+      });
+      if (existing) {
+        return NextResponse.json({ ok: true, duplicate: true });
+      }
+      await (prisma as any).webhookIdempotencyKey.create({
+        data: { idempotencyKey: event.idempotencyKey, eventType: event.type || "unknown" },
+      });
+    }
 
     // Process different types of webhook events
     if (event.type === "decision") {
