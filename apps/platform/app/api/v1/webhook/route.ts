@@ -59,6 +59,20 @@ export async function POST(req: NextRequest) {
 
     console.log("[governs:webhook] received event type=%s schema=%s", event.type, event.schema);
 
+    // Idempotency: reject duplicate events by idempotencyKey
+    if (event.idempotencyKey) {
+      const existing = await (prisma as any).webhookIdempotencyKey.findUnique({
+        where: { idempotencyKey: event.idempotencyKey },
+        select: { id: true },
+      });
+      if (existing) {
+        return NextResponse.json({ ok: true, duplicate: true });
+      }
+      await (prisma as any).webhookIdempotencyKey.create({
+        data: { idempotencyKey: event.idempotencyKey, eventType: event.type || "unknown" },
+      });
+    }
+
     // Process different types of webhook events
     if (event.type === "decision") {
       await handleDecisionEvent(event);
