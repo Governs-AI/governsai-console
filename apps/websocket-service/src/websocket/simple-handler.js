@@ -173,10 +173,6 @@ export class SimpleWebSocketHandler {
       if (!connection.authenticated) {
         if (data.authentication && data.authentication.apiKey) {
           console.log('🔐 Attempting authentication from INGEST message data...');
-          console.log('📊 Auth data:', {
-            apiKey: data.authentication.apiKey,
-            userId: data.authentication.userId
-          });
           
           // Authenticate using the provided API key and userId
           await this.handleAuth(connection, { apiKey: data.authentication.apiKey });
@@ -496,7 +492,7 @@ export class SimpleWebSocketHandler {
         }
       };
 
-      console.log('📦 Context save payload:', JSON.stringify(payload, null, 2));
+      console.log('📦 Emitting context.save event', { type: payload.type, agentId: payload.data?.agentId, correlationId: payload.data?.correlationId });
 
       // Create signature
       const timestamp = Math.floor(Date.now() / 1000);
