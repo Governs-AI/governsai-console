@@ -11,7 +11,7 @@ export async function DELETE(
     const { orgId } = await requireAuth(request);
 
     // Verify the key belongs to the organization
-    const apiKey = await prisma.apiKey.findFirst({
+    const apiKey = await prisma.aPIKey.findFirst({
       where: { id, orgId },
     });
 
@@ -19,7 +19,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'API key not found' }, { status: 404 });
     }
 
-    await prisma.apiKey.delete({
+    await prisma.aPIKey.delete({
       where: { id },
     });
 
@@ -44,7 +44,7 @@ export async function PATCH(
     const { orgId } = await requireAuth(request);
 
     // Verify the key belongs to the organization
-    const apiKey = await prisma.apiKey.findFirst({
+    const apiKey = await prisma.aPIKey.findFirst({
       where: { id, orgId },
     });
 
@@ -52,7 +52,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'API key not found' }, { status: 404 });
     }
 
-    const updatedKey = await prisma.apiKey.update({
+    const updatedKey = await prisma.aPIKey.update({
       where: { id },
       data: { isActive },
     });

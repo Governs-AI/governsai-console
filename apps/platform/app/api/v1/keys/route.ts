@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const { orgId } = await requireAuth(request);
 
-    const keys = await prisma.apiKey.findMany({
+    const keys = await prisma.aPIKey.findMany({
       where: { orgId },
       orderBy: { createdAt: 'desc' },
     });
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Generate a secure API key
     const keyValue = `gai_${randomBytes(32).toString('hex')}`;
 
-    const apiKey = await prisma.apiKey.create({
+    const apiKey = await prisma.aPIKey.create({
       data: {
         label,
         scopes,
