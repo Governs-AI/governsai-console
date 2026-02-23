@@ -43,6 +43,7 @@ export async function GET(
             id: true,
             email: true,
             name: true,
+            emailVerified: true,
             createdAt: true,
           },
         },
@@ -71,8 +72,8 @@ export async function GET(
         // TODO: Implement actual last activity tracking
         const lastActivity = null;
 
-        // Determine status
-        const status = membership.status || 'active';
+        // OrgMembership has no status column; derive status from user verification state.
+        const status = membership.user.emailVerified ? 'active' : 'pending';
 
         return {
           id: membership.user.id,
@@ -176,7 +177,6 @@ export async function POST(
         userId: user.id,
         orgId,
         role: role.toUpperCase(),
-        status: 'pending',
       },
       include: {
         user: {
@@ -184,6 +184,7 @@ export async function POST(
             id: true,
             email: true,
             name: true,
+            emailVerified: true,
           },
         },
       },
@@ -197,7 +198,7 @@ export async function POST(
         email: newMembership.user.email,
         name: newMembership.user.name,
         role: newMembership.role,
-        status: newMembership.status,
+        status: newMembership.user.emailVerified ? 'active' : 'pending',
       },
     });
   } catch (error) {
