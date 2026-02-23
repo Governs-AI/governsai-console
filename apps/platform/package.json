@@ -70,5 +70,6 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.20.3",
     "typescript": "^5"
-  }
+  },
+  "license": "Elastic-2.0"
 }
