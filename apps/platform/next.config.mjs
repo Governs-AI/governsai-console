@@ -22,7 +22,7 @@ const nextConfig = {
   },
   transpilePackages: ["@prisma/client", "@governs-ai/billing", "@governs-ai/db"],
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
     ignoreBuildErrors: true,
