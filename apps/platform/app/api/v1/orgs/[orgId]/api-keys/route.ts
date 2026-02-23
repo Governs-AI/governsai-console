@@ -233,7 +233,7 @@ export async function POST(
         orgId: org.id, // Use the actual orgId from database
         scopes,
         env,
-        ipAllow: ipAllow || null,
+        ipAllow: ipAllow || undefined,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         isActive: true,
       },

@@ -61,7 +61,9 @@ export async function GET(
     const currentSpend = await prisma.usageRecord.aggregate({
       where: {
         orgId,
-        userId: budgetLimit.type === 'user' ? budgetLimit.userId : undefined,
+        ...(budgetLimit.type === 'user' && budgetLimit.userId
+          ? { userId: budgetLimit.userId }
+          : {}),
         timestamp: {
           gte: monthStart,
           lte: now,
@@ -79,7 +81,7 @@ export async function GET(
         userId: budgetLimit.userId,
         userName: budgetLimit.user?.name || budgetLimit.user?.email,
         monthlyLimit: Number(budgetLimit.monthlyLimit),
-        currentSpend: Number(currentSpend._sum.cost || 0),
+        currentSpend: Number(currentSpend._sum?.cost || 0),
         isActive: budgetLimit.isActive,
         createdAt: budgetLimit.createdAt.toISOString(),
         updatedAt: budgetLimit.updatedAt.toISOString(),

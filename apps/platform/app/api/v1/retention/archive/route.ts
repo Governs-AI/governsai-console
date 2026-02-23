@@ -72,19 +72,23 @@ export async function POST(request: NextRequest) {
       include,
     });
 
+    const auditDetails = JSON.parse(
+      JSON.stringify({
+        exportId: archive.exportId,
+        mode: archive.mode,
+        range: archive.range,
+        counts: archive.counts,
+        include: resolvedInclude,
+      })
+    );
+
     await prisma.auditLog.create({
       data: {
         userId,
         orgId,
         action: 'retention.archive',
         resource: 'retention',
-        details: {
-          exportId: archive.exportId,
-          mode: archive.mode,
-          range: archive.range,
-          counts: archive.counts,
-          include: resolvedInclude,
-        },
+        details: auditDetails,
       },
     });
 

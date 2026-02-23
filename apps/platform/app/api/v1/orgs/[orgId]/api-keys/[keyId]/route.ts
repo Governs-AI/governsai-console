@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { verifySessionToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
+import { Prisma } from '@prisma/client';
 
 const updateKeySchema = z.object({
   name: z.string().min(1).optional(),
@@ -92,17 +93,26 @@ export async function GET(
       }),
       prisma.usageRecord.findMany({
         where: { apiKeyId: keyId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         take: 10,
         select: {
           id: true,
           model: true,
-          totalTokens: true,
+          inputTokens: true,
+          outputTokens: true,
           cost: true,
-          createdAt: true,
+          timestamp: true,
         },
       }),
     ]);
+
+    const normalizedRecentUsage = recentUsage.map((usage) => ({
+      id: usage.id,
+      model: usage.model,
+      totalTokens: usage.inputTokens + usage.outputTokens,
+      cost: usage.cost,
+      createdAt: usage.timestamp,
+    }));
 
     return NextResponse.json({
       success: true,
@@ -122,7 +132,7 @@ export async function GET(
         stats: {
           activeSessions: sessionCount,
           totalUsage: usageCount,
-          recentUsage,
+          recentUsage: normalizedRecentUsage,
         },
       },
     });
@@ -195,15 +205,42 @@ export async function PATCH(
     }
 
     // Update the key
+    const apiKeyUpdateData: {
+      name?: string;
+      scopes?: string[];
+      env?: 'development' | 'staging' | 'production';
+      isActive?: boolean;
+      ipAllow?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+      expiresAt?: Date | null;
+      updatedAt: Date;
+    } = {
+      updatedAt: new Date(),
+    };
+
+    if (updateData.name !== undefined) {
+      apiKeyUpdateData.name = updateData.name;
+    }
+    if (updateData.scopes !== undefined) {
+      apiKeyUpdateData.scopes = updateData.scopes;
+    }
+    if (updateData.env !== undefined) {
+      apiKeyUpdateData.env = updateData.env;
+    }
+    if (updateData.isActive !== undefined) {
+      apiKeyUpdateData.isActive = updateData.isActive;
+    }
+    if (updateData.ipAllow !== undefined) {
+      apiKeyUpdateData.ipAllow =
+        updateData.ipAllow === null ? Prisma.JsonNull : updateData.ipAllow;
+    }
+    if (updateData.expiresAt !== undefined) {
+      apiKeyUpdateData.expiresAt =
+        updateData.expiresAt === null ? null : new Date(updateData.expiresAt);
+    }
+
     const updatedKey = await prisma.aPIKey.update({
       where: { id: keyId },
-      data: {
-        ...updateData,
-        ipAllow: updateData.ipAllow === null ? null : updateData.ipAllow,
-        expiresAt: updateData.expiresAt === null ? null : 
-                   updateData.expiresAt ? new Date(updateData.expiresAt) : existingKey.expiresAt,
-        updatedAt: new Date(),
-      },
+      data: apiKeyUpdateData,
       include: {
         user: {
           select: {
