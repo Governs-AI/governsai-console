@@ -49,8 +49,7 @@ export async function POST(req: NextRequest) {
     // Parse the webhook event
     const event = JSON.parse(raw);
 
-    // Log the event for debugging
-    console.log("[governs:webhook]", event);
+    console.log("[governs:webhook] received event type=%s schema=%s", event.type, event.schema);
 
     // Process different types of webhook events
     if (event.type === "decision") {
