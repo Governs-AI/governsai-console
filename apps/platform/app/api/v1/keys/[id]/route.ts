@@ -59,7 +59,7 @@ export async function PATCH(
 
     return NextResponse.json({
       id: updatedKey.id,
-      label: updatedKey.label,
+      name: updatedKey.name,
       scopes: updatedKey.scopes,
       issuedAt: updatedKey.createdAt,
       lastUsed: updatedKey.lastUsed,

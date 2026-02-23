@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     // Don't return the actual key values for security
     const safeKeys = keys.map(key => ({
       id: key.id,
-      label: key.label,
+      name: key.name,
       scopes: key.scopes,
       issuedAt: key.createdAt,
       lastUsed: key.lastUsed,
@@ -35,22 +35,24 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { label, scopes } = body;
+    const { name: rawName, label, scopes } = body;
+    const name = typeof rawName === 'string' ? rawName : label;
 
-    if (!label || !scopes || !Array.isArray(scopes)) {
+    if (!name || !scopes || !Array.isArray(scopes)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const { orgId } = await requireAuth(request);
+    const { orgId, userId } = await requireAuth(request);
 
     // Generate a secure API key
     const keyValue = `gai_${randomBytes(32).toString('hex')}`;
 
     const apiKey = await prisma.aPIKey.create({
       data: {
-        label,
+        name,
         scopes,
-        keyValue,
+        key: keyValue,
+        userId,
         orgId,
         isActive: true,
       },
@@ -59,9 +61,9 @@ export async function POST(request: NextRequest) {
     // Return the key value only once for security
     return NextResponse.json({
       id: apiKey.id,
-      label: apiKey.label,
+      name: apiKey.name,
       scopes: apiKey.scopes,
-      keyValue, // Only returned on creation
+      key: apiKey.key, // Only returned on creation
       issuedAt: apiKey.createdAt,
       isActive: apiKey.isActive,
     });
