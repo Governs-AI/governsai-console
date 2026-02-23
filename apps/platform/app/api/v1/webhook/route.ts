@@ -34,7 +34,15 @@ function verifySignature(raw: string, header: string | null) {
     return false;
   }
   
-  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  if (!crypto.timingSafeEqual(expectedBuffer, providedBuffer)) return false;
+
+  // Reject webhooks with a timestamp older than 5 minutes (replay attack prevention)
+  const tsSeconds = parseInt(parts["t"], 10);
+  if (isNaN(tsSeconds)) return false;
+  const ageSeconds = Math.floor(Date.now() / 1000) - tsSeconds;
+  if (Math.abs(ageSeconds) > 300) return false;
+
+  return true;
 }
 
 export async function POST(req: NextRequest) {
