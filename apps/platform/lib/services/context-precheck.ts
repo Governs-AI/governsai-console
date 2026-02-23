@@ -1,5 +1,4 @@
 // Context precheck service for PII detection and redaction
-// This is a simplified version that integrates with the GovernsAI precheck system
 
 interface PrecheckResult {
   decision: 'allow' | 'redact' | 'block' | 'deny';
@@ -10,17 +9,22 @@ interface PrecheckResult {
 
 class ContextPrecheckService {
   /**
-   * Check content for PII and governance compliance
-   * This is a simplified implementation - in production, this would integrate
-   * with the actual GovernsAI precheck service
+   * Check content for PII and governance compliance.
+   *
+   * @param failMode - Controls error behaviour:
+   *   'closed' (default) — block storage when the check itself fails (safe for sensitive flows)
+   *   'open'             — allow storage on error (only for non-sensitive, best-effort paths)
    */
-  async check(input: {
-    content: string;
-    userId: string;
-    orgId: string;
-    tool: string;
-    scope: string;
-  }): Promise<PrecheckResult> {
+  async check(
+    input: {
+      content: string;
+      userId: string;
+      orgId: string;
+      tool: string;
+      scope: string;
+    },
+    failMode: 'open' | 'closed' = 'closed'
+  ): Promise<PrecheckResult> {
     try {
       // For now, implement basic PII detection patterns
       const piiPatterns = [
@@ -104,7 +108,15 @@ class ContextPrecheckService {
 
     } catch (error) {
       console.error('Context precheck failed:', error);
-      // Fail open: allow storage but log error
+      if (failMode === 'closed') {
+        // Fail closed: block storage when governance check itself cannot run
+        return {
+          decision: 'block',
+          piiTypes: [],
+          reasons: ['precheck_service_unavailable'],
+        };
+      }
+      // Fail open: caller opted in explicitly — allow but surface the error reason
       return {
         decision: 'allow',
         piiTypes: [],
