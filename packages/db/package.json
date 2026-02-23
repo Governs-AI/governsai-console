@@ -26,5 +26,6 @@
     "prisma": "5.22.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "license": "Elastic-2.0"
 }

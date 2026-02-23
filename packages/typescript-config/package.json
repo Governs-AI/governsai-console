@@ -2,7 +2,7 @@
   "name": "@governs-ai/typescript-config",
   "version": "0.0.0",
   "private": true,
-  "license": "MIT",
+  "license": "Elastic-2.0",
   "publishConfig": {
     "access": "public"
   }

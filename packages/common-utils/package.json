@@ -17,5 +17,6 @@
   },
   "peerDependencies": {
     "next": "^15.0.0"
-  }
+  },
+  "license": "Elastic-2.0"
 }

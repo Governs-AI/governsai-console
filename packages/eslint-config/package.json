@@ -20,5 +20,6 @@
     "globals": "^16.2.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.35.0"
-  }
+  },
+  "license": "Elastic-2.0"
 }
