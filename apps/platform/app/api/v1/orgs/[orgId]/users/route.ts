@@ -151,7 +151,6 @@ export async function POST(
         data: {
           email,
           name: name || null,
-          password: '', // Temporary password - user should be prompted to set one
         },
       });
     }
