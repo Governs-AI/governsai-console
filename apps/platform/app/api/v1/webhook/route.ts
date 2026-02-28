@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.text(); // IMPORTANT: raw body
     const sig = req.headers.get("x-governs-signature");
+    const headerCorrelationId = req.headers.get("x-correlation-id");
 
     if (!verifySignature(raw, sig)) {
       return NextResponse.json({ ok: false, error: "invalid_signature" }, { status: 401 });
@@ -56,8 +57,22 @@ export async function POST(req: NextRequest) {
 
     // Parse the webhook event
     const event = JSON.parse(raw);
+    if (headerCorrelationId) {
+      if (!event.correlationId) {
+        event.correlationId = headerCorrelationId;
+      }
+      if (event.data && typeof event.data === "object" && !event.data.correlationId) {
+        event.data.correlationId = headerCorrelationId;
+      }
+    }
+    const correlationId = event.correlationId || event.data?.correlationId || null;
 
-    console.log("[governs:webhook] received event type=%s schema=%s", event.type, event.schema);
+    console.log(
+      "[governs:webhook] received event type=%s schema=%s correlationId=%s",
+      event.type,
+      event.schema,
+      correlationId || "none"
+    );
 
     // Idempotency: reject duplicate events by idempotencyKey
     if (event.idempotencyKey) {

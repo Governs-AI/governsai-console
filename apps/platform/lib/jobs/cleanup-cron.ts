@@ -67,6 +67,12 @@ export class CleanupCronJob {
       console.log('\n📊 Cleanup Summary:');
       console.log(`  - Expired contexts: ${result.expiredContexts}`);
       console.log(`  - Old contexts: ${result.oldContexts}`);
+      console.log(`  - Old audit logs: ${result.oldAuditLogs}`);
+      console.log(`  - Old decision logs: ${result.oldDecisionLogs}`);
+      console.log(`  - Old usage records: ${result.oldUsageRecords}`);
+      console.log(`  - Old purchase records: ${result.oldPurchaseRecords}`);
+      console.log(`  - Old context access logs: ${result.oldContextAccessLogs}`);
+      console.log(`  - Old webhook idempotency keys: ${result.oldWebhookIdempotencyKeys}`);
       console.log(`  - Orphaned chunks: ${result.orphanedChunks}`);
       console.log(`  - Old analytics: ${result.oldAnalytics}`);
       console.log(`  - Archived conversations: ${result.archivedConversations}`);
