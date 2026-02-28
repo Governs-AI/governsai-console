@@ -1,0 +1,77 @@
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "**/*.mdx"
+          - "docs/**"
+
+area/frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "app/**"
+          - "components/**"
+          - "pages/**"
+          - "styles/**"
+          - "public/**"
+
+area/backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "app/**"
+          - "api/**"
+          - "server/**"
+          - "src/**"
+          - "main.py"
+
+area/infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docker-compose*.yml"
+          - "**/Dockerfile*"
+          - "infra/**"
+          - "k8s/**"
+          - "helm/**"
+          - "**/*.tf"
+
+area/sdk:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "governs_ai/**"
+          - "src/**"
+          - "pyproject.toml"
+          - "package.json"
+          - "tsconfig.json"
+
+area/security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/auth/**"
+          - "**/security/**"
+          - "manifest.json"
+          - "**/*policy*"
+          - "**/*permission*"
+
+kind/ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/labeler.yml"
+
+kind/tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+          - "**/*test*.py"
+          - "**/*.spec.ts"
+          - "**/*.test.ts"
+          - "**/*.test.tsx"
+
+kind/deps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "pnpm-lock.yaml"
+          - "requirements.txt"
+          - "requirements-dev.txt"
+          - "pyproject.toml"
+          - "poetry.lock"
