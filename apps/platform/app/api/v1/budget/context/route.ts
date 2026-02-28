@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 
 export async function GET(req: NextRequest) {
+  let orgId: string | undefined;
+  let userId: string | undefined;
+
   try {
     // Get API key from header
     const apiKey = req.headers.get('X-Governs-Key');
@@ -29,8 +32,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const orgId = keyRecord.org.id;
-    const userId = keyRecord.user.id;
+    orgId = keyRecord.org.id;
+    userId = keyRecord.user.id;
 
     // Get budget limits (user first, then org)
     const userBudget = await prisma.budgetLimit.findFirst({
@@ -43,29 +46,48 @@ export async function GET(req: NextRequest) {
     const budgetLimit = Number(userBudget?.monthlyLimit || orgBudget?.monthlyLimit || 0);
     const budgetType = userBudget ? 'user' : 'organization';
 
-    // For now, return simplified budget context without complex aggregations
-    // TODO: Add real spend calculations once database queries are working
-    const result = {
+    // Compute start-of-current-calendar-month in UTC
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+    // Scope spend queries: user-level budget uses userId filter; org-level uses orgId
+    const spendWhere = budgetType === 'user'
+      ? { userId, orgId, timestamp: { gte: monthStart } }
+      : { orgId, timestamp: { gte: monthStart } };
+
+    const [llmAgg, purchaseAgg] = await Promise.all([
+      prisma.usageRecord.aggregate({
+        where: spendWhere,
+        _sum: { cost: true },
+      }),
+      prisma.purchaseRecord.aggregate({
+        where: spendWhere,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const llm_spend = Number(llmAgg._sum.cost ?? 0);
+    const purchase_spend = Number(purchaseAgg._sum.amount ?? 0);
+    const current_spend = llm_spend + purchase_spend;
+    const remaining_budget = Math.max(0, budgetLimit - current_spend);
+
+    return NextResponse.json({
       monthly_limit: budgetLimit,
-      current_spend: 0, // Simplified for now
-      llm_spend: 0,
-      purchase_spend: 0,
-      remaining_budget: budgetLimit,
+      current_spend,
+      llm_spend,
+      purchase_spend,
+      remaining_budget,
       budget_type: budgetType,
-    };
+    });
 
-    return NextResponse.json(result);
-
-  } catch (error) {
-    console.error('Error fetching budget context:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
+  } catch (error: any) {
+    console.error('[budget:context] Error fetching budget context', {
+      message: error?.message,
       orgId,
-      userId
+      userId,
     });
     return NextResponse.json(
-      { error: 'Failed to fetch budget context', details: error.message },
+      { error: 'Failed to fetch budget context' },
       { status: 500 }
     );
   }
