@@ -12,7 +12,7 @@
  *   npx tsx apps/platform/scripts/cleanup-data.ts
  *
  *   # Custom retention policy
- *   npx tsx apps/platform/scripts/cleanup-data.ts --user-messages=30 --tool-results=7
+ *   npx tsx apps/platform/scripts/cleanup-data.ts --user-messages=30 --tool-results=7 --log-days=90
  */
 
 import { retentionCleanup } from '../lib/services/retention-cleanup';
@@ -42,6 +42,40 @@ async function main() {
     }
     if (arg.startsWith('--documents=')) {
       customPolicy.document = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--log-days=')) {
+      const days = parseInt(arg.split('=')[1]);
+      customPolicy.audit_log = days;
+      customPolicy.decision_log = days;
+      customPolicy.usage_record = days;
+      customPolicy.purchase_record = days;
+      customPolicy.context_access_log = days;
+      customPolicy.webhook_idempotency = days;
+      customPolicy.analytics = days;
+    }
+    if (arg.startsWith('--audit-logs=')) {
+      customPolicy.audit_log = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--decision-logs=')) {
+      customPolicy.decision_log = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--usage-records=')) {
+      customPolicy.usage_record = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--purchase-records=')) {
+      customPolicy.purchase_record = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--access-logs=')) {
+      customPolicy.context_access_log = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--webhook-keys=')) {
+      customPolicy.webhook_idempotency = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--analytics=')) {
+      customPolicy.analytics = parseInt(arg.split('=')[1]);
+    }
+    if (arg.startsWith('--conversation-archive=')) {
+      customPolicy.conversation_archive = parseInt(arg.split('=')[1]);
     }
   }
 
@@ -74,12 +108,24 @@ async function main() {
   const total =
     result.expiredContexts +
     result.oldContexts +
+    result.oldAuditLogs +
+    result.oldDecisionLogs +
+    result.oldUsageRecords +
+    result.oldPurchaseRecords +
+    result.oldContextAccessLogs +
+    result.oldWebhookIdempotencyKeys +
     result.orphanedChunks +
     result.oldAnalytics +
     result.archivedConversations;
 
   console.log(`Expired Contexts:      ${result.expiredContexts.toLocaleString()}`);
   console.log(`Old Contexts:          ${result.oldContexts.toLocaleString()}`);
+  console.log(`Old Audit Logs:        ${result.oldAuditLogs.toLocaleString()}`);
+  console.log(`Old Decision Logs:     ${result.oldDecisionLogs.toLocaleString()}`);
+  console.log(`Old Usage Records:     ${result.oldUsageRecords.toLocaleString()}`);
+  console.log(`Old Purchase Records:  ${result.oldPurchaseRecords.toLocaleString()}`);
+  console.log(`Old Access Logs:       ${result.oldContextAccessLogs.toLocaleString()}`);
+  console.log(`Old Webhook Keys:      ${result.oldWebhookIdempotencyKeys.toLocaleString()}`);
   console.log(`Orphaned Chunks:       ${result.orphanedChunks.toLocaleString()}`);
   console.log(`Old Analytics:         ${result.oldAnalytics.toLocaleString()}`);
   console.log(`Archived Conversations: ${result.archivedConversations.toLocaleString()}`);
