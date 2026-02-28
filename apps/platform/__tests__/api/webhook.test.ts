@@ -43,7 +43,7 @@ function signedHeaders(body: string, tsOverride?: number): Record<string, string
   return { 'x-governs-signature': `v1,t=${ts},s=${sig}` };
 }
 
-function makeReq(event: unknown, tsOverride?: number) {
+function makeReq(event: unknown, tsOverride?: number, extraHeaders: Record<string, string> = {}) {
   const body = JSON.stringify(event);
   return new NextRequest('http://localhost/api/v1/webhook', {
     method: 'POST',
@@ -51,6 +51,7 @@ function makeReq(event: unknown, tsOverride?: number) {
     headers: {
       'Content-Type': 'application/json',
       ...signedHeaders(body, tsOverride),
+      ...extraHeaders,
     },
   });
 }
@@ -250,6 +251,27 @@ describe('context.save event', () => {
     await POST(makeReq(event));
     expect(mockStoreContext).toHaveBeenCalledWith(
       expect.objectContaining({ content: '[REDACTED_EMAIL]' }),
+    );
+  });
+
+  it('uses x-correlation-id header when payload does not provide correlationId', async () => {
+    mockPrisma.aPIKey.findFirst.mockResolvedValue(activeKey);
+    mockPrisma.contextMemory = { findFirst: jest.fn().mockResolvedValue(null) };
+    mockStoreContext.mockResolvedValue('ctx-header-corr');
+
+    const event = {
+      type: 'context.save',
+      apiKey: 'gai_valid',
+      data: {
+        content: 'safe content',
+        precheckRef: { decision: 'allow' },
+      },
+    };
+
+    await POST(makeReq(event, undefined, { 'x-correlation-id': 'corr-from-header' }));
+
+    expect(mockStoreContext).toHaveBeenCalledWith(
+      expect.objectContaining({ correlationId: 'corr-from-header' }),
     );
   });
 });

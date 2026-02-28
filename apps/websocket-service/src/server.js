@@ -8,9 +8,11 @@ import { AuthService } from './services/auth.js';
 import { DecisionService } from './services/decision.js';
 import { HealthService } from './services/health.js';
 import { BudgetService } from './services/budget.js';
+import { installStructuredConsoleLogging } from './logging/structured-console.js';
 
 // Load environment variables
 dotenv.config();
+installStructuredConsoleLogging();
 
 /**
  * GovernsAI WebSocket Service

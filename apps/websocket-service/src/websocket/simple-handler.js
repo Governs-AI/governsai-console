@@ -19,6 +19,10 @@ export class SimpleWebSocketHandler {
   async handleConnection(ws, req) {
     const connectionId = uuidv4();
     const startTime = Date.now();
+    const requestCorrelationHeader = req?.headers?.['x-correlation-id'];
+    const requestCorrelationId = Array.isArray(requestCorrelationHeader)
+      ? requestCorrelationHeader[0]
+      : requestCorrelationHeader || null;
     
     try {
       console.log(`🔌 New connection: ${connectionId}`);
@@ -32,6 +36,7 @@ export class SimpleWebSocketHandler {
         orgSlug: null,
         apiKey: null,
         userEmail: null,
+        requestCorrelationId,
         connectedAt: new Date(),
         authenticated: false
       };
@@ -259,6 +264,7 @@ export class SimpleWebSocketHandler {
           idempotencyKey,
           receivedAt: new Date(),
           ...data,
+          correlationId: data.correlationId || connection.requestCorrelationId || uuidv4(),
           orgId: orgId // Ensure orgId is set in the final data object
         };
         
@@ -460,6 +466,7 @@ export class SimpleWebSocketHandler {
         throw new Error('WEBHOOK_SECRET environment variable is required');
       }
       const webhookSecret = process.env.WEBHOOK_SECRET;
+      const correlationId = data.correlationId || decisionData.correlationId || connection.requestCorrelationId || uuidv4();
 
       // Build context save payload
       const inText = data.raw_text_in || data.rawText || '';
@@ -473,7 +480,7 @@ export class SimpleWebSocketHandler {
           agentId: data.tool || 'unknown',
           agentName: data.tool || 'Unknown Agent',
           conversationId: data.conversationId,
-          correlationId: data.correlationId || decisionData.correlationId,
+          correlationId,
           metadata: {
             direction: data.direction,
             tool: data.tool,
@@ -507,7 +514,8 @@ export class SimpleWebSocketHandler {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-governs-signature': signatureHeader
+          'x-governs-signature': signatureHeader,
+          'X-Correlation-ID': correlationId
         },
         body: payloadString
       });
