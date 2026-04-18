@@ -13,7 +13,10 @@
     "start": "next start",
     "test": "jest",
     "test:ci": "jest --ci --forceExit",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@governs-ai/common-utils": "workspace:*",
@@ -65,6 +68,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22",
     "@types/react": "^18",
