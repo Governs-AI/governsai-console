@@ -14,7 +14,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "generate": "pnpm --filter @governs-ai/db run generate",
-    "postinstall": "pnpm run generate"
+    "postinstall": "pnpm run generate",
+    "test:api": "pnpm --filter @governs-ai/platform run test:api"
   },
   "dependencies": {
     "@prisma/client": "5.22.0"

@@ -12,6 +12,12 @@ export const prisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  org: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+  },
   orgMembership: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -19,7 +25,19 @@ export const prisma = {
   },
   user: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+  },
+  emailVerificationToken: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    delete: jest.fn(),
+  },
+  session: {
+    create: jest.fn(),
+    delete: jest.fn(),
+    findUnique: jest.fn(),
   },
   budgetLimit: {
     findFirst: jest.fn(),

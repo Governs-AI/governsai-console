@@ -62,7 +62,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run API route tests
+      - name: Run API route tests (QA.1 suite)
+        run: pnpm --filter @governs-ai/platform run test:api -- --ci --forceExit
+
+      - name: Run full unit test suite
         run: pnpm --filter @governs-ai/platform test:ci
 
   build:
