@@ -5,8 +5,8 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
+    "dev": "nodemon --exec 'node --env-file=.env' src/server.js",
+    "start": "node --env-file=.env src/server.js",
     "build": "echo 'No build step needed for Node.js service'",
     "test": "echo 'Tests not implemented yet'",
     "docker:build": "docker build -t governs-websocket .",
