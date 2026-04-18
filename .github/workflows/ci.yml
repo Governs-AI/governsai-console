@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev, 'feat/**']
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 env:
   # Prisma generate reads the schema file only — no real DB connection needed.
