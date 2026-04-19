@@ -3,4 +3,4 @@
 process.env.WEBHOOK_SECRET = 'test-webhook-secret-for-ci';
 process.env.JWT_SECRET = 'test-jwt-secret-for-ci';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_ci';
-process.env.NODE_ENV = 'test';
+// NODE_ENV is read-only in TypeScript strict mode; it is already 'test' when jest runs

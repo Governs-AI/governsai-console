@@ -37,7 +37,9 @@ export interface TierTransitionResult {
 }
 
 export class TieredRetentionService {
-  private tiers: TierConfig[] = [
+  // Tier config kept for future tiered pruning logic
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static readonly TIERS: TierConfig[] = [
     {
       name: 'hot',
       ageDays: 30,
@@ -60,7 +62,7 @@ export class TieredRetentionService {
       chunking: false,
       fullEmbedding: false,
       chunkEmbeddings: false,
-      searchable: false, // Requires restoration
+      searchable: false,
     },
     {
       name: 'deleted',

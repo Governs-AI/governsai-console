@@ -33,8 +33,8 @@ interface BudgetAlert {
   createdAt: string;
 }
 
-export default function BudgetPage({ params }: { params: { slug: string } }) {
-  const orgSlug = params.slug;
+export default async function BudgetPage({ params }: { params: Promise<{ slug: string }> }) {
+  const orgSlug = (await params).slug;
   const { org, isReady, loading: orgLoading } = useOrgReady(orgSlug);
   const [limits, setLimits] = useState<BudgetLimit[]>([]);
   const [alerts, setAlerts] = useState<BudgetAlert[]>([]);

@@ -101,7 +101,7 @@ async function validateRefrag(): Promise<void> {
 
   try {
     // Check context_chunks table exists
-    const chunks = await prisma.contextChunk.findMany({ take: 1 });
+    await prisma.contextChunk.findMany({ take: 1 });
     dbResult.checks.push({
       name: 'context_chunks Table',
       status: 'pass',
@@ -109,7 +109,7 @@ async function validateRefrag(): Promise<void> {
     });
 
     // Check refrag_analytics table exists
-    const analytics = await prisma.refragAnalytics.findMany({ take: 1 });
+    await prisma.refragAnalytics.findMany({ take: 1 });
     dbResult.checks.push({
       name: 'refrag_analytics Table',
       status: 'pass',
@@ -117,9 +117,7 @@ async function validateRefrag(): Promise<void> {
     });
 
     // Check chunks_computed column
-    const memory = await prisma.contextMemory.findFirst({
-      select: { chunksComputed: true },
-    });
+    await prisma.contextMemory.findFirst({ select: { chunksComputed: true } });
     dbResult.checks.push({
       name: 'chunks_computed Column',
       status: 'pass',

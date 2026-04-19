@@ -24,7 +24,6 @@ import {
   Laptop,
   Monitor
 } from 'lucide-react';
-// @ts-expect-error - TypeScript has issues with this import in the workspace
 import { startRegistration } from '@simplewebauthn/browser';
 import PlatformShell from '@/components/platform-shell';
 import { useOrgReady } from '@/lib/use-org-ready';

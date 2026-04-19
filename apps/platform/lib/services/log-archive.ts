@@ -764,7 +764,7 @@ export async function restoreArchive(payload: ArchivePayload, orgId: string) {
     });
     const existingParentSet = new Set(existingParents.map(item => item.id));
 
-    for (const [childId, parentId] of parentMap.entries()) {
+    for (const [childId, parentId] of Array.from(parentMap.entries())) {
       if (!existingParentSet.has(parentId)) continue;
       await prisma.contextMemory.update({
         where: { id: childId },
@@ -793,21 +793,22 @@ export async function restoreArchive(payload: ArchivePayload, orgId: string) {
   if (decisions.length) {
     for (const batch of chunkArray(decisions, 500)) {
       await prisma.decision.createMany({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: batch.map(item => ({
           id: item.id,
           orgId,
           direction: item.direction,
           decision: item.decision,
-          tool: item.tool,
-          scope: item.scope,
-          detectorSummary: item.detectorSummary || {},
+          tool: item.tool ?? null,
+          scope: item.scope ?? null,
+          detectorSummary: (item.detectorSummary || {}) as any,
           payloadHash: item.payloadHash,
-          payloadOut: item.payloadOut ?? null,
-          reasons: Array.isArray(item.reasons) ? item.reasons : [],
-          policyId: item.policyId,
-          latencyMs: item.latencyMs,
-          correlationId: item.correlationId,
-          tags: Array.isArray(item.tags) ? item.tags : [],
+          payloadOut: (item.payloadOut ?? null) as any,
+          reasons: (Array.isArray(item.reasons) ? item.reasons : []) as any,
+          policyId: item.policyId ?? null,
+          latencyMs: item.latencyMs ?? null,
+          correlationId: item.correlationId ?? null,
+          tags: (Array.isArray(item.tags) ? item.tags : []) as string[],
           ts: parseDate(item.ts) || new Date(),
         })),
         skipDuplicates: true,

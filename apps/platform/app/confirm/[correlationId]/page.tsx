@@ -114,7 +114,7 @@ export default function ConfirmationPage() {
       const { options } = challengeData;
 
       // Step 2: Start WebAuthn authentication
-      const credential = await startAuthentication(options as PublicKeyCredentialRequestOptionsJSON);
+      const credential = await startAuthentication({ optionsJSON: options as PublicKeyCredentialRequestOptionsJSON });
 
       // Step 3: Verify and approve
       const verifyResponse = await fetch('/api/v1/confirmation/verify', {
