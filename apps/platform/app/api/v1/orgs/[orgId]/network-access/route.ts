@@ -15,7 +15,7 @@ const createRuleSchema = z.object({
 // Get network access rules for organization
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orgId: string } }
+  { params }: { params: Promise<{ orgId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -93,7 +93,7 @@ export async function GET(
 // Create new network access rule
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orgId: string } }
+  { params }: { params: Promise<{ orgId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -184,7 +184,7 @@ export async function POST(
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }

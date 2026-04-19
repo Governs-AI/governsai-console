@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 // GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Auth: Bearer JWT or X-Governs-Key
@@ -46,7 +46,7 @@ export async function GET(
     }
 
     const tool = await prisma.toolConfig.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
 
     if (!tool) {
@@ -66,7 +66,7 @@ export async function GET(
 // PUT /api/v1/tools/[id] - Update tool configuration
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Auth: Bearer JWT or X-Governs-Key
@@ -120,7 +120,7 @@ export async function PUT(
     } = body;
 
     const tool = await prisma.toolConfig.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(toolName && { toolName }),
         ...(displayName !== undefined && { displayName }),
@@ -149,7 +149,7 @@ export async function PUT(
 // DELETE /api/v1/tools/[id] - Delete tool configuration
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Auth: Bearer JWT or X-Governs-Key
@@ -189,7 +189,7 @@ export async function DELETE(
     }
 
     await prisma.toolConfig.delete({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
 
     return NextResponse.json({ message: 'Tool deleted successfully' });

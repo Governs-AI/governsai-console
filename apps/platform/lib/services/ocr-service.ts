@@ -9,7 +9,8 @@
  */
 
 import { createWorker, PSM } from 'tesseract.js';
-import pdfParse from 'pdf-parse';
+import * as pdfParseModule from 'pdf-parse';
+const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
 import mammoth from 'mammoth';
 import { lookup } from 'mime-types';
 
@@ -119,8 +120,8 @@ export class OCRService {
         text: data.text.trim(),
         confidence: data.confidence,
         metadata: {
-          words: data.words?.length || 0,
-          lines: data.lines?.length || 0,
+          words: (data as any).words?.length || 0,
+          lines: (data as any).lines?.length || 0,
         },
       };
     } finally {

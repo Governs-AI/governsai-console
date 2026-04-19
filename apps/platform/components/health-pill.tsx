@@ -40,11 +40,11 @@ export function HealthPill() {
       // Determine health status
       let status: 'healthy' | 'warning' | 'error' = 'healthy';
       
-      if (!lastIngest || timeSinceLastIngest > 5 * 60 * 1000) { // 5 minutes
+      if (!lastIngest || timeSinceLastIngest === null || timeSinceLastIngest > 5 * 60 * 1000) {
         status = 'warning';
       }
-      
-      if (timeSinceLastIngest > 15 * 60 * 1000) { // 15 minutes
+
+      if (timeSinceLastIngest !== null && timeSinceLastIngest > 15 * 60 * 1000) {
         status = 'error';
       }
       

@@ -32,16 +32,6 @@ export class ContextSearchService {
     this.refrag = new RefragMemoryService();
   }
 
-  private cosineSimilarity(a: number[], b: number[]): number {
-    // Fallback cosine similarity for dedup groups if needed; expects normalized similarities otherwise
-    let dot = 0, na = 0, nb = 0;
-    for (let i = 0; i < Math.min(a.length, b.length); i++) {
-      dot += a[i] * b[i];
-      na += a[i] * a[i];
-      nb += b[i] * b[i];
-    }
-    return dot / (Math.sqrt(na) * Math.sqrt(nb));
-  }
 
   private groupDedup(items: ScoredMemoryItem[]): ScoredMemoryItem[] {
     // We only have similarity to query, not between items. Use content similarity heuristic via Jaccard on tokens.

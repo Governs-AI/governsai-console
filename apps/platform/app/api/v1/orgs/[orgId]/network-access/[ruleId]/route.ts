@@ -13,7 +13,7 @@ const updateRuleSchema = z.object({
 // Get specific network access rule
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orgId: string; ruleId: string } }
+  { params }: { params: Promise<{ orgId: string; ruleId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -79,7 +79,7 @@ export async function GET(
 // Update network access rule
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { orgId: string; ruleId: string } }
+  { params }: { params: Promise<{ orgId: string; ruleId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -151,7 +151,7 @@ export async function PATCH(
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }
@@ -166,7 +166,7 @@ export async function PATCH(
 // Delete network access rule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { orgId: string; ruleId: string } }
+  { params }: { params: Promise<{ orgId: string; ruleId: string }> }
 ) {
   try {
     // Get session token from cookies
