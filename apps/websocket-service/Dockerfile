@@ -1,21 +1,26 @@
 FROM node:20-slim AS base
 
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@10.12.4
+
 WORKDIR /app
 
-# Copy workspace manifests only (for layer caching)
+# Copy workspace manifests for layer caching
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/db/package.json ./packages/db/
 COPY apps/websocket-service/package.json ./apps/websocket-service/
 
-# Install all workspace deps
+# Copy schema BEFORE install so postinstall prisma generate can find it
+COPY packages/db/schema.prisma ./packages/db/schema.prisma
+
+# Install workspace deps (postinstall runs prisma generate here)
 RUN pnpm install --frozen-lockfile
 
-# Copy source
+# Copy remaining source
 COPY packages/db/ ./packages/db/
 COPY apps/websocket-service/ ./apps/websocket-service/
 
-# Generate Prisma client
+# Re-run generate with full source in place
 RUN pnpm --filter @governs-ai/db generate
 
 WORKDIR /app/apps/websocket-service
@@ -25,5 +30,4 @@ ENV PORT=3001
 
 EXPOSE 3001
 
-# Use node directly — env vars come from Render, not a .env file
 CMD ["node", "src/server.js"]
