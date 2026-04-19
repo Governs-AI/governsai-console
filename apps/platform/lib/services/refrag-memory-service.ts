@@ -184,6 +184,15 @@ export class RefragMemoryService {
     const embeddingStr = toVectorString(queryEmbedding);
     const vectorDim = getDatabaseVectorDimension();
 
+    // Guard all values interpolated into raw SQL — TypeScript types don't
+    // protect against runtime injection if callers bypass them.
+    const safeLimit = Math.min(Math.max(1, Math.floor(Number(limit))), 1000);
+    const safeMinSimilarity = Math.min(Math.max(0, Number(minSimilarity)), 1);
+    const safeVectorDim = Math.floor(Number(vectorDim));
+    if (!Number.isFinite(safeLimit) || !Number.isFinite(safeMinSimilarity) || !Number.isFinite(safeVectorDim)) {
+      throw new Error('Invalid numeric parameter for vector search');
+    }
+
     // Build WHERE clause conditions
     const conditions: string[] = ['cm.user_id = $2'];
     const sqlParams: any[] = [embeddingStr, userId];
@@ -234,13 +243,13 @@ export class RefragMemoryService {
         cm.content_type as role,
         cm.agent_id,
         cm.conversation_id,
-        1 - (cc.embedding <=> $1::vector(${vectorDim})) as similarity_score
+        1 - (cc.embedding <=> $1::vector(${safeVectorDim})) as similarity_score
       FROM context_chunks cc
       JOIN context_memory cm ON cc.context_memory_id = cm.id
       WHERE ${whereClause}
-        AND (1 - (cc.embedding <=> $1::vector(${vectorDim}))) >= ${minSimilarity}
-      ORDER BY cc.embedding <=> $1::vector(${vectorDim}) ASC
-      LIMIT ${limit}
+        AND (1 - (cc.embedding <=> $1::vector(${safeVectorDim}))) >= ${safeMinSimilarity}
+      ORDER BY cc.embedding <=> $1::vector(${safeVectorDim}) ASC
+      LIMIT ${safeLimit}
     `;
 
     const results = await prisma.$queryRawUnsafe<any[]>(query, ...sqlParams);

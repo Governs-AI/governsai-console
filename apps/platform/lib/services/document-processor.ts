@@ -460,7 +460,10 @@ export class DocumentProcessor {
     const queryEmbeddingRaw = await this.embeddingService.generateEmbedding(params.query);
     const queryEmbedding = normalizeEmbeddingDimensions(queryEmbeddingRaw);
     const embeddingStr = toVectorString(queryEmbedding);
-    const dim = getDatabaseVectorDimension();
+    const dim = Math.floor(Number(getDatabaseVectorDimension()));
+    if (!Number.isFinite(dim) || dim <= 0) throw new Error('Invalid vector dimension');
+    const safeLimit = Math.min(Math.max(1, Math.floor(Number(limit))), 1000);
+    const safeThreshold = Math.min(Math.max(0, Number(threshold)), 1);
 
     let sql = `
       SELECT
@@ -523,11 +526,11 @@ export class DocumentProcessor {
     }
 
     sql += ` AND 1 - (dc.embedding <=> $1::vector(${dim})) > $${paramIndex}`;
-    sqlParams.push(threshold);
+    sqlParams.push(safeThreshold);
     paramIndex++;
 
     sql += ` ORDER BY dc.embedding <=> $1::vector(${dim}) LIMIT $${paramIndex}`;
-    sqlParams.push(limit);
+    sqlParams.push(safeLimit);
 
     const rows = await dbAny.$queryRawUnsafe(sql, ...sqlParams) as Array<{
       chunk_id: string;
