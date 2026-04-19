@@ -20,8 +20,8 @@ RUN pnpm install --frozen-lockfile
 COPY packages/db/ ./packages/db/
 COPY apps/websocket-service/ ./apps/websocket-service/
 
-# Re-run generate with full source in place
-RUN pnpm --filter @governs-ai/db generate
+# Build @governs-ai/db: prisma generate + tsc → dist/index.js
+RUN pnpm --filter @governs-ai/db build
 
 WORKDIR /app/apps/websocket-service
 
