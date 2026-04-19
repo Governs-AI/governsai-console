@@ -4,6 +4,7 @@ import { verifySessionToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
+import { syncKeyToPrecheck, deactivateKeyInPrecheck } from '@/lib/precheck-key-sync';
 
 const updateKeySchema = z.object({
   name: z.string().min(1).optional(),
@@ -348,11 +349,14 @@ export async function DELETE(
     // Revoke the key (mark as inactive)
     await prisma.aPIKey.update({
       where: { id: keyId },
-      data: { 
+      data: {
         isActive: false,
         updatedAt: new Date(),
       },
     });
+
+    deactivateKeyInPrecheck(existingKey.key)
+      .catch(err => console.error('[api-keys] precheck deactivate failed (non-fatal):', err));
 
     // If disconnect=true, close active WebSocket sessions
     if (disconnect) {
@@ -465,6 +469,12 @@ export async function POST(
 
     // Generate new API key
     const newKeyValue = `gov_key_${randomBytes(32).toString('hex')}`;
+
+    // Deactivate old key in precheck, register new one
+    deactivateKeyInPrecheck(existingKey.key)
+      .catch(err => console.error('[api-keys] precheck old-key deactivate failed (non-fatal):', err));
+    syncKeyToPrecheck(newKeyValue, session.sub, existingKey.expiresAt)
+      .catch(err => console.error('[api-keys] precheck new-key sync failed (non-fatal):', err));
 
     // Update the key with new value
     const rotatedKey = await prisma.aPIKey.update({

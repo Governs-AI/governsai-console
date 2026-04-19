@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
 import { requireAuth } from '@/lib/session';
+import { syncKeyToPrecheck } from '@/lib/precheck-key-sync';
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,6 +58,9 @@ export async function POST(request: NextRequest) {
         isActive: true,
       },
     });
+
+    syncKeyToPrecheck(keyValue, userId)
+      .catch(err => console.error('[api-keys] precheck sync failed (non-fatal):', err));
 
     // Return the key value only once for security
     return NextResponse.json({
