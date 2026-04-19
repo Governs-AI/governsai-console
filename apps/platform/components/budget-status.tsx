@@ -74,13 +74,13 @@ export function BudgetStatus({ orgId, userId, className }: BudgetStatusProps) {
         
         if (data.type === 'BUDGET_UPDATE' && data.data.orgId === orgId) {
           // Update budget status with real-time data
-          setStatus(prevStatus => ({
+          setStatus(prevStatus => prevStatus ? {
             ...prevStatus,
             currentSpend: data.data.currentSpend,
             remaining: data.data.remaining,
             percentUsed: data.data.percentUsed,
             allowed: data.data.currentSpend < data.data.limit,
-          }));
+          } : null);
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
@@ -188,10 +188,9 @@ export function BudgetStatus({ orgId, userId, className }: BudgetStatusProps) {
             <span>Current Spend</span>
             <span className="font-semibold">${status.currentSpend.toFixed(2)}</span>
           </div>
-          <Progress 
-            value={Math.min(status.percentUsed, 100)} 
+          <Progress
+            value={Math.min(status.percentUsed, 100)}
             className="h-2"
-            variant={isOverBudget ? 'destructive' : isDanger ? 'destructive' : isWarning ? 'default' : 'default'}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>${status.currentSpend.toFixed(2)}</span>

@@ -119,7 +119,7 @@ export function useRoleCheck() {
     return userRoleIndex >= requiredRoleIndex;
   };
 
-  const hasPermission = (permission: keyof import('@/lib/role-utils').RolePermissions): boolean => {
+  const checkPermission = (permission: keyof import('@/lib/role-utils').RolePermissions): boolean => {
     if (!activeOrg || loading) return false;
     const userRole = activeOrg.role as UserRole;
     return hasPermission(userRole, permission);
@@ -163,7 +163,7 @@ export function useRoleCheck() {
   return {
     userRole: activeOrg?.role as UserRole,
     hasRole,
-    hasPermission,
+    hasPermission: checkPermission,
     canAccessAdmin,
     canManageUsers,
     canManageSettings,

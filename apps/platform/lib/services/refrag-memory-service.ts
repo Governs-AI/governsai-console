@@ -296,7 +296,7 @@ export class RefragMemoryService {
     let context = '';
     let usedTokens = 0;
 
-    for (const [, groupedChunks] of grouped.entries()) {
+    for (const [, groupedChunks] of Array.from(grouped.entries())) {
       // Sort chunks by index to maintain order
       const sortedChunks = groupedChunks.sort((a, b) => a.chunk.chunkIndex - b.chunk.chunkIndex);
 

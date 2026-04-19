@@ -40,14 +40,14 @@ async function resolveAuth(request: NextRequest) {
   return { userId, orgId };
 }
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { orgId } = await resolveAuth(request);
     if (!orgId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const documentId = context.params.id;
+    const documentId = (await context.params).id;
     if (!documentId) {
       return NextResponse.json({ error: 'Missing document id' }, { status: 400 });
     }
@@ -77,14 +77,14 @@ export async function GET(request: NextRequest, context: { params: { id: string 
   }
 }
 
-export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { orgId } = await resolveAuth(request);
     if (!orgId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const documentId = context.params.id;
+    const documentId = (await context.params).id;
     if (!documentId) {
       return NextResponse.json({ error: 'Missing document id' }, { status: 400 });
     }

@@ -111,16 +111,16 @@ export async function POST(request: NextRequest) {
 
     // Store the passkey
     // Convert credentialID to base64url string for storage
-    const credentialIdString = credentialID instanceof Uint8Array 
-      ? Buffer.from(credentialID).toString('base64url')
-      : credentialID;
+    const credentialIdString = (credentialID as unknown) instanceof Uint8Array
+      ? Buffer.from(credentialID as unknown as Uint8Array).toString('base64url')
+      : String(credentialID);
     
     const passkey = await prisma.passkey.create({
       data: {
         userId: keyRecord.user.id,
         orgId: keyRecord.org.id,
         credentialId: credentialIdString,
-        publicKey: credentialPublicKey instanceof Uint8Array ? credentialPublicKey : Buffer.from(credentialPublicKey),
+        publicKey: Buffer.from(credentialPublicKey as unknown as ArrayBuffer),
         counter: BigInt(counter),
         transports: credential.response.transports || [],
         deviceName: finalDeviceName,

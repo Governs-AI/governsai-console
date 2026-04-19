@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Badge } from '@governs-ai/ui';
 import { UserRole, getRoleDisplayName, getRoleColor, getRoleDescription } from '@/lib/role-utils';
 

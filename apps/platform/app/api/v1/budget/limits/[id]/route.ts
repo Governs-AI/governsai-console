@@ -6,10 +6,10 @@ import type { Prisma } from '@prisma/client';
 // PUT: Update budget limit
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { monthlyLimit, alertAt, isActive } = body;
 
@@ -59,10 +59,10 @@ export async function PUT(
 // DELETE: Delete budget limit
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const { orgId } = await requireAuth(req);
 
