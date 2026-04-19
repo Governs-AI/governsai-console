@@ -59,13 +59,14 @@ export function createSessionToken(userId: string, orgId: string, roles: string[
       iat: now,
       exp: now + 2 * 60 * 60, // 2 hours
     },
-    JWT_SECRET
+    JWT_SECRET,
+    { algorithm: 'HS256' }
   );
 }
 
 export function verifySessionToken(token: string): SessionData | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as SessionData;
+    return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as SessionData;
   } catch {
     return null;
   }
