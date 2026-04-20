@@ -20,7 +20,7 @@ jest.mock('stripe', () => {
     __esModule: true,
     default: Stripe,
   };
-});
+}, { virtual: true });
 
 import { POST } from '@/app/api/v1/billing/webhook/route';
 
@@ -37,8 +37,15 @@ function makeReq(payload: string, signature = 't=1,v1=abc') {
   });
 }
 
+let consoleErrorSpy: jest.SpyInstance;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore();
 });
 
 describe('POST /api/v1/billing/webhook', () => {
@@ -54,7 +61,7 @@ describe('POST /api/v1/billing/webhook', () => {
     expect(body.error).toBe('Invalid Stripe signature');
   });
 
-  it('activates the organization when checkout completes', async () => {
+  it('updates the org tier when checkout.session.completed is received', async () => {
     mockConstructEvent.mockReturnValue({
       type: 'checkout.session.completed',
       data: {

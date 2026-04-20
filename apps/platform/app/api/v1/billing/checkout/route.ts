@@ -9,10 +9,16 @@ const checkoutSchema = z.object({
   tier: z.enum(['starter', 'growth']),
 });
 
+class BillingNotConfiguredError extends Error {
+  constructor() {
+    super('billing not configured');
+  }
+}
+
 function getStripeClient() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is required');
+    throw new BillingNotConfiguredError();
   }
 
   return new Stripe(secretKey);
@@ -107,6 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
+      url: session.url,
       redirectUrl: session.url,
       sessionId: session.id,
     });
@@ -122,6 +129,13 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    if (
+      error instanceof BillingNotConfiguredError ||
+      (error instanceof Error && error.message === 'billing not configured')
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
     }
 
     return NextResponse.json(

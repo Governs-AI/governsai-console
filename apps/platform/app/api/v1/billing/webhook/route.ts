@@ -3,10 +3,16 @@ import Stripe from 'stripe';
 import { prisma } from '@governs-ai/db';
 import { isSelfServeBillingTier } from '@/lib/billing';
 
+class BillingNotConfiguredError extends Error {
+  constructor() {
+    super('billing not configured');
+  }
+}
+
 function getStripeClient() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is required');
+    throw new BillingNotConfiguredError();
   }
 
   return new Stripe(secretKey);
@@ -15,7 +21,7 @@ function getStripeClient() {
 function getWebhookSecret() {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
-    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required');
+    throw new BillingNotConfiguredError();
   }
 
   return secret;
@@ -128,6 +134,13 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Error && error.message.toLowerCase().includes('signature')) {
       return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 });
+    }
+
+    if (
+      error instanceof BillingNotConfiguredError ||
+      (error instanceof Error && error.message === 'billing not configured')
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
     }
 
     return NextResponse.json(

@@ -20,7 +20,7 @@ jest.mock('stripe', () => {
     __esModule: true,
     default: Stripe,
   };
-});
+}, { virtual: true });
 
 import { requireAuth } from '@/lib/session';
 import { POST } from '@/app/api/v1/billing/checkout/route';
@@ -37,9 +37,17 @@ function makeReq(body?: unknown) {
   });
 }
 
+let consoleErrorSpy: jest.SpyInstance;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3002';
+  process.env.STRIPE_SECRET_KEY = 'sk_test_billing_ci';
+});
+
+afterEach(() => {
+  consoleErrorSpy.mockRestore();
 });
 
 describe('POST /api/v1/billing/checkout', () => {
@@ -59,7 +67,30 @@ describe('POST /api/v1/billing/checkout', () => {
     expect(res.status).toBe(400);
   });
 
-  it('creates a Stripe checkout session for Starter', async () => {
+  it('returns 503 when Stripe billing is not configured', async () => {
+    mockAuth.mockResolvedValue(AUTH_CTX);
+    mockPrisma.org.findUnique.mockResolvedValue({
+      id: 'org-1',
+      name: 'Acme',
+      slug: 'acme',
+      billingTier: 'free',
+      billingStatus: 'inactive',
+      stripeCustomerId: null,
+    });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      email: 'owner@example.com',
+      name: 'Owner',
+    });
+    delete process.env.STRIPE_SECRET_KEY;
+
+    const res = await POST(makeReq({ tier: 'starter' }));
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({ error: 'billing not configured' });
+    expect(mockCreateSession).not.toHaveBeenCalled();
+  });
+
+  it('returns 200 with a url field for a valid tier', async () => {
     mockAuth.mockResolvedValue(AUTH_CTX);
     mockPrisma.org.findUnique.mockResolvedValue({
       id: 'org-1',
@@ -82,7 +113,7 @@ describe('POST /api/v1/billing/checkout', () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.redirectUrl).toBe('https://checkout.stripe.com/pay/cs_test_123');
+    expect(body.url).toBe('https://checkout.stripe.com/pay/cs_test_123');
     expect(mockCreateSession).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'subscription',
