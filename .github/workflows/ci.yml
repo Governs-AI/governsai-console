@@ -15,6 +15,7 @@ env:
   NEXT_PUBLIC_APP_URL: http://localhost:3002
   NEXT_PUBLIC_PLATFORM_URL: http://localhost:3002
   PASSWORD_PEPPER: ci-password-pepper-not-real
+  OPENAI_API_KEY: ci-openai-key-not-real
 
 jobs:
   lint-and-typecheck:
