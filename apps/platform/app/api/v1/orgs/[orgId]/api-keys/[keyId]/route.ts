@@ -473,7 +473,7 @@ export async function POST(
     // Deactivate old key in precheck, register new one
     deactivateKeyInPrecheck(existingKey.key)
       .catch(err => console.error('[api-keys] precheck old-key deactivate failed (non-fatal):', err));
-    syncKeyToPrecheck(newKeyValue, session.sub, existingKey.expiresAt)
+    syncKeyToPrecheck(newKeyValue, session.sub, org.id, existingKey.expiresAt)
       .catch(err => console.error('[api-keys] precheck new-key sync failed (non-fatal):', err));
 
     // Update the key with new value
