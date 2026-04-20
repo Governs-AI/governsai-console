@@ -3,6 +3,16 @@
  * with a jest.fn() so tests can configure return values without a real DB.
  */
 
+class PrismaClientKnownRequestError extends Error {
+  code: string;
+
+  constructor(message: string, { code }: { code: string }) {
+    super(message);
+    this.code = code;
+    this.name = 'PrismaClientKnownRequestError';
+  }
+}
+
 export const prisma = {
   org: {
     findFirst: jest.fn(),
@@ -55,4 +65,8 @@ export const prisma = {
   contextMemory: {
     findFirst: jest.fn(),
   },
+};
+
+export const Prisma = {
+  PrismaClientKnownRequestError,
 };

@@ -7,21 +7,22 @@ import { getValidAppUrl } from '@/lib/constants';
 
 const checkoutSchema = z.object({
   tier: z.enum(['starter', 'growth']),
+  seats: z.number().int().positive(),
 });
 
-function getStripeClient() {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is required');
-  }
-
+function getStripeClient(secretKey: string) {
   return new Stripe(secretKey);
 }
 
 export async function POST(request: NextRequest) {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    return NextResponse.json({ error: 'billing not configured' }, { status: 503 });
+  }
+
   try {
-    const { requireAuth } = await import('@/lib/session');
-    const { orgId, userId } = await requireAuth(request);
+    const { requireRole } = await import('@/lib/session');
+    const { orgId, userId } = await requireRole(request, 'OWNER');
     const body = checkoutSchema.parse(await request.json());
     const plan = getBillingPlan(body.tier);
 
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const stripe = getStripeClient();
+    const stripe = getStripeClient(secretKey);
     const baseUrl = getValidAppUrl();
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -67,11 +68,11 @@ export async function POST(request: NextRequest) {
       client_reference_id: org.id,
       customer: org.stripeCustomerId || undefined,
       customer_email: org.stripeCustomerId ? undefined : user?.email || undefined,
-      success_url: `${baseUrl}/pricing?checkout=success&tier=${plan.tier}`,
-      cancel_url: `${baseUrl}/pricing?checkout=canceled&tier=${plan.tier}`,
+      success_url: `${baseUrl}/o/${org.slug}/pricing?checkout=success&tier=${plan.tier}`,
+      cancel_url: `${baseUrl}/o/${org.slug}/pricing?checkout=canceled&tier=${plan.tier}`,
       line_items: [
         {
-          quantity: 1,
+          quantity: body.seats,
           price_data: {
             currency: 'usd',
             recurring: { interval: 'month' },
@@ -106,10 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      redirectUrl: session.url,
-      sessionId: session.id,
-    });
+    return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('Stripe checkout error:', error);
 
@@ -124,9 +122,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create checkout session' },
-      { status: 500 }
-    );
+    if (error instanceof Error && error.message === 'Role OWNER required') {
+      return NextResponse.json({ error: 'Owner role required' }, { status: 403 });
+    }
+
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@governs-ai/db';
+import { Prisma, prisma } from '@governs-ai/db';
 
 const mockConstructEvent = jest.fn();
 
@@ -56,6 +56,7 @@ describe('POST /api/v1/billing/webhook', () => {
 
   it('activates the organization when checkout completes', async () => {
     mockConstructEvent.mockReturnValue({
+      id: 'evt_checkout_completed',
       type: 'checkout.session.completed',
       data: {
         object: {
@@ -70,11 +71,18 @@ describe('POST /api/v1/billing/webhook', () => {
         },
       },
     });
+    mockPrisma.webhookIdempotencyKey.create.mockResolvedValue({});
     mockPrisma.org.update.mockResolvedValue({});
 
     const res = await POST(makeReq('{"type":"checkout.session.completed"}'));
 
     expect(res.status).toBe(200);
+    expect(mockPrisma.webhookIdempotencyKey.create).toHaveBeenCalledWith({
+      data: {
+        idempotencyKey: 'evt_checkout_completed',
+        eventType: 'checkout.session.completed',
+      },
+    });
     expect(mockPrisma.org.update).toHaveBeenCalledWith({
       where: { id: 'org-1' },
       data: {
@@ -88,6 +96,7 @@ describe('POST /api/v1/billing/webhook', () => {
 
   it('restricts the organization when a subscription is deleted', async () => {
     mockConstructEvent.mockReturnValue({
+      id: 'evt_subscription_deleted',
       type: 'customer.subscription.deleted',
       data: {
         object: {
@@ -97,6 +106,7 @@ describe('POST /api/v1/billing/webhook', () => {
         },
       },
     });
+    mockPrisma.webhookIdempotencyKey.create.mockResolvedValue({});
     mockPrisma.org.findFirst.mockResolvedValue({ id: 'org-1' });
     mockPrisma.org.update.mockResolvedValue({});
 
@@ -113,5 +123,48 @@ describe('POST /api/v1/billing/webhook', () => {
         stripeSubscriptionId: null,
       },
     });
+  });
+
+  it('returns 503 when billing is not configured', async () => {
+    const originalSecret = process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_SECRET_KEY;
+
+    const res = await POST(makeReq('{}'));
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({ error: 'billing not configured' });
+
+    process.env.STRIPE_SECRET_KEY = originalSecret;
+  });
+
+  it('ignores duplicate Stripe events', async () => {
+    mockConstructEvent.mockReturnValue({
+      id: 'evt_duplicate',
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: 'cs_123',
+          client_reference_id: 'org-1',
+          customer: 'cus_123',
+          subscription: 'sub_123',
+          metadata: {
+            orgId: 'org-1',
+            tier: 'starter',
+          },
+        },
+      },
+    });
+    mockPrisma.webhookIdempotencyKey.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate', {
+        code: 'P2002',
+        clientVersion: 'test',
+      })
+    );
+
+    const res = await POST(makeReq('{"type":"checkout.session.completed"}'));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ received: true, duplicate: true });
+    expect(mockPrisma.org.update).not.toHaveBeenCalled();
   });
 });

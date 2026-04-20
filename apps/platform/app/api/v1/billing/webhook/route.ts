@@ -1,24 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { prisma } from '@governs-ai/db';
+import { Prisma, prisma } from '@governs-ai/db';
 import { isSelfServeBillingTier } from '@/lib/billing';
 
-function getStripeClient() {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is required');
-  }
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
+function getStripeClient(secretKey: string) {
   return new Stripe(secretKey);
 }
 
-function getWebhookSecret() {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) {
-    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required');
-  }
+async function recordWebhookEvent(event: Stripe.Event) {
+  try {
+    await prisma.webhookIdempotencyKey.create({
+      data: {
+        idempotencyKey: event.id,
+        eventType: event.type,
+      },
+    });
+    return false;
+  } catch (error) {
+    const isDuplicateKeyError =
+      (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') ||
+      (typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2002');
 
-  return secret;
+    if (isDuplicateKeyError) {
+      return true;
+    }
+
+    throw error;
+  }
 }
 
 function getStripeId(value: string | Stripe.Customer | Stripe.Subscription | Stripe.DeletedCustomer | null) {
@@ -95,6 +109,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 }
 
 export async function POST(request: NextRequest) {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!secretKey || !webhookSecret) {
+    return NextResponse.json({ error: 'billing not configured' }, { status: 503 });
+  }
+
   try {
     const rawBody = await request.text();
     const signature = request.headers.get('stripe-signature');
@@ -103,8 +124,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
     }
 
-    const stripe = getStripeClient();
-    const event = stripe.webhooks.constructEvent(rawBody, signature, getWebhookSecret());
+    const stripe = getStripeClient(secretKey);
+    const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+
+    const duplicate = await recordWebhookEvent(event);
+    if (duplicate) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -114,7 +140,7 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
       default:
-        console.log('Stripe webhook received unhandled event', event.type);
+        console.warn('Stripe webhook received unhandled event', event.type);
         break;
     }
 
@@ -130,9 +156,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid Stripe signature' }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to process Stripe webhook' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process Stripe webhook' }, { status: 500 });
   }
 }
