@@ -3,6 +3,10 @@
 // so we use a standalone config here to avoid the version mismatch.
 export default [
   {
+    files: ["**/*.ts", "**/*.tsx"],
+    rules: {},
+  },
+  {
     ignores: ["dist/**", "node_modules/**"],
   },
 ];
