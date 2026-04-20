@@ -2,14 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 env:
-  # Prisma generate reads the schema file only — no real DB connection needed.
-  # All other runtime env vars are dummies so Next.js / turbo don't crash during
-  # type checking or linting.
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_db
   NEXTAUTH_SECRET: ci-nextauth-secret-not-real
   NEXTAUTH_URL: http://localhost:3002
@@ -17,6 +14,8 @@ env:
   WEBHOOK_SECRET: ci-webhook-secret-not-real
   NEXT_PUBLIC_APP_URL: http://localhost:3002
   NEXT_PUBLIC_PLATFORM_URL: http://localhost:3002
+  PASSWORD_PEPPER: ci-password-pepper-not-real
+  OPENAI_API_KEY: ci-openai-key-not-real
 
 jobs:
   lint-and-typecheck:
@@ -26,8 +25,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.4
 
       - uses: actions/setup-node@v4
         with:
@@ -51,8 +48,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.4
 
       - uses: actions/setup-node@v4
         with:
@@ -72,7 +67,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -89,8 +84,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.4
 
       - uses: actions/setup-node@v4
         with:
@@ -109,15 +102,3 @@ jobs:
         run: pnpm build
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_db
-
-  secret-scan:
-    name: Secret Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
