@@ -22,6 +22,8 @@ interface Organization {
   name: string;
   slug: string;
   role: string;
+  billingTier?: string;
+  billingStatus?: string;
 }
 
 interface UserContextType {

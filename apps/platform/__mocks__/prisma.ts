@@ -4,6 +4,11 @@
  */
 
 export const prisma = {
+  org: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
   aPIKey: {
     findMany: jest.fn(),
     findFirst: jest.fn(),

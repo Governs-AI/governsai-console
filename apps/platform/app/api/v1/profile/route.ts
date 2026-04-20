@@ -81,12 +81,16 @@ export async function GET(request: NextRequest) {
                 name: m.org.name,
                 slug: m.org.slug,
                 role: m.role,
+                billingTier: m.org.billingTier,
+                billingStatus: m.org.billingStatus,
             })),
             activeOrg: activeOrg ? {
                 id: activeOrg.org.id,
                 name: activeOrg.org.name,
                 slug: activeOrg.org.slug,
                 role: activeOrg.role,
+                billingTier: activeOrg.org.billingTier,
+                billingStatus: activeOrg.org.billingStatus,
             } : null,
         });
     } catch (error) {
@@ -144,4 +148,4 @@ export async function PUT(request: NextRequest) {
             { status: 500 }
         );
     }
-} 
+}

@@ -16,6 +16,10 @@ model Org {
   slug                 String                @unique
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+  billingTier          String                @default("free") @map("billing_tier")
+  billingStatus        String                @default("inactive") @map("billing_status")
+  stripeCustomerId     String?               @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?               @unique @map("stripe_subscription_id")
   // Budget configuration
   budgetEnabled        Boolean               @default(true)
   budgetOnError        String                @default("block") // "block" | "pass"
