@@ -1,3 +1,8 @@
-import { config } from "@governs-ai/eslint-config/base";
-
-export default config;
+// Minimal flat config for common-utils (ESLint 8 compatible).
+// The shared @governs-ai/eslint-config requires ESLint 9 plugin APIs,
+// so we use a standalone config here to avoid the version mismatch.
+export default [
+  {
+    ignores: ["dist/**", "node_modules/**"],
+  },
+];
