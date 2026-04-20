@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    syncKeyToPrecheck(keyValue, userId)
+    syncKeyToPrecheck(keyValue, userId, orgId)
       .catch(err => console.error('[api-keys] precheck sync failed (non-fatal):', err));
 
     // Return the key value only once for security

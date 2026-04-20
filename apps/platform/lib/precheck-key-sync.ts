@@ -15,6 +15,7 @@ function hmacKey(rawKey: string): string {
 export async function syncKeyToPrecheck(
   rawKey: string,
   userId: string,
+  orgId: string,
   expiresAt?: Date | null
 ): Promise<void> {
   if (!process.env.KEY_HMAC_SECRET) {
@@ -24,10 +25,10 @@ export async function syncKeyToPrecheck(
   const keyHash = hmacKey(rawKey);
   const keyPrefix = rawKey.slice(0, 8);
   await prisma.$executeRaw`
-    INSERT INTO api_keys (key_hash, key_prefix, user_id, created_at, is_active, expires_at)
-    VALUES (${keyHash}, ${keyPrefix}, ${userId}, NOW(), true, ${expiresAt ?? null})
+    INSERT INTO api_keys (key_hash, key_prefix, user_id, org_id, created_at, is_active, expires_at)
+    VALUES (${keyHash}, ${keyPrefix}, ${userId}, ${orgId}, NOW(), true, ${expiresAt ?? null})
     ON CONFLICT (key_hash) DO UPDATE
-      SET is_active = true, expires_at = EXCLUDED.expires_at
+      SET is_active = true, expires_at = EXCLUDED.expires_at, org_id = EXCLUDED.org_id
   `;
 }
 

@@ -11,6 +11,8 @@ const config: Config = {
     // Replace workspace db package with a hand-written mock
     '^@governs-ai/db$': '<rootDir>/__mocks__/prisma.ts',
     '^@governs-ai/(.*)$': '<rootDir>/__mocks__/governs-ai/$1.ts',
+    // `server-only` throws when loaded outside RSC — stub it in tests
+    '^server-only$': '<rootDir>/__mocks__/server-only.ts',
   },
   setupFiles: ['<rootDir>/jest.setup.ts'],
   transform: {
