@@ -22,7 +22,9 @@ const nextConfig = {
   },
   transpilePackages: ["@prisma/client", "@governs-ai/billing", "@governs-ai/db"],
   eslint: {
-    ignoreDuringBuilds: false,
+    // ESLint is run separately in the CI lint job; skip during next build
+    // to avoid the next lint / ESLint-9 option-mismatch crash.
+    ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: false,
