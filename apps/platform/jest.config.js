@@ -1,6 +1,5 @@
-import type { Config } from 'jest';
-
-const config: Config = {
+/** @type {import('jest').Config} */
+const config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>'],
@@ -11,6 +10,8 @@ const config: Config = {
     // Replace workspace db package with a hand-written mock
     '^@governs-ai/db$': '<rootDir>/__mocks__/prisma.ts',
     '^@governs-ai/(.*)$': '<rootDir>/__mocks__/governs-ai/$1.ts',
+    // server-only throws in Node/Jest context — stub it out
+    '^server-only$': '<rootDir>/__mocks__/server-only.js',
   },
   setupFiles: ['<rootDir>/jest.setup.ts'],
   transform: {
@@ -37,4 +38,4 @@ const config: Config = {
   ],
 };
 
-export default config;
+module.exports = config;
