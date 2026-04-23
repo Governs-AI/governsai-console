@@ -201,10 +201,13 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sidebar */}
-      <aside className={cn(
-        "fixed left-0 top-0 h-full w-64 border-r border-border bg-card/70 backdrop-blur transition-transform duration-150 ease-pleasant",
-        sidebarExpanded ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-      )}>
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full w-64 border-r border-border bg-card/70 backdrop-blur transition-transform duration-150 ease-pleasant",
+          sidebarExpanded ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+        data-testid="nav-sidebar"
+      >
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center border-b border-border px-4">
@@ -263,6 +266,8 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  data-testid="user-menu-button"
+                  aria-label="Open user menu"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -271,6 +276,7 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
                   <div 
                     className="absolute bottom-full right-0 mb-2 w-48 bg-card border border-border rounded-md shadow-lg z-50"
                     onClick={(e) => e.stopPropagation()}
+                    data-testid="user-menu"
                   >
                     <div className="py-1">
                       <button
@@ -403,9 +409,12 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
         </header>
 
         {/* Main content area */}
-        <main className="p-6">
+        <main className="p-6" data-testid="platform-main-content">
           {isOrgMismatch ? (
-            <div className="flex items-center justify-center min-h-[60vh]">
+            <div
+              className="flex items-center justify-center min-h-[60vh]"
+              data-testid={orgSyncState === 'error' ? 'org-switch-error-state' : 'org-switch-loading-state'}
+            >
               {orgSyncState === 'error' ? (
                 <div className="text-center space-y-3">
                   <p className="text-sm text-muted-foreground">
@@ -442,6 +451,7 @@ export default function PlatformShell({ children, orgSlug = 'acme-inc' }: Platfo
         <div
           className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarExpanded(false)}
+          data-testid="mobile-sidebar-overlay"
         />
       )}
     </div>
