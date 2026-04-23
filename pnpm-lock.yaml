@@ -171,6 +171,9 @@ importers:
       stream-browserify:
         specifier: ^3.0.0
         version: 3.0.0
+      stripe:
+        specifier: ^22.0.2
+        version: 22.0.2(@types/node@22.16.5)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
@@ -4864,6 +4867,15 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
+
+  stripe@22.0.2:
+    resolution: {integrity: sha512-2/BLrQ3oB1zlNfeL/LfHFjTGx6EQn0j+ztrrTJHuDjV5VVIpk92oSDaxyKLUr3pG3dnee2LZqhFUv2Bf0G1/3g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/node': '>=18'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   styled-jsx@5.1.6:
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
@@ -10311,6 +10323,10 @@ snapshots:
   strip-final-newline@2.0.0: {}
 
   strip-json-comments@3.1.1: {}
+
+  stripe@22.0.2(@types/node@22.16.5):
+    optionalDependencies:
+      '@types/node': 22.16.5
 
   styled-jsx@5.1.6(@babel/core@7.29.0)(react@18.3.1):
     dependencies:
