@@ -62,19 +62,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center p-4"
+      data-testid="login-page"
+    >
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
           <p className="text-gray-600">Sign in to your GovernsAI account</p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" data-testid="login-form">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
               <Input
+                data-testid="email-input"
                 id="email"
                 type="email"
                 value={email}
@@ -90,6 +94,7 @@ export default function LoginPage() {
                 Password
               </label>
               <Input
+                data-testid="password-input"
                 id="password"
                 type="password"
                 value={password}
@@ -106,6 +111,7 @@ export default function LoginPage() {
                   Authentication Code
                 </label>
                 <Input
+                  data-testid="totp-code-input"
                   id="totpCode"
                   type="text"
                   value={totpCode}
@@ -122,12 +128,13 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md" data-testid="login-error-state">
                 {error}
               </div>
             )}
 
             <Button
+              data-testid="login-submit-button"
               type="submit"
               className="w-full"
               disabled={loading}
