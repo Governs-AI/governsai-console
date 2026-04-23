@@ -127,7 +127,7 @@ jobs:
       - name: Deploy to Vercel
         id: deploy_step
         run: |
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} | tail -n 1)
           echo "url=$url" >> $GITHUB_OUTPUT
 
   e2e-tests:
