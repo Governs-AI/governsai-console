@@ -235,7 +235,7 @@ export default function ToolCallsPage() {
           actions={
             <div className="flex gap-2">
               <Button
-                onClick={fetchData}
+                onClick={() => org && fetchData(org.id)}
                 disabled={refreshing}
                 variant="outline"
                 size="sm"

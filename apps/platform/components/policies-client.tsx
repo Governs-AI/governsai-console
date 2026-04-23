@@ -270,7 +270,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
       let response;
       if (isEditingExisting) {
         // Update existing policy
-        response = await fetch(`/api/v1/policies/${editingPolicy.id}`, {
+        response = await fetch(`/api/v1/policies/${editingPolicy!.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -592,7 +592,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                 Create Policy
               </Button>
               <Button
-                onClick={fetchData}
+                onClick={() => org && fetchData(org.id)}
                 disabled={refreshing}
                 variant="outline"
                 size="sm"
@@ -604,7 +604,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
           )
         : (
             <Button
-              onClick={fetchData}
+              onClick={() => org && fetchData(org.id)}
               disabled={refreshing}
               variant="outline"
               size="sm"

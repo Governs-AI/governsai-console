@@ -188,7 +188,7 @@ export default function DecisionsPage() {
   if (!orgLoading && !org) {
     return (
       <PlatformShell orgSlug={orgSlug}>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-64" data-testid="decisions-org-not-found-state">
           <p className="text-muted-foreground">Organization not found.</p>
         </div>
       </PlatformShell>
@@ -198,7 +198,7 @@ export default function DecisionsPage() {
   if (loading) {
     return (
       <PlatformShell orgSlug={orgSlug}>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-64" data-testid="decisions-loading-state">
           <LoadingSpinner size="lg" />
         </div>
       </PlatformShell>
@@ -207,14 +207,14 @@ export default function DecisionsPage() {
 
   return (
     <PlatformShell orgSlug={orgSlug}>
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="decisions-page">
         <PageHeader
           title="AI Governance Decisions"
           subtitle={`Monitor all AI governance decisions (precheck/postcheck) including tool calls, model usage, and policy enforcement for ${orgSlug}`}
           actions={
             <div className="flex gap-2">
               <Button
-                onClick={fetchData}
+                onClick={() => org && fetchData(org.id)}
                 disabled={refreshing}
                 variant="outline"
                 size="sm"
@@ -295,7 +295,7 @@ export default function DecisionsPage() {
         {/* Decisions Content */}
         <div className="space-y-4">
             {/* Search and Filters */}
-            <div className="flex gap-4 items-center">
+            <div className="flex gap-4 items-center" data-testid="decisions-filter-controls">
               <div className="flex-1">
                 <input
                   type="text"
@@ -303,6 +303,7 @@ export default function DecisionsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="decisions-search-input"
                 />
               </div>
               <div className="flex gap-2">
@@ -310,6 +311,7 @@ export default function DecisionsPage() {
                   value={filters.direction}
                   onChange={(e) => setFilters(prev => ({ ...prev, direction: e.target.value }))}
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="decisions-direction-filter"
                 >
                   <option value="">All Directions</option>
                   <option value="precheck">Pre-check</option>
@@ -319,6 +321,7 @@ export default function DecisionsPage() {
                   value={filters.decision}
                   onChange={(e) => setFilters(prev => ({ ...prev, decision: e.target.value }))}
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="decisions-outcome-filter"
                 >
                   <option value="">All Decisions</option>
                   <option value="allow">Allow</option>
@@ -329,7 +332,7 @@ export default function DecisionsPage() {
             </div>
 
             {filteredDecisions.length === 0 ? (
-              <Card>
+              <Card data-testid="decisions-empty-state">
                 <CardContent className="p-8 text-center">
                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">No Decisions Found</h3>
@@ -339,7 +342,7 @@ export default function DecisionsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden" data-testid="decisions-table">
                 <table className="w-full">
                   <thead className="bg-muted/50">
                     <tr>
@@ -354,7 +357,7 @@ export default function DecisionsPage() {
                   <tbody className="divide-y divide-border">
                     {filteredDecisions.map((decision) => (
                       <React.Fragment key={decision.id}>
-                        <tr className="hover:bg-muted/30">
+                        <tr className="hover:bg-muted/30" data-testid={`decision-row-${decision.id}`}>
                           <td className="px-4 py-3">
                             {getDecisionBadge(decision.decision)}
                           </td>
@@ -374,6 +377,8 @@ export default function DecisionsPage() {
                             <button
                               onClick={() => toggleExpanded(decision.id)}
                               className="p-1 hover:bg-muted rounded"
+                              data-testid={`decision-details-button-${decision.id}`}
+                              aria-label={`Toggle details for decision ${decision.id}`}
                             >
                               {expandedDecisions.has(decision.id) ? (
                                 <ChevronUp className="h-4 w-4" />

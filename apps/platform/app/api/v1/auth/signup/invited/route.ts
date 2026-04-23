@@ -87,14 +87,14 @@ export async function POST(request: NextRequest) {
         });
 
         // Create email verification token
-        const verificationToken = await createEmailVerificationToken(
+        const emailVerifyToken = await createEmailVerificationToken(
             email,
             'email-verify'
         );
 
         // Send verification email
         const { sendVerificationEmail } = await import('@/lib/email');
-        const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${verificationToken}`;
+        const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${emailVerifyToken}`;
 
         const emailResult = await sendVerificationEmail({
             to: email,
@@ -104,10 +104,9 @@ export async function POST(request: NextRequest) {
 
         if (!emailResult.success) {
             console.error('Failed to send verification email:', emailResult.error);
-            // Don't fail the request, but log the error
         }
 
-        console.log(`Email verification token for ${email}: ${verificationToken}`);
+        console.log(`Email verification token for ${email}: ${emailVerifyToken}`);
 
         // Sync user to Keycloak with organization context (non-blocking)
         if (org) {

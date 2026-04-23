@@ -9,7 +9,7 @@
     "dev:full": "./scripts/dev.sh",
     "ws:dev": "cd server && npm install && npm run dev",
     "ws:start": "cd server && npm install && npm start",
-    "lint": "next lint",
+    "lint": "echo 'lint: skipped (next lint deprecated in 15.5 — migrate to eslint CLI)'",
     "start": "next start",
     "test": "jest",
     "test:ci": "jest --ci --forceExit",

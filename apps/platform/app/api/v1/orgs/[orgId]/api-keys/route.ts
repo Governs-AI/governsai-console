@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { verifySessionToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
+import { syncKeyToPrecheck } from '@/lib/precheck-key-sync';
 
 const createKeySchema = z.object({
   name: z.string().min(1),
@@ -15,7 +16,7 @@ const createKeySchema = z.object({
 // Get API keys for organization
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orgId: string } }
+  { params }: { params: Promise<{ orgId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -175,7 +176,7 @@ export async function GET(
 // Create new API key
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orgId: string } }
+  { params }: { params: Promise<{ orgId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -248,6 +249,10 @@ export async function POST(
       },
     });
 
+    // Sync key to precheck's api_keys table so precheck can validate it
+    syncKeyToPrecheck(keyValue, session.sub, org.id, expiresAt ? new Date(expiresAt) : null)
+      .catch(err => console.error('[api-keys] precheck sync failed (non-fatal):', err));
+
     return NextResponse.json({
       success: true,
       key: {
@@ -282,7 +287,7 @@ export async function POST(
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }

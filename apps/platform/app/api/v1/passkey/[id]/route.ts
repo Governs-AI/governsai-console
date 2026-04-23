@@ -4,7 +4,7 @@ import { prisma } from '@governs-ai/db';
 // DELETE - Remove passkey
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get API key from header
@@ -33,7 +33,7 @@ export async function DELETE(
       );
     }
 
-    const passkeyId = params.id;
+    const passkeyId = (await params).id;
 
     // Verify passkey belongs to this user+org
     const passkey = await prisma.passkey.findFirst({
@@ -90,7 +90,7 @@ export async function DELETE(
 // PATCH - Rename passkey
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get API key from header
@@ -119,7 +119,7 @@ export async function PATCH(
       );
     }
 
-    const passkeyId = params.id;
+    const passkeyId = (await params).id;
     const body = await request.json();
     const { deviceName } = body;
 

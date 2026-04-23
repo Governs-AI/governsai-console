@@ -4,6 +4,7 @@ import { verifySessionToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
+import { syncKeyToPrecheck, deactivateKeyInPrecheck } from '@/lib/precheck-key-sync';
 
 const updateKeySchema = z.object({
   name: z.string().min(1).optional(),
@@ -17,7 +18,7 @@ const updateKeySchema = z.object({
 // Get specific API key
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orgId: string; keyId: string } }
+  { params }: { params: Promise<{ orgId: string; keyId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -149,7 +150,7 @@ export async function GET(
 // Update API key
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { orgId: string; keyId: string } }
+  { params }: { params: Promise<{ orgId: string; keyId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -275,7 +276,7 @@ export async function PATCH(
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }
@@ -290,7 +291,7 @@ export async function PATCH(
 // Delete/Revoke API key
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { orgId: string; keyId: string } }
+  { params }: { params: Promise<{ orgId: string; keyId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -348,11 +349,14 @@ export async function DELETE(
     // Revoke the key (mark as inactive)
     await prisma.aPIKey.update({
       where: { id: keyId },
-      data: { 
+      data: {
         isActive: false,
         updatedAt: new Date(),
       },
     });
+
+    deactivateKeyInPrecheck(existingKey.key)
+      .catch(err => console.error('[api-keys] precheck deactivate failed (non-fatal):', err));
 
     // If disconnect=true, close active WebSocket sessions
     if (disconnect) {
@@ -395,7 +399,7 @@ export async function DELETE(
 // Rotate API key (generate new key)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orgId: string; keyId: string } }
+  { params }: { params: Promise<{ orgId: string; keyId: string }> }
 ) {
   try {
     // Get session token from cookies
@@ -465,6 +469,12 @@ export async function POST(
 
     // Generate new API key
     const newKeyValue = `gov_key_${randomBytes(32).toString('hex')}`;
+
+    // Deactivate old key in precheck, register new one
+    deactivateKeyInPrecheck(existingKey.key)
+      .catch(err => console.error('[api-keys] precheck old-key deactivate failed (non-fatal):', err));
+    syncKeyToPrecheck(newKeyValue, session.sub, org.id, existingKey.expiresAt)
+      .catch(err => console.error('[api-keys] precheck new-key sync failed (non-fatal):', err));
 
     // Update the key with new value
     const rotatedKey = await prisma.aPIKey.update({

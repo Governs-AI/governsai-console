@@ -295,6 +295,7 @@ export class ChunkWorker {
    * Get queue statistics
    */
   async getQueueStats() {
+    if (!this.queue) return { waiting: 0, active: 0, completed: 0, failed: 0 };
     const [waiting, active, completed, failed] = await Promise.all([
       this.queue.getWaitingCount(),
       this.queue.getActiveCount(),
@@ -317,6 +318,7 @@ export class ChunkWorker {
    * @param jobId - Job ID
    */
   async getJobStatus(jobId: string) {
+    if (!this.queue) return null;
     const job = await this.queue.getJob(jobId);
 
     if (!job) {

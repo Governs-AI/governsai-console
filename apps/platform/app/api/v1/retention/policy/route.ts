@@ -147,10 +147,7 @@ export async function PATCH(request: NextRequest) {
         orgId: auth.orgId,
         action: 'retention.policy.update',
         resource: 'retention',
-        details: {
-          updates: policyInput,
-          policy: updatedPolicy,
-        },
+        details: JSON.parse(JSON.stringify({ updates: policyInput, policy: updatedPolicy })),
       },
     });
 
