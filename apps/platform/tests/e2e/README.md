@@ -12,11 +12,13 @@ pnpm dlx playwright install chromium
 # See the repo root start-dev.sh or docker-compose.dev.yml.
 
 # Unauthenticated smoke tests — always safe to run
-pnpm --filter @governs-ai/platform test:e2e -- tests/e2e/auth.spec.ts
+pnpm --filter @governs-ai/platform test:e2e tests/e2e/auth.spec.ts
 
-# Authenticated flows — require a seeded user and org
-E2E_TEST_EMAIL=e2e@governs.ai \
-E2E_TEST_PASSWORD='…' \
+# Authenticated flows — require a seeded user and org.
+# A `setup` project runs `auth.setup.ts` first, stores the session to
+# apps/platform/.auth/user.json, and every subsequent test reuses it.
+TEST_USER_EMAIL=e2e@governs.ai \
+TEST_USER_PASSWORD='…' \
 E2E_TEST_ORG_SLUG=e2e-org \
   pnpm --filter @governs-ai/platform test:e2e
 ```
@@ -26,12 +28,12 @@ so the unauthenticated checks can safely run in preview CI before seeding is wir
 
 ## Environment variables
 
-| Variable             | Purpose                                              |
-|----------------------|------------------------------------------------------|
-| `E2E_BASE_URL`       | Platform URL (default `http://localhost:3002`)       |
-| `E2E_TEST_EMAIL`     | Test user email                                      |
-| `E2E_TEST_PASSWORD`  | Test user password                                   |
-| `E2E_TEST_ORG_SLUG`  | Org slug the test user belongs to                    |
+| Variable               | Purpose                                            |
+|------------------------|----------------------------------------------------|
+| `PLAYWRIGHT_BASE_URL`  | Platform URL (default `http://localhost:3002`)     |
+| `TEST_USER_EMAIL`      | Test user email                                    |
+| `TEST_USER_PASSWORD`   | Test user password                                 |
+| `E2E_TEST_ORG_SLUG`    | Org slug the test user belongs to                  |
 
 ## Artifacts
 

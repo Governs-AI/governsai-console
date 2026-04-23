@@ -41,17 +41,17 @@ jobs:
       # test.skip() handles the rest.
       - name: Run E2E
         env:
-          E2E_BASE_URL: ${{ vars.E2E_PLATFORM_URL }}
-          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          PLAYWRIGHT_BASE_URL: ${{ vars.E2E_PLATFORM_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
           E2E_TEST_ORG_SLUG: ${{ vars.E2E_TEST_ORG_SLUG }}
         run: |
-          if [ -z "${E2E_BASE_URL}" ]; then
+          if [ -z "${PLAYWRIGHT_BASE_URL}" ]; then
             echo "::notice::E2E_PLATFORM_URL not configured; skipping platform E2E run. Set the repo variable to enable."
             exit 0
           fi
-          if ! curl -fsS --max-time 10 "${E2E_BASE_URL}" >/dev/null 2>&1; then
-            echo "::warning::Platform not reachable at ${E2E_BASE_URL}; skipping."
+          if ! curl -fsS --max-time 10 "${PLAYWRIGHT_BASE_URL}" >/dev/null 2>&1; then
+            echo "::warning::Platform not reachable at ${PLAYWRIGHT_BASE_URL}; skipping."
             exit 0
           fi
           pnpm --filter @governs-ai/platform test:e2e

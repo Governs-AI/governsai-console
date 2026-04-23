@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { hasCredentials, loginViaUI } from './helpers/auth';
+import { hasCredentials } from './helpers/auth';
 
 test.describe('Auth — login page', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('renders login form', async ({ page }) => {
     await page.goto('/auth/login');
     await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
@@ -21,16 +23,16 @@ test.describe('Auth — login page', () => {
     await page.getByRole('button', { name: /sign in/i }).click();
     await loginResponse;
 
-    await expect(page.getByText(/login failed|invalid|incorrect/i)).toBeVisible();
+    await expect(page.getByTestId('login-error-state')).toBeVisible();
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 });
 
-test.describe('Auth — authenticated flow', () => {
-  test.skip(!hasCredentials, 'E2E_TEST_EMAIL/PASSWORD not set');
+test.describe('Auth — authenticated session', () => {
+  test.skip(!hasCredentials, 'TEST_USER_EMAIL/TEST_USER_PASSWORD not set');
 
-  test('logs in and lands on dashboard', async ({ page }) => {
-    await loginViaUI(page);
+  test('stored session lands on dashboard or onboarding', async ({ page }) => {
+    await page.goto('/');
     await expect(page).toHaveURL(/\/o\/[^/]+\/dashboard|\/onboarding/);
   });
 });

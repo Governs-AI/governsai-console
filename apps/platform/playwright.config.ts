@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
 
-const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3002';
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3002';
+const STORAGE_STATE = path.join(__dirname, '.auth/user.json');
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -23,8 +25,16 @@ export default defineConfig({
 
   projects: [
     {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
     },
   ],
 });
