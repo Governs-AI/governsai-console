@@ -5,12 +5,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn, Button } from '@governs-ai/ui';
 import { 
-  LayoutDashboard, 
-  Activity, 
-  DollarSign, 
-  Shield, 
-  Key, 
+  LayoutDashboard,
+  Activity,
+  DollarSign,
+  Shield,
+  Key,
   Settings,
+  FileText,
   Search,
   Bell,
   User,
@@ -42,6 +43,7 @@ const getNavigation = (orgSlug: string, userRole?: string): NavigationItem[] => 
   const allItems: NavigationItem[] = [
     { name: 'Dashboard', href: `/o/${orgSlug}/dashboard`, icon: LayoutDashboard },
     { name: 'Tool Calls', href: `/o/${orgSlug}/toolcalls`, icon: Activity },
+    { name: 'Audit Log', href: `/o/${orgSlug}/audit`, icon: FileText },
     { name: 'Spend & Budget', href: `/o/${orgSlug}/spend`, icon: DollarSign },
     { name: 'Manage Tools', href: `/o/${orgSlug}/tools`, icon: Activity, roles: ['OWNER', 'ADMIN', 'DEVELOPER'] },
     { name: 'Policies', href: `/o/${orgSlug}/policies`, icon: Shield },

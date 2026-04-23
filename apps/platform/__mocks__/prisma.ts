@@ -32,6 +32,8 @@ export const prisma = {
   },
   decision: {
     create: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
   usageRecord_: jest.fn(),
   mfaTotp: {
