@@ -191,6 +191,7 @@ Ready response shape:
 {
   "report_id": "cuid",
   "status": "ready",
+  "error_code": null,
   "download_url": "/api/v1/reports/cuid?download=1&format=pdf",
   "artifacts": {
     "pdf": "/api/v1/reports/cuid?download=1&format=pdf",
@@ -199,12 +200,51 @@ Ready response shape:
 }
 ```
 
+Failed response shape (sanitized — raw error message is logged server-side
+only and never returned by the public API):
+
+```json
+{
+  "report_id": "cuid",
+  "status": "failed",
+  "error_code": "generation_failed",
+  "download_url": null,
+  "artifacts": { "pdf": null, "json": null }
+}
+```
+
+`error_code` enum: `generation_failed` (the only public failure code today).
+
 Artifact downloads:
 
 ```http
 GET /api/v1/reports/:report_id?download=1&format=pdf
 GET /api/v1/reports/:report_id?download=1&format=json
 ```
+
+**Storage:** rendered PDFs are persisted to Vercel Blob and served back through
+`/api/v1/reports/:id?download=1&format=pdf` so the admin gate and audit log
+remain authoritative. Set `BLOB_READ_WRITE_TOKEN` for production. When the env
+is missing, the service falls back to inline `pdf_data` in Postgres so dev and
+test environments keep working without external dependencies.
+
+**PII / retention:** every `compliance_reports` row carries `contains_pii=true`
+by default because the report schema persists member emails and PII signal
+events. Retention and legal-hold workflows must respect this column; the audit
+log entry for `compliance.report.download` includes `containsPii` and the
+storage backend (`blob` vs `inline`).
+
+**Stale-job recovery:** `processComplianceReportJob` reclaims rows that are
+stuck in `processing` for longer than 15 minutes (a worker that died between
+the claim and the final write). Active claims still short-circuit concurrent
+callers, so this is safe to run from a watchdog cron.
+
+**Concurrency cap (TOCTOU note):** the `count + create` pair in
+`POST /generate` is intentionally not atomic. Worst-case overshoot is
+`cap + concurrent_admin_count` rows, briefly. With ADMIN/OWNER-only access and
+a default cap of 3, the race is acceptable; if the cap is later raised or
+opened to non-admin roles, replace the count check with a partial unique index
+or wrap it in a `RAISE`-on-cap CTE.
 
 ## 🔗 Related Packages
 
