@@ -139,6 +139,73 @@ apps/platform/
 - **PolicyManagement**: AI usage policy definition and enforcement
 - **AuditLogs**: Complete audit trail of AI interactions
 
+### Compliance Report API Contract
+
+The platform exposes an async compliance summary report workflow for UI consumers.
+
+**Access control:** all `/api/v1/reports/*` routes require an authenticated session (or
+API key) **and** an `ADMIN` or `OWNER` org membership. Other roles receive `403 Admin
+access required`.
+
+**Concurrency cap:** each org may have at most
+`COMPLIANCE_REPORT_MAX_ACTIVE_JOBS_PER_ORG` (default `3`) reports in `pending` or
+`processing` state. Additional `POST /generate` calls receive `429` with a `Retry-After`
+header until an existing report finishes.
+
+```http
+POST /api/v1/reports/generate
+Content-Type: application/json
+
+{
+  "startTime": "2026-04-01T00:00:00.000Z",
+  "endTime": "2026-04-24T23:59:59.999Z"
+}
+```
+
+Returns `202 Accepted` with:
+
+```json
+{
+  "report_id": "cuid",
+  "status": "pending",
+  "status_url": "/api/v1/reports/cuid",
+  "download_url": null,
+  "artifacts": {
+    "pdf": null,
+    "json": null
+  }
+}
+```
+
+`status` values: `pending`, `processing`, `ready`, `failed`.
+
+Poll:
+
+```http
+GET /api/v1/reports/:report_id
+```
+
+Ready response shape:
+
+```json
+{
+  "report_id": "cuid",
+  "status": "ready",
+  "download_url": "/api/v1/reports/cuid?download=1&format=pdf",
+  "artifacts": {
+    "pdf": "/api/v1/reports/cuid?download=1&format=pdf",
+    "json": "/api/v1/reports/cuid?download=1&format=json"
+  }
+}
+```
+
+Artifact downloads:
+
+```http
+GET /api/v1/reports/:report_id?download=1&format=pdf
+GET /api/v1/reports/:report_id?download=1&format=json
+```
+
 ## 🔗 Related Packages
 
 - `@governs-ai/ui` - Shared UI components
