@@ -168,6 +168,8 @@ Returns `202 Accepted` with:
 }
 ```
 
+`status` values: `pending`, `processing`, `ready`, `failed`.
+
 Poll:
 
 ```http

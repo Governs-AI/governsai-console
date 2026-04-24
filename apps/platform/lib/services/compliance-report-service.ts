@@ -393,11 +393,12 @@ export async function findComplianceReportJob(
 }
 
 export async function queueComplianceReportJob(reportId: string): Promise<void> {
-  queueMicrotask(() => {
+  // Use a later event-loop turn so the API can return 202 before report generation starts.
+  setTimeout(() => {
     processComplianceReportJob(reportId).catch((error) => {
       console.error('Async compliance report generation failed:', error);
     });
-  });
+  }, 0);
 }
 
 export async function processComplianceReportJob(
