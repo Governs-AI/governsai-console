@@ -4,6 +4,7 @@ import {
   buildComplianceReportStatus,
   complianceReportToPdf,
   countActiveComplianceReportJobs,
+  ensureComplianceReportJobReady,
   findComplianceReportJob,
   processComplianceReportJob,
 } from '@/lib/services/compliance-report-service';
@@ -319,6 +320,60 @@ describe('compliance-report-service', () => {
         data: expect.objectContaining({ status: 'ready' }),
       })
     );
+  });
+
+  it('ensureComplianceReportJobReady self-heals pending jobs instead of leaving them stuck pending', async () => {
+    const pendingJob = {
+      id: 'rpt_pending',
+      orgId: 'org-1',
+      requestedById: 'user-1',
+      reportType: 'compliance_summary',
+      source: 'on_demand',
+      status: 'pending',
+      startTime: null,
+      endTime: null,
+      generatedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      reportJson: null,
+      pdfData: null,
+      createdAt: new Date('2026-04-24T15:00:00.000Z'),
+      updatedAt: new Date('2026-04-24T15:00:00.000Z'),
+    };
+    const readyJob = {
+      ...pendingJob,
+      status: 'ready',
+      generatedAt: new Date('2026-04-24T15:00:01.000Z'),
+      completedAt: new Date('2026-04-24T15:00:02.000Z'),
+      reportJson: { reportId: 'rpt_pending' },
+      pdfData: Buffer.from('%PDF-1.4'),
+      updatedAt: new Date('2026-04-24T15:00:02.000Z'),
+    };
+
+    mockPrisma.complianceReport.findFirst.mockResolvedValue(pendingJob);
+    mockPrisma.complianceReport.findUnique.mockResolvedValue(pendingJob);
+    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.complianceReport.update.mockResolvedValue(readyJob);
+
+    mockPrisma.decision.findMany.mockResolvedValue([]);
+    mockPrisma.contextMemory.findMany.mockResolvedValue([]);
+    mockPrisma.budgetAlert.findMany.mockResolvedValue([]);
+    mockPrisma.budgetLimit.findMany.mockResolvedValue([]);
+    mockPrisma.usageRecord.findMany.mockResolvedValue([]);
+    mockPrisma.purchaseRecord.findMany.mockResolvedValue([]);
+    mockPrisma.orgMembership.findMany.mockResolvedValue([]);
+    mockPrisma.verificationToken.count.mockResolvedValue(0);
+
+    const result = await ensureComplianceReportJobReady('rpt_pending', 'org-1');
+
+    expect(result?.status).toBe('ready');
+    expect(mockPrisma.complianceReport.findFirst).toHaveBeenCalledWith({
+      where: { id: 'rpt_pending', orgId: 'org-1' },
+    });
+    expect(mockPrisma.complianceReport.updateMany).toHaveBeenCalledWith({
+      where: { id: 'rpt_pending', status: { in: ['pending', 'failed'] } },
+      data: { status: 'processing', errorMessage: null },
+    });
   });
 
   it('publishes status payloads with artifact URLs once the report is ready', () => {
