@@ -122,7 +122,7 @@ describe('reports API', () => {
         generated_at: null,
         created_at: '2026-04-24T15:00:00.000Z',
         updated_at: '2026-04-24T15:00:00.000Z',
-        error: null,
+        error_code: null,
         download_url: null,
         artifacts: { pdf: null, json: null },
       });
@@ -255,7 +255,7 @@ describe('reports API', () => {
         generated_at: '2026-04-24T15:00:00.000Z',
         created_at: '2026-04-24T15:00:00.000Z',
         updated_at: '2026-04-24T15:00:01.000Z',
-        error: null,
+        error_code: null,
         download_url: '/api/v1/reports/rpt_ready?download=1&format=pdf',
         artifacts: {
           pdf: '/api/v1/reports/rpt_ready?download=1&format=pdf',

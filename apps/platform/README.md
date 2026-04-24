@@ -191,6 +191,7 @@ Ready response shape:
 {
   "report_id": "cuid",
   "status": "ready",
+  "error_code": null,
   "download_url": "/api/v1/reports/cuid?download=1&format=pdf",
   "artifacts": {
     "pdf": "/api/v1/reports/cuid?download=1&format=pdf",
@@ -198,6 +199,12 @@ Ready response shape:
   }
 }
 ```
+
+Failed jobs return `status: "failed"` with `error_code: "generation_failed"`.
+The raw failure message is intentionally **not** exposed on the status path —
+it's persisted on the `compliance_reports.errorMessage` row and emitted via
+`console.error` for ops/Sentry. Clients should branch on `error_code`, not
+on the absence of `download_url`.
 
 Artifact downloads:
 

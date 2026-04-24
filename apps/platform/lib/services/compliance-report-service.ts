@@ -109,6 +109,8 @@ export interface ComplianceSummaryReport {
   };
 }
 
+export type ComplianceReportErrorCode = 'generation_failed';
+
 export interface ComplianceReportStatusResponse {
   report_id: string;
   status: string;
@@ -121,7 +123,7 @@ export interface ComplianceReportStatusResponse {
   generated_at: string | null;
   created_at: string;
   updated_at: string;
-  error: string | null;
+  error_code: ComplianceReportErrorCode | null;
   download_url: string | null;
   artifacts: {
     pdf: string | null;
@@ -504,6 +506,12 @@ export async function ensureComplianceReportJobReady(
   return processComplianceReportJob(reportId);
 }
 
+function toClientErrorCode(
+  status: string
+): ComplianceReportErrorCode | null {
+  return status === 'failed' ? 'generation_failed' : null;
+}
+
 export function buildComplianceReportStatus(
   report: ComplianceReportJobRecord
 ): ComplianceReportStatusResponse {
@@ -521,7 +529,7 @@ export function buildComplianceReportStatus(
     generated_at: toIso(report.generatedAt),
     created_at: report.createdAt.toISOString(),
     updated_at: report.updatedAt.toISOString(),
-    error: report.errorMessage,
+    error_code: toClientErrorCode(report.status),
     download_url: artifacts.pdf,
     artifacts,
   };

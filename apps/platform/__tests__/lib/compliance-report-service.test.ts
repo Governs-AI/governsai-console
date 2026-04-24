@@ -347,5 +347,37 @@ describe('compliance-report-service', () => {
       pdf: '/api/v1/reports/rpt_ready?download=1&format=pdf',
       json: '/api/v1/reports/rpt_ready?download=1&format=json',
     });
+    expect(payload.error_code).toBeNull();
+  });
+
+  it('returns a generic error_code for failed jobs and never leaks the raw errorMessage', () => {
+    const payload = buildComplianceReportStatus({
+      id: 'rpt_failed',
+      orgId: 'org-1',
+      requestedById: 'user-1',
+      reportType: 'compliance_summary',
+      source: 'on_demand',
+      status: 'failed',
+      startTime: null,
+      endTime: null,
+      generatedAt: null,
+      completedAt: new Date('2026-04-24T15:00:01.000Z'),
+      // Raw message simulates anything that could leak (DB connection strings,
+      // internal hostnames, stack-trace fragments). It must NOT round-trip.
+      errorMessage:
+        'getaddrinfo ENOTFOUND prisma-prod.internal:5432 — connection refused',
+      reportJson: null,
+      pdfData: null,
+      createdAt: new Date('2026-04-24T14:59:00.000Z'),
+      updatedAt: new Date('2026-04-24T15:00:01.000Z'),
+    });
+
+    expect(payload.status).toBe('failed');
+    expect(payload.error_code).toBe('generation_failed');
+    expect(payload.download_url).toBeNull();
+    expect(payload.artifacts).toEqual({ pdf: null, json: null });
+    expect(JSON.stringify(payload)).not.toContain('prisma-prod.internal');
+    expect(JSON.stringify(payload)).not.toContain('ENOTFOUND');
+    expect(payload).not.toHaveProperty('error');
   });
 });
