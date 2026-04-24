@@ -1,4 +1,7 @@
-import { prisma } from '@governs-ai/db';
+import { prisma, type Prisma } from '@governs-ai/db';
+
+type PrismaTxClient = Prisma.TransactionClient;
+type PrismaWriteClient = typeof prisma | PrismaTxClient;
 
 export type ComplianceReportStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export type ComplianceReportSource = 'on_demand' | 'scheduled';
@@ -359,9 +362,10 @@ function toJobRecord(value: unknown): ComplianceReportJobRecord | null {
 }
 
 export async function createComplianceReportJob(
-  input: ComplianceReportJobInput
+  input: ComplianceReportJobInput,
+  client: PrismaWriteClient = prisma
 ): Promise<ComplianceReportJobRecord> {
-  const created = await prisma.complianceReport.create({
+  const created = await client.complianceReport.create({
     data: {
       orgId: input.orgId,
       requestedById: input.requestedById || null,
@@ -376,29 +380,26 @@ export async function createComplianceReportJob(
   return created as unknown as ComplianceReportJobRecord;
 }
 
+export async function countActiveComplianceReportJobs(
+  orgId: string
+): Promise<number> {
+  return prisma.complianceReport.count({
+    where: {
+      orgId,
+      status: { in: ['pending', 'processing'] },
+    },
+  });
+}
+
 export async function findComplianceReportJob(
   reportId: string,
   orgId: string
 ): Promise<ComplianceReportJobRecord | null> {
-  const report = await prisma.complianceReport.findUnique({
-    where: { id: reportId },
+  const report = await prisma.complianceReport.findFirst({
+    where: { id: reportId, orgId },
   });
 
-  const normalized = toJobRecord(report);
-  if (!normalized || normalized.orgId !== orgId) {
-    return null;
-  }
-
-  return normalized;
-}
-
-export async function queueComplianceReportJob(reportId: string): Promise<void> {
-  // Use a later event-loop turn so the API can return 202 before report generation starts.
-  setTimeout(() => {
-    processComplianceReportJob(reportId).catch((error) => {
-      console.error('Async compliance report generation failed:', error);
-    });
-  }, 0);
+  return toJobRecord(report);
 }
 
 export async function processComplianceReportJob(
@@ -421,13 +422,22 @@ export async function processComplianceReportJob(
     return existing;
   }
 
-  await prisma.complianceReport.update({
-    where: { id: reportId },
+  // Atomic claim: only the call that flips pending|failed -> processing proceeds.
+  // Concurrent callers see count === 0 and short-circuit to the existing row.
+  const claim = await prisma.complianceReport.updateMany({
+    where: {
+      id: reportId,
+      status: { in: ['pending', 'failed'] },
+    },
     data: {
       status: 'processing',
       errorMessage: null,
     },
   });
+
+  if (claim.count === 0) {
+    return existing;
+  }
 
   try {
     const reportJson = await buildComplianceReport({
@@ -447,7 +457,7 @@ export async function processComplianceReportJob(
         generatedAt: new Date(reportJson.generatedAt),
         completedAt: new Date(),
         errorMessage: null,
-        reportJson,
+        reportJson: reportJson as unknown as Prisma.InputJsonValue,
         pdfData,
       },
     });
@@ -455,6 +465,7 @@ export async function processComplianceReportJob(
     return updated as unknown as ComplianceReportJobRecord;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Compliance report generation failed:', error);
     const failed = await prisma.complianceReport.update({
       where: { id: reportId },
       data: {
@@ -478,6 +489,11 @@ export async function ensureComplianceReportJobReady(
   }
 
   if (READY_STATUSES.has(existing.status as ComplianceReportStatus)) {
+    return existing;
+  }
+
+  if (existing.status === 'processing') {
+    // Another worker holds the claim; let the caller poll again.
     return existing;
   }
 

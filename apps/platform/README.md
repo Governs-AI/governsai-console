@@ -141,7 +141,16 @@ apps/platform/
 
 ### Compliance Report API Contract
 
-The platform exposes an async compliance summary report workflow for UI consumers:
+The platform exposes an async compliance summary report workflow for UI consumers.
+
+**Access control:** all `/api/v1/reports/*` routes require an authenticated session (or
+API key) **and** an `ADMIN` or `OWNER` org membership. Other roles receive `403 Admin
+access required`.
+
+**Concurrency cap:** each org may have at most
+`COMPLIANCE_REPORT_MAX_ACTIVE_JOBS_PER_ORG` (default `3`) reports in `pending` or
+`processing` state. Additional `POST /generate` calls receive `429` with a `Retry-After`
+header until an existing report finishes.
 
 ```http
 POST /api/v1/reports/generate

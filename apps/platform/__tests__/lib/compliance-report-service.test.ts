@@ -3,6 +3,9 @@ import {
   buildComplianceReport,
   buildComplianceReportStatus,
   complianceReportToPdf,
+  countActiveComplianceReportJobs,
+  findComplianceReportJob,
+  processComplianceReportJob,
 } from '@/lib/services/compliance-report-service';
 
 const mockPrisma = prisma as any;
@@ -199,6 +202,123 @@ describe('compliance-report-service', () => {
 
     expect(pdf.byteLength).toBeGreaterThan(200);
     expect(pdf.toString('utf8', 0, 8)).toContain('%PDF-1.4');
+  });
+
+  it('scopes findComplianceReportJob lookups by orgId at the database boundary', async () => {
+    mockPrisma.complianceReport.findFirst.mockResolvedValue({
+      id: 'rpt_x',
+      orgId: 'org-1',
+      requestedById: 'user-1',
+      reportType: 'compliance_summary',
+      source: 'on_demand',
+      status: 'pending',
+      startTime: null,
+      endTime: null,
+      generatedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      reportJson: null,
+      pdfData: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await findComplianceReportJob('rpt_x', 'org-1');
+
+    expect(result?.id).toBe('rpt_x');
+    expect(mockPrisma.complianceReport.findFirst).toHaveBeenCalledWith({
+      where: { id: 'rpt_x', orgId: 'org-1' },
+    });
+  });
+
+  it('counts only active (pending|processing) jobs per org for rate limiting', async () => {
+    mockPrisma.complianceReport.count.mockResolvedValue(2);
+
+    const total = await countActiveComplianceReportJobs('org-1');
+
+    expect(total).toBe(2);
+    expect(mockPrisma.complianceReport.count).toHaveBeenCalledWith({
+      where: {
+        orgId: 'org-1',
+        status: { in: ['pending', 'processing'] },
+      },
+    });
+  });
+
+  it('processComplianceReportJob short-circuits when the atomic claim is lost (already processing)', async () => {
+    mockPrisma.complianceReport.findUnique.mockResolvedValue({
+      id: 'rpt_locked',
+      orgId: 'org-1',
+      requestedById: 'user-1',
+      reportType: 'compliance_summary',
+      source: 'on_demand',
+      status: 'processing',
+      startTime: null,
+      endTime: null,
+      generatedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      reportJson: null,
+      pdfData: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await processComplianceReportJob('rpt_locked');
+
+    expect(result.id).toBe('rpt_locked');
+    expect(result.status).toBe('processing');
+    // No build pipeline calls happen when the claim is lost.
+    expect(mockPrisma.complianceReport.update).not.toHaveBeenCalled();
+    expect(mockPrisma.decision.findMany).not.toHaveBeenCalled();
+  });
+
+  it('processComplianceReportJob proceeds when the atomic claim succeeds', async () => {
+    const jobRow = {
+      id: 'rpt_claimed',
+      orgId: 'org-1',
+      requestedById: 'user-1',
+      reportType: 'compliance_summary',
+      source: 'on_demand',
+      status: 'pending',
+      startTime: null,
+      endTime: null,
+      generatedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      reportJson: null,
+      pdfData: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
+    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.complianceReport.update.mockResolvedValue({ ...jobRow, status: 'ready' });
+
+    // Minimal stubs for the build pipeline so it doesn't blow up.
+    mockPrisma.decision.findMany.mockResolvedValue([]);
+    mockPrisma.contextMemory.findMany.mockResolvedValue([]);
+    mockPrisma.budgetAlert.findMany.mockResolvedValue([]);
+    mockPrisma.budgetLimit.findMany.mockResolvedValue([]);
+    mockPrisma.usageRecord.findMany.mockResolvedValue([]);
+    mockPrisma.purchaseRecord.findMany.mockResolvedValue([]);
+    mockPrisma.orgMembership.findMany.mockResolvedValue([]);
+    mockPrisma.verificationToken.count.mockResolvedValue(0);
+
+    await processComplianceReportJob('rpt_claimed');
+
+    expect(mockPrisma.complianceReport.updateMany).toHaveBeenCalledWith({
+      where: { id: 'rpt_claimed', status: { in: ['pending', 'failed'] } },
+      data: { status: 'processing', errorMessage: null },
+    });
+    expect(mockPrisma.complianceReport.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'rpt_claimed' },
+        data: expect.objectContaining({ status: 'ready' }),
+      })
+    );
   });
 
   it('publishes status payloads with artifact URLs once the report is ready', () => {

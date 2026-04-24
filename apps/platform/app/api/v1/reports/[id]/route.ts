@@ -1,55 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { verifySessionToken } from '@/lib/auth-server';
+import { resolveReportAuth, requireReportAdmin } from '@/lib/auth/report-access';
 import {
   buildComplianceReportStatus,
   ensureComplianceReportJobReady,
-  findComplianceReportJob,
   getComplianceReportDownload,
   type ComplianceReportFormat,
 } from '@/lib/services/compliance-report-service';
 
 export const runtime = 'nodejs';
 export const maxDuration = 180;
-
-interface AuthContext {
-  userId: string;
-  orgId: string;
-}
-
-async function resolveAuth(request: NextRequest): Promise<AuthContext | null> {
-  const authHeader = request.headers.get('authorization');
-  const apiKeyHeader = request.headers.get('x-governs-key');
-  const sessionCookie = request.cookies.get('session')?.value;
-
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.slice('Bearer '.length).trim();
-    const session = verifySessionToken(token);
-    if (session) {
-      return { userId: session.sub, orgId: session.orgId };
-    }
-  }
-
-  if (apiKeyHeader) {
-    const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
-      select: { userId: true, orgId: true },
-    });
-
-    if (apiKey) {
-      return { userId: apiKey.userId, orgId: apiKey.orgId };
-    }
-  }
-
-  if (sessionCookie) {
-    const session = verifySessionToken(sessionCookie);
-    if (session) {
-      return { userId: session.sub, orgId: session.orgId };
-    }
-  }
-
-  return null;
-}
 
 function parseFormat(value: string | null): ComplianceReportFormat {
   return value === 'json' ? 'json' : 'pdf';
@@ -60,9 +20,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await resolveAuth(request);
+    const auth = await resolveReportAuth(request);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const adminCheck = await requireReportAdmin(auth);
+    if (!adminCheck.allowed) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -70,9 +35,7 @@ export async function GET(
     const downloadRequested = searchParams.get('download') === '1';
     const format = parseFormat(searchParams.get('format'));
 
-    const report = downloadRequested
-      ? await ensureComplianceReportJobReady(id, auth.orgId)
-      : await findComplianceReportJob(id, auth.orgId);
+    const report = await ensureComplianceReportJobReady(id, auth.orgId);
 
     if (!report) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
@@ -88,7 +51,7 @@ export async function GET(
       return NextResponse.json(
         {
           error: 'Report generation failed',
-          details: report.errorMessage || 'Unknown error',
+          status: report.status,
         },
         { status: 409 }
       );
@@ -129,10 +92,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching compliance report:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to fetch compliance report',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Failed to fetch compliance report' },
       { status: 500 }
     );
   }

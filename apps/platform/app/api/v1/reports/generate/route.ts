@@ -1,53 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { verifySessionToken } from '@/lib/auth-server';
+import { resolveReportAuth, requireReportAdmin } from '@/lib/auth/report-access';
 import {
   buildComplianceReportStatus,
+  countActiveComplianceReportJobs,
   createComplianceReportJob,
-  queueComplianceReportJob,
+  processComplianceReportJob,
 } from '@/lib/services/compliance-report-service';
 
 export const runtime = 'nodejs';
 export const maxDuration = 180;
 
-interface AuthContext {
-  userId: string;
-  orgId: string;
-}
-
-async function resolveAuth(request: NextRequest): Promise<AuthContext | null> {
-  const authHeader = request.headers.get('authorization');
-  const apiKeyHeader = request.headers.get('x-governs-key');
-  const sessionCookie = request.cookies.get('session')?.value;
-
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.slice('Bearer '.length).trim();
-    const session = verifySessionToken(token);
-    if (session) {
-      return { userId: session.sub, orgId: session.orgId };
-    }
-  }
-
-  if (apiKeyHeader) {
-    const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
-      select: { userId: true, orgId: true },
-    });
-
-    if (apiKey) {
-      return { userId: apiKey.userId, orgId: apiKey.orgId };
-    }
-  }
-
-  if (sessionCookie) {
-    const session = verifySessionToken(sessionCookie);
-    if (session) {
-      return { userId: session.sub, orgId: session.orgId };
-    }
-  }
-
-  return null;
-}
+const MAX_ACTIVE_JOBS_PER_ORG = Number(
+  process.env.COMPLIANCE_REPORT_MAX_ACTIVE_JOBS_PER_ORG || 3
+);
 
 function parseDate(value: unknown): Date | undefined {
   if (typeof value !== 'string' || value.length === 0) {
@@ -60,9 +27,14 @@ function parseDate(value: unknown): Date | undefined {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await resolveAuth(request);
+    const auth = await resolveReportAuth(request);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const adminCheck = await requireReportAdmin(auth);
+    if (!adminCheck.allowed) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -84,33 +56,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const report = await createComplianceReportJob({
-      orgId: auth.orgId,
-      requestedById: auth.userId,
-      startTime,
-      endTime,
-      source: 'on_demand',
-    });
+    const activeCount = await countActiveComplianceReportJobs(auth.orgId);
+    if (activeCount >= MAX_ACTIVE_JOBS_PER_ORG) {
+      return NextResponse.json(
+        {
+          error: 'Too many compliance reports in progress. Wait for an existing report to finish.',
+          retryable: true,
+        },
+        {
+          status: 429,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': '30',
+          },
+        }
+      );
+    }
 
-    await prisma.auditLog.create({
-      data: {
-        userId: auth.userId,
-        orgId: auth.orgId,
-        action: 'compliance.report.generate.requested',
-        resource: 'compliance_report',
-        details: {
-          reportId: report.id,
-          reportType: report.reportType,
-          source: report.source,
-          period: {
-            startTime: startTime?.toISOString() || null,
-            endTime: endTime?.toISOString() || null,
+    const report = await prisma.$transaction(async (tx) => {
+      const created = await createComplianceReportJob(
+        {
+          orgId: auth.orgId,
+          requestedById: auth.userId,
+          startTime,
+          endTime,
+          source: 'on_demand',
+        },
+        tx
+      );
+
+      await tx.auditLog.create({
+        data: {
+          userId: auth.userId,
+          orgId: auth.orgId,
+          action: 'compliance.report.generate.requested',
+          resource: 'compliance_report',
+          details: {
+            reportId: created.id,
+            reportType: created.reportType,
+            source: created.source,
+            period: {
+              startTime: startTime?.toISOString() || null,
+              endTime: endTime?.toISOString() || null,
+            },
           },
         },
-      },
+      });
+
+      return created;
     });
 
-    await queueComplianceReportJob(report.id);
+    after(async () => {
+      try {
+        await processComplianceReportJob(report.id);
+      } catch (error) {
+        console.error('Async compliance report generation failed:', error);
+      }
+    });
 
     return NextResponse.json(
       {
@@ -122,10 +124,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating compliance report job:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to generate compliance report',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Failed to generate compliance report' },
       { status: 500 }
     );
   }

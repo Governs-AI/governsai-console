@@ -3,7 +3,7 @@
  * with a jest.fn() so tests can configure return values without a real DB.
  */
 
-export const prisma = {
+const prismaMock: any = {
   aPIKey: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -75,6 +75,17 @@ export const prisma = {
   complianceReport: {
     create: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+    count: jest.fn(),
   },
+  $transaction: jest.fn(async (arg: any) => {
+    if (typeof arg === 'function') {
+      return arg(prismaMock);
+    }
+    return Promise.all(arg);
+  }),
 };
+
+export const prisma = prismaMock;
