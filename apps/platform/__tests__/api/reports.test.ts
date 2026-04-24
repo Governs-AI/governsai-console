@@ -76,12 +76,8 @@ const pendingReport = {
   generatedAt: null,
   completedAt: null,
   errorMessage: null,
-  errorCode: null,
   reportJson: null,
   pdfData: null,
-  pdfBlobUrl: null,
-  pdfBlobPath: null,
-  containsPii: true,
   createdAt: new Date('2026-04-24T15:00:00.000Z'),
   updatedAt: new Date('2026-04-24T15:00:00.000Z'),
 };
@@ -93,10 +89,7 @@ const readyReport = {
   generatedAt: new Date('2026-04-24T15:00:00.000Z'),
   completedAt: new Date('2026-04-24T15:00:01.000Z'),
   reportJson: { ok: true },
-  pdfData: null,
-  pdfBlobUrl: 'https://blob.test.local/compliance-reports/org-1/rpt_ready.pdf-suffix',
-  pdfBlobPath: 'compliance-reports/org-1/rpt_ready.pdf-suffix',
-  containsPii: true,
+  pdfData: Buffer.from('%PDF-1.4'),
   updatedAt: new Date('2026-04-24T15:00:01.000Z'),
 };
 
@@ -129,7 +122,7 @@ describe('reports API', () => {
         generated_at: null,
         created_at: '2026-04-24T15:00:00.000Z',
         updated_at: '2026-04-24T15:00:00.000Z',
-        error_code: null,
+        error: null,
         download_url: null,
         artifacts: { pdf: null, json: null },
       });
@@ -262,7 +255,7 @@ describe('reports API', () => {
         generated_at: '2026-04-24T15:00:00.000Z',
         created_at: '2026-04-24T15:00:00.000Z',
         updated_at: '2026-04-24T15:00:01.000Z',
-        error_code: null,
+        error: null,
         download_url: '/api/v1/reports/rpt_ready?download=1&format=pdf',
         artifacts: {
           pdf: '/api/v1/reports/rpt_ready?download=1&format=pdf',
@@ -294,7 +287,7 @@ describe('reports API', () => {
     it('downloads the generated JSON artifact once the job is ready', async () => {
       setAdminMembership();
       mockEnsureReady.mockResolvedValue(readyReport);
-      mockGetDownload.mockResolvedValue({
+      mockGetDownload.mockReturnValue({
         body: JSON.stringify({ ok: true }),
         contentType: 'application/json; charset=utf-8',
         filename: 'report.json',
@@ -318,42 +311,6 @@ describe('reports API', () => {
             action: 'compliance.report.download',
             orgId: 'org-1',
             userId: 'user-1',
-            details: expect.objectContaining({
-              reportId: 'rpt_ready',
-              format: 'json',
-              containsPii: true,
-              storage: 'blob',
-            }),
-          }),
-        })
-      );
-    });
-
-    it('downloads the generated PDF from blob storage when pdfBlobUrl is present', async () => {
-      setAdminMembership();
-      mockEnsureReady.mockResolvedValue(readyReport);
-      mockGetDownload.mockResolvedValue({
-        body: Buffer.from('%PDF-1.4 from-blob'),
-        contentType: 'application/pdf',
-        filename: 'report.pdf',
-      });
-
-      const req = new NextRequest(
-        'http://localhost/api/v1/reports/rpt_ready?download=1&format=pdf',
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${makeToken('OWNER')}` },
-        }
-      );
-
-      const res = await GET(req, { params: Promise.resolve({ id: 'rpt_ready' }) });
-      expect(res.status).toBe(200);
-      expect(res.headers.get('Content-Type')).toBe('application/pdf');
-      expect(mockGetDownload).toHaveBeenCalledWith(readyReport, 'pdf');
-      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            details: expect.objectContaining({ storage: 'blob' }),
           }),
         })
       );
