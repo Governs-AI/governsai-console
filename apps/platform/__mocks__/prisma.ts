@@ -16,19 +16,34 @@ export const prisma = {
     findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
+    count: jest.fn(),
+    updateMany: jest.fn(),
+    deleteMany: jest.fn(),
   },
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
+  org: {
+    findUnique: jest.fn(),
+  },
+  verificationToken: {
+    count: jest.fn(),
+  },
   budgetLimit: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
+  },
+  budgetAlert: {
+    findMany: jest.fn(),
   },
   usageRecord: {
     aggregate: jest.fn(),
+    findMany: jest.fn(),
   },
   purchaseRecord: {
     aggregate: jest.fn(),
+    findMany: jest.fn(),
   },
   decision: {
     create: jest.fn(),
@@ -49,7 +64,17 @@ export const prisma = {
   policy: {
     create: jest.fn(),
   },
+  auditLog: {
+    create: jest.fn(),
+    findMany: jest.fn(),
+  },
   contextMemory: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
+  },
+  complianceReport: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
   },
 };

@@ -37,6 +37,7 @@ model Org {
   documents            Document[]
   refragAnalytics     RefragAnalytics[]
   keycloakSyncJobs     KeycloakSyncJob[]
+  complianceReports    ComplianceReport[]
 }
 
 model User {
@@ -70,6 +71,7 @@ model User {
   refragAnalytics     RefragAnalytics[]
   keycloakSyncState    KeycloakSyncState?
   keycloakSyncJobs     KeycloakSyncJob[]
+  complianceReports    ComplianceReport[]
 }
 
 model Credential {
@@ -376,6 +378,31 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
   @@index([action, createdAt])
+}
+
+model ComplianceReport {
+  id            String    @id @default(cuid())
+  orgId         String    @map("org_id")
+  requestedById String?   @map("requested_by_id")
+  reportType    String    @default("compliance_summary") @map("report_type")
+  source        String    @default("on_demand")
+  status        String    @default("pending")
+  startTime     DateTime? @map("start_time")
+  endTime       DateTime? @map("end_time")
+  generatedAt   DateTime? @map("generated_at")
+  completedAt   DateTime? @map("completed_at")
+  errorMessage  String?   @map("error_message")
+  reportJson    Json?     @map("report_json")
+  pdfData       Bytes?    @map("pdf_data")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  org           Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requestedBy   User?     @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([requestedById, createdAt(sort: Desc)])
+  @@map("compliance_reports")
 }
 
 model Policy {
