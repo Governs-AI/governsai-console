@@ -12,6 +12,8 @@ const config = {
     '^@governs-ai/(.*)$': '<rootDir>/__mocks__/governs-ai/$1.ts',
     // server-only throws in Node/Jest context — stub it out
     '^server-only$': '<rootDir>/__mocks__/server-only.js',
+    // @vercel/blob hits the network at runtime; tests use a stub
+    '^@vercel/blob$': '<rootDir>/__mocks__/vercel-blob.ts',
   },
   setupFiles: ['<rootDir>/jest.setup.ts'],
   transform: {

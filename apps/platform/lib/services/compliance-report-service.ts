@@ -1,4 +1,8 @@
 import { prisma, type Prisma } from '@governs-ai/db';
+import {
+  fetchReportPdfBytes,
+  storeReportPdf,
+} from './compliance-report-storage';
 
 type PrismaTxClient = Prisma.TransactionClient;
 type PrismaWriteClient = typeof prisma | PrismaTxClient;
@@ -6,6 +10,11 @@ type PrismaWriteClient = typeof prisma | PrismaTxClient;
 export type ComplianceReportStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export type ComplianceReportSource = 'on_demand' | 'scheduled';
 export type ComplianceReportFormat = 'pdf' | 'json';
+export type ComplianceReportErrorCode = 'generation_failed';
+
+// Window after which a `processing` row is considered abandoned (worker died
+// between claim and the final `ready`/`failed` write) and can be re-claimed.
+export const STALE_PROCESSING_MS = 15 * 60 * 1000;
 
 export interface ComplianceReportJobInput {
   orgId: string;
@@ -27,8 +36,12 @@ export interface ComplianceReportJobRecord {
   generatedAt: Date | null;
   completedAt: Date | null;
   errorMessage: string | null;
+  errorCode: string | null;
   reportJson: ComplianceSummaryReport | null;
   pdfData: Buffer | null;
+  pdfBlobUrl: string | null;
+  pdfBlobPath: string | null;
+  containsPii: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,7 +134,7 @@ export interface ComplianceReportStatusResponse {
   generated_at: string | null;
   created_at: string;
   updated_at: string;
-  error: string | null;
+  error_code: ComplianceReportErrorCode | null;
   download_url: string | null;
   artifacts: {
     pdf: string | null;
@@ -417,21 +430,30 @@ export async function processComplianceReportJob(
   if (
     existing.status === 'ready' &&
     existing.reportJson &&
-    existing.pdfData
+    (existing.pdfBlobUrl || existing.pdfData)
   ) {
     return existing;
   }
 
-  // Atomic claim: only the call that flips pending|failed -> processing proceeds.
+  // Atomic claim. We accept three cases:
+  //   1. status = pending           — fresh job
+  //   2. status = failed            — retry of a previously failed job
+  //   3. status = processing AND updatedAt < now-15min — reclaim of a zombie
+  //      (worker died between claim and the final ready/failed write)
   // Concurrent callers see count === 0 and short-circuit to the existing row.
+  const staleProcessingCutoff = new Date(Date.now() - STALE_PROCESSING_MS);
   const claim = await prisma.complianceReport.updateMany({
     where: {
       id: reportId,
-      status: { in: ['pending', 'failed'] },
+      OR: [
+        { status: { in: ['pending', 'failed'] } },
+        { status: 'processing', updatedAt: { lt: staleProcessingCutoff } },
+      ],
     },
     data: {
       status: 'processing',
       errorMessage: null,
+      errorCode: null,
     },
   });
 
@@ -450,6 +472,29 @@ export async function processComplianceReportJob(
     });
 
     const pdfData = complianceReportToPdf(reportJson);
+
+    let pdfBlobUrl: string | null = null;
+    let pdfBlobPath: string | null = null;
+    let pdfDataForRow: Buffer | null = pdfData;
+
+    try {
+      const stored = await storeReportPdf({
+        reportId: existing.id,
+        orgId: existing.orgId,
+        pdf: pdfData,
+      });
+      if (stored) {
+        pdfBlobUrl = stored.url;
+        pdfBlobPath = stored.pathname;
+        // Keep PDF bytes out of Postgres once the blob copy is durable.
+        pdfDataForRow = null;
+      }
+    } catch (error) {
+      // Blob upload failed — fall back to inline pdfData so generation still
+      // succeeds. Surfaced via server logs only; the row itself is unaffected.
+      console.error('Compliance report blob upload failed:', error);
+    }
+
     const updated = await prisma.complianceReport.update({
       where: { id: reportId },
       data: {
@@ -457,20 +502,27 @@ export async function processComplianceReportJob(
         generatedAt: new Date(reportJson.generatedAt),
         completedAt: new Date(),
         errorMessage: null,
+        errorCode: null,
         reportJson: reportJson as unknown as Prisma.InputJsonValue,
-        pdfData,
+        pdfData: pdfDataForRow,
+        pdfBlobUrl,
+        pdfBlobPath,
+        containsPii: true,
       },
     });
 
     return updated as unknown as ComplianceReportJobRecord;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Compliance report generation failed:', error);
+    // Raw error_message stays in Postgres + Sentry/console for ops; the public
+    // status response only ever exposes the sanitized error_code enum.
+    console.error('Compliance report generation failed:', { reportId, error });
     const failed = await prisma.complianceReport.update({
       where: { id: reportId },
       data: {
         status: 'failed',
         errorMessage: message,
+        errorCode: 'generation_failed',
         completedAt: new Date(),
       },
     });
@@ -493,7 +545,14 @@ export async function ensureComplianceReportJobReady(
   }
 
   if (existing.status === 'processing') {
-    // Another worker holds the claim; let the caller poll again.
+    // If the row has been stuck in processing past the watchdog window the
+    // worker probably died. Try a self-heal claim — `processComplianceReportJob`
+    // will reclaim if stale, otherwise its claim returns count=0 and we get
+    // the row back unchanged.
+    const stale = existing.updatedAt.getTime() < Date.now() - STALE_PROCESSING_MS;
+    if (stale) {
+      return processComplianceReportJob(reportId);
+    }
     return existing;
   }
 
@@ -502,6 +561,10 @@ export async function ensureComplianceReportJobReady(
   }
 
   return processComplianceReportJob(reportId);
+}
+
+function sanitizeErrorCode(value: string | null): ComplianceReportErrorCode | null {
+  return value === 'generation_failed' ? 'generation_failed' : null;
 }
 
 export function buildComplianceReportStatus(
@@ -521,20 +584,25 @@ export function buildComplianceReportStatus(
     generated_at: toIso(report.generatedAt),
     created_at: report.createdAt.toISOString(),
     updated_at: report.updatedAt.toISOString(),
-    error: report.errorMessage,
+    // The raw errorMessage may include stack trace details, internal IDs, or
+    // SQL error text; never return it on the public status path. Surface a
+    // stable enum instead — the raw message is logged server-side.
+    error_code: report.status === 'failed'
+      ? sanitizeErrorCode(report.errorCode) ?? 'generation_failed'
+      : null,
     download_url: artifacts.pdf,
     artifacts,
   };
 }
 
-export function getComplianceReportDownload(
+export async function getComplianceReportDownload(
   report: ComplianceReportJobRecord,
   format: ComplianceReportFormat
-): {
+): Promise<{
   body: Buffer | string;
   contentType: string;
   filename: string;
-} {
+}> {
   if (report.status !== 'ready') {
     throw new Error('Report is not ready for download');
   }
@@ -553,12 +621,21 @@ export function getComplianceReportDownload(
     };
   }
 
-  if (!report.pdfData) {
+  // PDF: prefer blob storage, fall back to legacy inline bytes for rows that
+  // pre-date the blob migration.
+  let pdfBytes: Buffer | null = null;
+  if (report.pdfBlobUrl) {
+    pdfBytes = await fetchReportPdfBytes(report.pdfBlobUrl);
+  } else if (report.pdfData) {
+    pdfBytes = report.pdfData;
+  }
+
+  if (!pdfBytes) {
     throw new Error('PDF artifact is missing');
   }
 
   return {
-    body: report.pdfData,
+    body: pdfBytes,
     contentType: 'application/pdf',
     filename: `compliance-report-${report.orgId}-${safeTimestamp}.pdf`,
   };

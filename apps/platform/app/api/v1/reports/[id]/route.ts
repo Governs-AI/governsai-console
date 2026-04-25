@@ -67,8 +67,10 @@ export async function GET(
       );
     }
 
-    const asset = getComplianceReportDownload(report, format);
+    const asset = await getComplianceReportDownload(report, format);
 
+    // orgId is intentionally on the audit log so PII-bearing report downloads
+    // remain tenant-scoped through retention/legal-hold review queries.
     await prisma.auditLog.create({
       data: {
         userId: auth.userId,
@@ -78,6 +80,8 @@ export async function GET(
         details: {
           reportId: report.id,
           format,
+          containsPii: report.containsPii,
+          storage: report.pdfBlobUrl ? 'blob' : 'inline',
         },
       },
     });
