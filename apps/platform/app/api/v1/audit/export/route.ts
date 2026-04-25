@@ -30,6 +30,11 @@ function parseDateParam(raw: string | null): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+// CWE-1236: spreadsheet formula injection. Excel/LibreOffice/Sheets evaluate
+// any cell whose first character is `=`, `+`, `-`, `@`, or a tab as a formula.
+// Prefixing with a literal tab forces the engine to treat the cell as text.
+const FORMULA_LEAD = /^[=+\-@\t]/;
+
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return '';
   let s: string;
@@ -39,6 +44,9 @@ function csvEscape(value: unknown): string {
     s = JSON.stringify(value);
   } else {
     s = String(value);
+  }
+  if (FORMULA_LEAD.test(s)) {
+    s = `\t${s}`;
   }
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;

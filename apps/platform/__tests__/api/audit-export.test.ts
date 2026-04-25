@@ -149,6 +149,117 @@ describe('GET /api/v1/audit/export — CSV output format', () => {
     );
   });
 
+  it.each([
+    ['equals', '=cmd|"/c calc"!A1'],
+    ['plus', '+1+1'],
+    ['minus', '-2+3'],
+    ['at', '@SUM(A1:A2)'],
+    ['tab', '\t=cmd'],
+  ])(
+    'defuses spreadsheet formula leads (CWE-1236) — %s prefix',
+    async (_label, payload) => {
+      mockPrisma.decision.findMany.mockResolvedValueOnce([
+        {
+          id: 'dec-1',
+          ts: new Date('2026-03-01T00:00:00.000Z'),
+          orgId: 'org-1',
+          decision: 'allow',
+          direction: 'ingress',
+          tool: payload,
+          scope: payload,
+          policyId: null,
+          correlationId: payload,
+          latencyMs: null,
+          payloadHash: 'h',
+          reasons: null,
+          tags: [],
+          detectorSummary: {},
+        },
+      ]);
+
+      const res = await GET(makeReq('http://localhost/api/v1/audit/export?format=csv'));
+      const body = await readStream(res);
+      const lines = body.trim().split('\n');
+      expect(lines).toHaveLength(2);
+
+      // Every formula-leading column must start with a literal tab so
+      // spreadsheet engines treat it as text, never a formula.
+      const cells = lines[1].split(',');
+      // tool is column index 5, scope is 6, correlationId is 8
+      const formulaCells = [cells[5], cells[6], cells[8]];
+      for (const raw of formulaCells) {
+        // Strip RFC 4180 outer quoting if present, then assert leading \t.
+        const unquoted =
+          raw.startsWith('"') && raw.endsWith('"')
+            ? raw.slice(1, -1).replace(/""/g, '"')
+            : raw;
+        expect(unquoted.startsWith('\t')).toBe(true);
+        // The original formula content is preserved verbatim after the tab.
+        expect(unquoted).toBe(`\t${payload}`);
+      }
+    },
+  );
+
+  it('defuses formula leads inside JSON-serialized columns (reasons/tags)', async () => {
+    mockPrisma.decision.findMany.mockResolvedValueOnce([
+      {
+        id: 'dec-1',
+        ts: new Date('2026-03-01T00:00:00.000Z'),
+        orgId: 'org-1',
+        decision: 'allow',
+        direction: 'ingress',
+        tool: 't',
+        scope: 's',
+        policyId: 'p',
+        correlationId: 'c',
+        latencyMs: 0,
+        payloadHash: 'h',
+        // JSON.stringify of a string starts with `"`, which is not a formula
+        // lead — but an array starts with `[`, also safe. The risk is when
+        // detectorSummary serializes to something starting with `=`/`@`/etc.,
+        // which can't happen via JSON.stringify of an object/array. We still
+        // assert the wrapping behavior is unchanged for non-formula objects.
+        reasons: ['ok'],
+        tags: ['prod'],
+        detectorSummary: { pii: 0 },
+      },
+    ]);
+
+    const res = await GET(makeReq('http://localhost/api/v1/audit/export?format=csv'));
+    const body = await readStream(res);
+    expect(body).toContain('"[""ok""]"');
+    expect(body).toContain('"[""prod""]"');
+    expect(body).toContain('"{""pii"":0}"');
+  });
+
+  it('does not prefix safe leading characters (alphanumerics, quotes)', async () => {
+    mockPrisma.decision.findMany.mockResolvedValueOnce([
+      {
+        id: 'dec-1',
+        ts: new Date('2026-03-01T00:00:00.000Z'),
+        orgId: 'org-1',
+        decision: 'allow',
+        direction: 'ingress',
+        tool: 'safe-tool',
+        scope: '123',
+        policyId: 'p',
+        correlationId: 'corr-1',
+        latencyMs: 1,
+        payloadHash: 'h',
+        reasons: null,
+        tags: [],
+        detectorSummary: {},
+      },
+    ]);
+
+    const res = await GET(makeReq('http://localhost/api/v1/audit/export?format=csv'));
+    const body = await readStream(res);
+    const cells = body.trim().split('\n')[1].split(',');
+    expect(cells[5]).toBe('safe-tool');
+    expect(cells[6]).toBe('123');
+    expect(cells[8]).toBe('corr-1');
+  });
+
   it('escapes values containing commas, quotes, and newlines per RFC 4180', async () => {
     mockPrisma.decision.findMany.mockResolvedValueOnce([
       {
