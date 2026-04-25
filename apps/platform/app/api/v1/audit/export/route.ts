@@ -138,7 +138,15 @@ export async function GET(request: NextRequest) {
         }
         controller.close();
       } catch (err) {
-        controller.error(err);
+        // Headers are already sent by the time the stream errors, so we
+        // can't return a JSON 500. Log server-side and close cleanly so
+        // Next.js does not emit raw error text into the partial response.
+        console.error('audit export stream failed', { orgId, err });
+        try {
+          controller.close();
+        } catch {
+          // controller may already be in an errored state — swallow.
+        }
       }
     },
   });
