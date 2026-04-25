@@ -272,6 +272,8 @@ describe('compliance-report-service', () => {
 
   it('processComplianceReportJob proceeds when the atomic claim succeeds and persists the PDF to blob storage', async () => {
     process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_test_token';
+    // Encryption-at-rest key — required when blob storage is enabled.
+    process.env.COMPLIANCE_REPORT_ENCRYPTION_KEY = '0'.repeat(64);
 
     const jobRow = baseRow({ id: 'rpt_claimed', status: 'pending' });
     mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
@@ -319,6 +321,7 @@ describe('compliance-report-service', () => {
     );
 
     delete process.env.BLOB_READ_WRITE_TOKEN;
+    delete process.env.COMPLIANCE_REPORT_ENCRYPTION_KEY;
   });
 
   it('processComplianceReportJob falls back to inline pdfData when blob storage is not configured', async () => {

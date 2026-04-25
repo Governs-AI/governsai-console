@@ -228,6 +228,17 @@ remain authoritative. Set `BLOB_READ_WRITE_TOKEN` for production. When the env
 is missing, the service falls back to inline `pdf_data` in Postgres so dev and
 test environments keep working without external dependencies.
 
+**Encryption-at-rest:** PDFs are encrypted with AES-256-GCM before they reach
+Vercel Blob, so a leaked blob URL alone (server log, referer header, error
+report, MITM on the inter-service fetch) is not sufficient to disclose PII —
+the bytes at rest are opaque ciphertext. Set
+`COMPLIANCE_REPORT_ENCRYPTION_KEY` to a 64-character hex string (32 bytes,
+e.g. `openssl rand -hex 32`) whenever `BLOB_READ_WRITE_TOKEN` is set; the
+storage layer fails closed if the key is missing or malformed. Rotate the key
+by re-running `scripts/backfill-compliance-report-blobs.ts` against the new
+key (the magic header lets future migrations decrypt with the previous key
+during transition).
+
 **PII / retention:** every `compliance_reports` row carries `contains_pii=true`
 by default because the report schema persists member emails and PII signal
 events. Retention and legal-hold workflows must respect this column; the audit
