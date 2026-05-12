@@ -102,12 +102,3 @@ jobs:
         run: pnpm build
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_db
-
-  # Preview deploys are produced by the native Vercel GitHub integration
-  # (the `Vercel` check on each PR). The previous `deploy` job here ran
-  # `vercel pull/build/deploy` with no VERCEL_TOKEN secret configured and
-  # failed on every PR — see GOV-2267.
-  #
-  # The dependent `e2e-tests` job has been removed alongside `deploy` because
-  # it was always skipped. E2E will be reinstated under task 2.5 with preview
-  # URL acquired from the native Vercel deployment_status event.
