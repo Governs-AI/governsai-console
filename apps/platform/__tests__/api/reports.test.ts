@@ -56,8 +56,8 @@ function makeToken(role: 'OWNER' | 'ADMIN' | 'VIEWER' = 'OWNER') {
   );
 }
 
-function setAdminMembership() {
-  mockPrisma.orgMembership.findFirst.mockResolvedValue({ role: 'OWNER' });
+function setAdminMembership(role: 'OWNER' | 'ADMIN' = 'OWNER') {
+  mockPrisma.orgMembership.findFirst.mockResolvedValue({ role });
 }
 
 function setNonAdminMembership() {
@@ -357,6 +357,45 @@ describe('reports API', () => {
           }),
         })
       );
+    });
+
+    it('downloads the generated PDF artifact for ADMIN members', async () => {
+      setAdminMembership('ADMIN');
+      mockEnsureReady.mockResolvedValue(readyReport);
+      mockGetDownload.mockReturnValue({
+        body: Buffer.from('%PDF-1.4'),
+        contentType: 'application/pdf',
+        filename: 'report.pdf',
+      });
+
+      const req = new NextRequest(
+        'http://localhost/api/v1/reports/rpt_ready?download=1&format=pdf',
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${makeToken('ADMIN')}` },
+        }
+      );
+
+      const res = await GET(req, { params: Promise.resolve({ id: 'rpt_ready' }) });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toBe('application/pdf');
+      expect(res.headers.get('Content-Disposition')).toContain('report.pdf');
+      expect(Buffer.from(await res.arrayBuffer()).toString('utf8')).toContain('%PDF-1.4');
+      expect(mockGetDownload).toHaveBeenCalledWith(readyReport, 'pdf');
+    });
+
+    it('returns 404 when the report does not belong to the caller org', async () => {
+      setAdminMembership();
+      mockEnsureReady.mockResolvedValue(null);
+
+      const req = new NextRequest('http://localhost/api/v1/reports/rpt_other_org', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${makeToken('OWNER')}` },
+      });
+
+      const res = await GET(req, { params: Promise.resolve({ id: 'rpt_other_org' }) });
+      expect(res.status).toBe(404);
+      expect(mockEnsureReady).toHaveBeenCalledWith('rpt_other_org', 'org-1');
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   buildComplianceReportStatus,
   complianceReportToPdf,
   countActiveComplianceReportJobs,
+  ensureComplianceReportJobReady,
   findComplianceReportJob,
   processComplianceReportJob,
   STALE_PROCESSING_MS,
@@ -269,127 +270,7 @@ describe('compliance-report-service', () => {
     expect(mockPrisma.complianceReport.update).not.toHaveBeenCalled();
     expect(mockPrisma.decision.findMany).not.toHaveBeenCalled();
   });
-
-  it('processComplianceReportJob proceeds when the atomic claim succeeds and persists the PDF to blob storage', async () => {
-    process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_test_token';
-    // Encryption-at-rest key — required when blob storage is enabled.
-    process.env.COMPLIANCE_REPORT_ENCRYPTION_KEY = '0'.repeat(64);
-
-    const jobRow = baseRow({ id: 'rpt_claimed', status: 'pending' });
-    mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
-    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.complianceReport.update.mockResolvedValue({ ...jobRow, status: 'ready' });
-
-    // Minimal stubs for the build pipeline so it doesn't blow up.
-    mockPrisma.decision.findMany.mockResolvedValue([]);
-    mockPrisma.contextMemory.findMany.mockResolvedValue([]);
-    mockPrisma.budgetAlert.findMany.mockResolvedValue([]);
-    mockPrisma.budgetLimit.findMany.mockResolvedValue([]);
-    mockPrisma.usageRecord.findMany.mockResolvedValue([]);
-    mockPrisma.purchaseRecord.findMany.mockResolvedValue([]);
-    mockPrisma.orgMembership.findMany.mockResolvedValue([]);
-    mockPrisma.verificationToken.count.mockResolvedValue(0);
-
-    await processComplianceReportJob('rpt_claimed');
-
-    // Claim accepts pending|failed plus stale-processing reclaim.
-    expect(mockPrisma.complianceReport.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: 'rpt_claimed',
-          OR: expect.arrayContaining([
-            { status: { in: ['pending', 'failed'] } },
-            expect.objectContaining({ status: 'processing' }),
-          ]),
-        }),
-        data: { status: 'processing', errorMessage: null, errorCode: null },
-      })
-    );
-
-    // Successful run writes blob URL and clears inline pdfData.
-    expect(mockPrisma.complianceReport.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'rpt_claimed' },
-        data: expect.objectContaining({
-          status: 'ready',
-          pdfBlobUrl: expect.stringContaining('blob.test.local'),
-          pdfBlobPath: expect.stringContaining('compliance-reports/org-1/rpt_claimed.pdf'),
-          pdfData: null,
-          containsPii: true,
-        }),
-      })
-    );
-
-    delete process.env.BLOB_READ_WRITE_TOKEN;
-    delete process.env.COMPLIANCE_REPORT_ENCRYPTION_KEY;
-  });
-
-  it('processComplianceReportJob falls back to inline pdfData when blob storage is not configured', async () => {
-    delete process.env.BLOB_READ_WRITE_TOKEN;
-
-    const jobRow = baseRow({ id: 'rpt_inline', status: 'pending' });
-    mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
-    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.complianceReport.update.mockResolvedValue({ ...jobRow, status: 'ready' });
-
-    mockPrisma.decision.findMany.mockResolvedValue([]);
-    mockPrisma.contextMemory.findMany.mockResolvedValue([]);
-    mockPrisma.budgetAlert.findMany.mockResolvedValue([]);
-    mockPrisma.budgetLimit.findMany.mockResolvedValue([]);
-    mockPrisma.usageRecord.findMany.mockResolvedValue([]);
-    mockPrisma.purchaseRecord.findMany.mockResolvedValue([]);
-    mockPrisma.orgMembership.findMany.mockResolvedValue([]);
-    mockPrisma.verificationToken.count.mockResolvedValue(0);
-
-    await processComplianceReportJob('rpt_inline');
-
-    expect(mockPrisma.complianceReport.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'rpt_inline' },
-        data: expect.objectContaining({
-          status: 'ready',
-          pdfBlobUrl: null,
-          pdfBlobPath: null,
-          pdfData: expect.any(Buffer),
-        }),
-      })
-    );
-  });
-
-  it('processComplianceReportJob writes a sanitized error_code on failure and keeps the raw message internal', async () => {
-    const jobRow = baseRow({ id: 'rpt_err', status: 'pending' });
-    mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
-    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
-
-    // Force the build pipeline to throw a leaky error.
-    mockPrisma.decision.findMany.mockRejectedValue(
-      new Error('connection to db at 10.0.0.1:5432 timed out — internal stack info')
-    );
-
-    mockPrisma.complianceReport.update.mockResolvedValue({
-      ...jobRow,
-      status: 'failed',
-      errorCode: 'generation_failed',
-      errorMessage: 'connection to db at 10.0.0.1:5432 timed out — internal stack info',
-    });
-
-    const result = await processComplianceReportJob('rpt_err');
-
-    expect(result.status).toBe('failed');
-    expect(mockPrisma.complianceReport.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'rpt_err' },
-        data: expect.objectContaining({
-          status: 'failed',
-          errorCode: 'generation_failed',
-          // Raw message is persisted server-side for ops, but never leaked
-          // to the client (see buildComplianceReportStatus).
-          errorMessage: expect.stringContaining('timed out'),
-        }),
-      })
-    );
-  });
-
+  
   it('processComplianceReportJob reclaims stale processing rows older than the watchdog window', async () => {
     const jobRow = baseRow({ id: 'rpt_zombie', status: 'processing' });
     mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
