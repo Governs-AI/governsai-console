@@ -136,6 +136,32 @@ ENABLE_CONTEXT_MEMORY=true
 ENABLE_CROSS_AGENT_SEARCH=true
 ```
 
+### Stripe Billing
+
+The platform uses Stripe for self-serve billing of paid tiers (Starter / Growth).
+Use **test** keys for local development and preview/staging; live keys are only
+provisioned in production via the deployment platform, never checked into git.
+
+```bash
+# Server-side secret key (sk_test_... / sk_live_...). Never expose to the browser.
+STRIPE_SECRET_KEY="sk_test_..."
+
+# Publishable key (pk_test_... / pk_live_...). Safe for client-side use — the
+# NEXT_PUBLIC_ prefix makes it available to the browser bundle.
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
+
+# Webhook signing secret. Use the value printed by `stripe listen` for local
+# development, and the value from the Dashboard webhook endpoint config for
+# staging/production. Required by the billing webhook handler to verify
+# signatures.
+STRIPE_WEBHOOK_SECRET="whsec_..."
+```
+
+Obtain keys from the [Stripe Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys).
+All billing development uses test mode; the switch to live keys requires
+explicit product-owner approval and is done via environment configuration, not
+code changes.
+
 ---
 
 ## WebSocket Service (apps/websocket-service)
