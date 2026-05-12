@@ -250,7 +250,7 @@ export async function POST(
     });
 
     // Sync key to precheck's api_keys table so precheck can validate it
-    syncKeyToPrecheck(keyValue, session.sub, expiresAt ? new Date(expiresAt) : null)
+    syncKeyToPrecheck(keyValue, session.sub, org.id, expiresAt ? new Date(expiresAt) : null)
       .catch(err => console.error('[api-keys] precheck sync failed (non-fatal):', err));
 
     return NextResponse.json({

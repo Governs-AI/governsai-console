@@ -15,6 +15,11 @@ node_modules
 # Testing
 coverage
 
+# Playwright
+playwright-report/
+test-results/
+**/.auth/
+
 # Turbo
 .turbo
 
@@ -41,6 +46,8 @@ yarn-error.log*
 *.pem
 
 **/.env*
+!**/.env.example
+!**/env.example
 node-compile-cache/
 packages/db/generated/*
 packages/db/node_modules/*

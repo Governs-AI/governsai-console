@@ -192,7 +192,10 @@ export default function KeysPage() {
   if (loading && apiKeys.length === 0) {
     return (
       <PlatformShell orgSlug={orgSlug}>
-        <div className="min-h-screen bg-background flex items-center justify-center">
+        <div
+          className="min-h-screen bg-background flex items-center justify-center"
+          data-testid="api-keys-loading-state"
+        >
           <div className="text-center">
             <LoadingSpinner size="lg" className="mx-auto mb-4" />
             <p className="text-muted-foreground">Loading API keys...</p>
@@ -208,7 +211,7 @@ export default function KeysPage() {
   return (
     <PlatformShell orgSlug={orgSlug}>
       <RoleGuard requiredPermission="canManageKeys">
-        <div className="space-y-6">
+        <div className="space-y-6" data-testid="api-keys-page">
         {/* Removed legacy precheck banner; success info shown below */}
         <PageHeader
           title="API Keys"
@@ -216,6 +219,7 @@ export default function KeysPage() {
           actions={
             canManageKeys() && (
               <Button
+                data-testid="create-key-button"
                 onClick={() => setShowCreateForm(!showCreateForm)}
                 variant="outline"
               >
@@ -228,7 +232,7 @@ export default function KeysPage() {
 
         {/* Precheck Integration Info - Only show when user creates their first API key */}
         {showIntegrationInfo && newFullKey && newKeyName && (
-          <Card className="border-green-200 bg-green-50">
+          <Card className="border-green-200 bg-green-50" data-testid="api-key-created-state">
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-green-800">
                 <div className="flex items-center gap-2">
@@ -289,7 +293,10 @@ export default function KeysPage() {
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Your New API Key</div>
                   <div className="flex items-center gap-2">
-                    <code className="inline-block break-all rounded bg-muted px-2 py-1 text-sm">
+                    <code
+                      className="inline-block break-all rounded bg-muted px-2 py-1 text-sm"
+                      data-testid="api-key-preview-display"
+                    >
                       {newFullKey}
                     </code>
                     <Button
@@ -331,7 +338,7 @@ export default function KeysPage() {
 
         {/* Create Form */}
         {showCreateForm && (
-          <Card>
+          <Card data-testid="create-key-form">
             <CardHeader>
               <CardTitle>Create New API Key</CardTitle>
             </CardHeader>
@@ -340,6 +347,7 @@ export default function KeysPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Key Name</label>
                   <Input
+                    data-testid="api-key-name-input"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="My API Key"
@@ -369,7 +377,7 @@ export default function KeysPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} data-testid="create-key-submit-button">
                     {loading ? 'Creating...' : 'Create Key'}
                   </Button>
                   <Button
@@ -387,7 +395,10 @@ export default function KeysPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-md">
+          <div
+            className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-md"
+            data-testid="api-keys-error-state"
+          >
             {error}
           </div>
         )}
@@ -401,7 +412,7 @@ export default function KeysPage() {
             </div>
           </div>
           
-          <DataTable>
+          <DataTable data-testid="api-key-table">
             <DataTableHeader>
               <DataTableRow>
                 <DataTableHead>Name</DataTableHead>
@@ -414,7 +425,7 @@ export default function KeysPage() {
             </DataTableHeader>
             <DataTableBody>
               {apiKeys.map((key) => (
-                <DataTableRow key={key.id}>
+                <DataTableRow key={key.id} data-testid={`api-key-row-${key.id}`}>
                   <DataTableCell>
                     <div className="flex items-center gap-2">
                       <Key className="h-4 w-4 text-muted-foreground" />
@@ -455,6 +466,8 @@ export default function KeysPage() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => handleToggleKey(key.id, !key.isActive)}
+                          data-testid={`toggle-key-button-${key.id}`}
+                          aria-label={`${key.isActive ? 'Deactivate' : 'Activate'} API key ${key.name}`}
                         >
                           <Shield className="h-4 w-4" />
                         </Button>
@@ -463,6 +476,8 @@ export default function KeysPage() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => handleDeleteKey(key.id)}
+                          data-testid={`revoke-key-button-${key.id}`}
+                          aria-label={`Revoke API key ${key.name}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
