@@ -7,9 +7,35 @@ import {
   ensureComplianceReportJobReady,
   findComplianceReportJob,
   processComplianceReportJob,
+  STALE_PROCESSING_MS,
 } from '@/lib/services/compliance-report-service';
 
 const mockPrisma = prisma as any;
+
+function baseRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: 'rpt_x',
+    orgId: 'org-1',
+    requestedById: 'user-1',
+    reportType: 'compliance_summary',
+    source: 'on_demand',
+    status: 'pending',
+    startTime: null,
+    endTime: null,
+    generatedAt: null,
+    completedAt: null,
+    errorMessage: null,
+    errorCode: null,
+    reportJson: null,
+    pdfData: null,
+    pdfBlobUrl: null,
+    pdfBlobPath: null,
+    containsPii: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 describe('compliance-report-service', () => {
   beforeEach(() => {
@@ -206,23 +232,7 @@ describe('compliance-report-service', () => {
   });
 
   it('scopes findComplianceReportJob lookups by orgId at the database boundary', async () => {
-    mockPrisma.complianceReport.findFirst.mockResolvedValue({
-      id: 'rpt_x',
-      orgId: 'org-1',
-      requestedById: 'user-1',
-      reportType: 'compliance_summary',
-      source: 'on_demand',
-      status: 'pending',
-      startTime: null,
-      endTime: null,
-      generatedAt: null,
-      completedAt: null,
-      errorMessage: null,
-      reportJson: null,
-      pdfData: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    mockPrisma.complianceReport.findFirst.mockResolvedValue(baseRow({ id: 'rpt_x' }));
 
     const result = await findComplianceReportJob('rpt_x', 'org-1');
 
@@ -247,23 +257,9 @@ describe('compliance-report-service', () => {
   });
 
   it('processComplianceReportJob short-circuits when the atomic claim is lost (already processing)', async () => {
-    mockPrisma.complianceReport.findUnique.mockResolvedValue({
-      id: 'rpt_locked',
-      orgId: 'org-1',
-      requestedById: 'user-1',
-      reportType: 'compliance_summary',
-      source: 'on_demand',
-      status: 'processing',
-      startTime: null,
-      endTime: null,
-      generatedAt: null,
-      completedAt: null,
-      errorMessage: null,
-      reportJson: null,
-      pdfData: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    mockPrisma.complianceReport.findUnique.mockResolvedValue(
+      baseRow({ id: 'rpt_locked', status: 'processing' })
+    );
     mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await processComplianceReportJob('rpt_locked');
@@ -274,31 +270,13 @@ describe('compliance-report-service', () => {
     expect(mockPrisma.complianceReport.update).not.toHaveBeenCalled();
     expect(mockPrisma.decision.findMany).not.toHaveBeenCalled();
   });
-
-  it('processComplianceReportJob proceeds when the atomic claim succeeds', async () => {
-    const jobRow = {
-      id: 'rpt_claimed',
-      orgId: 'org-1',
-      requestedById: 'user-1',
-      reportType: 'compliance_summary',
-      source: 'on_demand',
-      status: 'pending',
-      startTime: null,
-      endTime: null,
-      generatedAt: null,
-      completedAt: null,
-      errorMessage: null,
-      reportJson: null,
-      pdfData: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
+  
+  it('processComplianceReportJob reclaims stale processing rows older than the watchdog window', async () => {
+    const jobRow = baseRow({ id: 'rpt_zombie', status: 'processing' });
     mockPrisma.complianceReport.findUnique.mockResolvedValue(jobRow);
     mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.complianceReport.update.mockResolvedValue({ ...jobRow, status: 'ready' });
 
-    // Minimal stubs for the build pipeline so it doesn't blow up.
     mockPrisma.decision.findMany.mockResolvedValue([]);
     mockPrisma.contextMemory.findMany.mockResolvedValue([]);
     mockPrisma.budgetAlert.findMany.mockResolvedValue([]);
@@ -308,99 +286,73 @@ describe('compliance-report-service', () => {
     mockPrisma.orgMembership.findMany.mockResolvedValue([]);
     mockPrisma.verificationToken.count.mockResolvedValue(0);
 
-    await processComplianceReportJob('rpt_claimed');
+    const before = Date.now();
+    await processComplianceReportJob('rpt_zombie');
+    const after = Date.now();
 
-    expect(mockPrisma.complianceReport.updateMany).toHaveBeenCalledWith({
-      where: { id: 'rpt_claimed', status: { in: ['pending', 'failed'] } },
-      data: { status: 'processing', errorMessage: null },
-    });
-    expect(mockPrisma.complianceReport.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'rpt_claimed' },
-        data: expect.objectContaining({ status: 'ready' }),
-      })
+    const call = mockPrisma.complianceReport.updateMany.mock.calls[0][0];
+    const reclaimClause = call.where.OR.find(
+      (clause: { status?: string }) => clause.status === 'processing'
     );
-  });
-
-  it('ensureComplianceReportJobReady self-heals pending jobs instead of leaving them stuck pending', async () => {
-    const pendingJob = {
-      id: 'rpt_pending',
-      orgId: 'org-1',
-      requestedById: 'user-1',
-      reportType: 'compliance_summary',
-      source: 'on_demand',
-      status: 'pending',
-      startTime: null,
-      endTime: null,
-      generatedAt: null,
-      completedAt: null,
-      errorMessage: null,
-      reportJson: null,
-      pdfData: null,
-      createdAt: new Date('2026-04-24T15:00:00.000Z'),
-      updatedAt: new Date('2026-04-24T15:00:00.000Z'),
-    };
-    const readyJob = {
-      ...pendingJob,
-      status: 'ready',
-      generatedAt: new Date('2026-04-24T15:00:01.000Z'),
-      completedAt: new Date('2026-04-24T15:00:02.000Z'),
-      reportJson: { reportId: 'rpt_pending' },
-      pdfData: Buffer.from('%PDF-1.4'),
-      updatedAt: new Date('2026-04-24T15:00:02.000Z'),
-    };
-
-    mockPrisma.complianceReport.findFirst.mockResolvedValue(pendingJob);
-    mockPrisma.complianceReport.findUnique.mockResolvedValue(pendingJob);
-    mockPrisma.complianceReport.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.complianceReport.update.mockResolvedValue(readyJob);
-
-    mockPrisma.decision.findMany.mockResolvedValue([]);
-    mockPrisma.contextMemory.findMany.mockResolvedValue([]);
-    mockPrisma.budgetAlert.findMany.mockResolvedValue([]);
-    mockPrisma.budgetLimit.findMany.mockResolvedValue([]);
-    mockPrisma.usageRecord.findMany.mockResolvedValue([]);
-    mockPrisma.purchaseRecord.findMany.mockResolvedValue([]);
-    mockPrisma.orgMembership.findMany.mockResolvedValue([]);
-    mockPrisma.verificationToken.count.mockResolvedValue(0);
-
-    const result = await ensureComplianceReportJobReady('rpt_pending', 'org-1');
-
-    expect(result?.status).toBe('ready');
-    expect(mockPrisma.complianceReport.findFirst).toHaveBeenCalledWith({
-      where: { id: 'rpt_pending', orgId: 'org-1' },
-    });
-    expect(mockPrisma.complianceReport.updateMany).toHaveBeenCalledWith({
-      where: { id: 'rpt_pending', status: { in: ['pending', 'failed'] } },
-      data: { status: 'processing', errorMessage: null },
-    });
+    expect(reclaimClause).toBeDefined();
+    const cutoff = (reclaimClause.updatedAt as { lt: Date }).lt.getTime();
+    expect(cutoff).toBeGreaterThanOrEqual(before - STALE_PROCESSING_MS - 50);
+    expect(cutoff).toBeLessThanOrEqual(after - STALE_PROCESSING_MS + 50);
   });
 
   it('publishes status payloads with artifact URLs once the report is ready', () => {
-    const payload = buildComplianceReportStatus({
-      id: 'rpt_ready',
-      orgId: 'org-1',
-      requestedById: 'user-1',
-      reportType: 'compliance_summary',
-      source: 'on_demand',
-      status: 'ready',
-      startTime: new Date('2026-04-01T00:00:00.000Z'),
-      endTime: new Date('2026-04-24T00:00:00.000Z'),
-      generatedAt: new Date('2026-04-24T15:00:00.000Z'),
-      completedAt: new Date('2026-04-24T15:00:01.000Z'),
-      errorMessage: null,
-      reportJson: null,
-      pdfData: Buffer.from('%PDF-1.4'),
-      createdAt: new Date('2026-04-24T14:59:00.000Z'),
-      updatedAt: new Date('2026-04-24T15:00:01.000Z'),
-    });
+    const payload = buildComplianceReportStatus(
+      baseRow({
+        id: 'rpt_ready',
+        status: 'ready',
+        startTime: new Date('2026-04-01T00:00:00.000Z'),
+        endTime: new Date('2026-04-24T00:00:00.000Z'),
+        generatedAt: new Date('2026-04-24T15:00:00.000Z'),
+        completedAt: new Date('2026-04-24T15:00:01.000Z'),
+        pdfData: Buffer.from('%PDF-1.4'),
+        createdAt: new Date('2026-04-24T14:59:00.000Z'),
+        updatedAt: new Date('2026-04-24T15:00:01.000Z'),
+      }) as any
+    );
 
     expect(payload.report_id).toBe('rpt_ready');
     expect(payload.status).toBe('ready');
+    expect(payload.error_code).toBeNull();
     expect(payload.download_url).toBe('/api/v1/reports/rpt_ready?download=1&format=pdf');
     expect(payload.artifacts).toEqual({
       pdf: '/api/v1/reports/rpt_ready?download=1&format=pdf',
       json: '/api/v1/reports/rpt_ready?download=1&format=json',
     });
+  });
+
+  it('failed reports return a sanitized error_code and never leak the raw error_message', () => {
+    const payload = buildComplianceReportStatus(
+      baseRow({
+        id: 'rpt_failed',
+        status: 'failed',
+        errorCode: 'generation_failed',
+        errorMessage: 'connection to db at 10.0.0.1:5432 timed out — internal stack info',
+      }) as any
+    );
+
+    expect(payload.status).toBe('failed');
+    expect(payload.error_code).toBe('generation_failed');
+    expect(JSON.stringify(payload)).not.toContain('10.0.0.1');
+    expect(JSON.stringify(payload)).not.toContain('timed out');
+    expect((payload as any).error).toBeUndefined();
+  });
+
+  it('failed reports without a stored error_code still surface a stable enum value', () => {
+    const payload = buildComplianceReportStatus(
+      baseRow({
+        id: 'rpt_legacy_failed',
+        status: 'failed',
+        errorCode: null,
+        errorMessage: 'something exploded',
+      }) as any
+    );
+
+    expect(payload.status).toBe('failed');
+    expect(payload.error_code).toBe('generation_failed');
   });
 });

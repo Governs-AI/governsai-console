@@ -103,63 +103,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_db
 
-  deploy:
-    name: Deploy to Vercel (Preview)
-    runs-on: ubuntu-latest
-    needs: build
-    env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-    outputs:
-      url: ${{ steps.deploy_step.outputs.url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Vercel Output
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel
-        id: deploy_step
-        run: |
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} | tail -n 1)
-          echo "url=$url" >> $GITHUB_OUTPUT
-
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: deploy
-    env:
-      PLAYWRIGHT_BASE_URL: ${{ needs.deploy.outputs.url }}
-      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-      E2E_TEST_ORG_SLUG: ${{ vars.E2E_TEST_ORG_SLUG }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.12.4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install Playwright Browsers
-        run: pnpm --filter @governs-ai/platform exec playwright install --with-deps chromium
-      - name: Run E2E Tests
-        run: pnpm --filter @governs-ai/platform test:e2e
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            apps/platform/playwright-report
-            apps/platform/test-results
-          retention-days: 7
+  # Preview deploys are produced by the native Vercel GitHub integration
+  # (the `Vercel` check on each PR). The previous `deploy` job here ran
+  # `vercel pull/build/deploy` with no VERCEL_TOKEN secret configured and
+  # failed on every PR — see GOV-2267.
+  #
+  # The dependent `e2e-tests` job has been removed alongside `deploy` because
+  # it was always skipped. E2E will be reinstated under task 2.5 with preview
+  # URL acquired from the native Vercel deployment_status event.

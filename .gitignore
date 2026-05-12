@@ -46,6 +46,8 @@ yarn-error.log*
 *.pem
 
 **/.env*
+!**/.env.example
+!**/env.example
 node-compile-cache/
 packages/db/generated/*
 packages/db/node_modules/*

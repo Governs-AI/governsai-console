@@ -392,8 +392,12 @@ model ComplianceReport {
   generatedAt   DateTime? @map("generated_at")
   completedAt   DateTime? @map("completed_at")
   errorMessage  String?   @map("error_message")
+  errorCode     String?   @map("error_code")
   reportJson    Json?     @map("report_json")
   pdfData       Bytes?    @map("pdf_data")
+  pdfBlobUrl    String?   @map("pdf_blob_url")
+  pdfBlobPath   String?   @map("pdf_blob_path")
+  containsPii   Boolean   @default(true) @map("contains_pii")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   org           Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -401,6 +405,7 @@ model ComplianceReport {
 
   @@index([orgId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
+  @@index([status, updatedAt])
   @@index([requestedById, createdAt(sort: Desc)])
   @@map("compliance_reports")
 }
