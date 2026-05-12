@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
 import { cookies } from 'next/headers';
+import { invalidatePrecheckPolicy } from '@/lib/precheck-policy-sync';
 
 export async function GET(
   request: NextRequest,
@@ -138,6 +139,9 @@ export async function PUT(
       },
     });
 
+    // ADR-005: bust precheck's policy cache for this org.
+    invalidatePrecheckPolicy(policy.orgId).catch(() => undefined);
+
     return NextResponse.json({ policy });
   } catch (error) {
     console.error('Error updating policy:', error);
@@ -188,9 +192,19 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // Capture orgId before deletion so we can invalidate the cache afterwards.
+    const existing = await prisma.policy.findUnique({
+      where: { id },
+      select: { orgId: true },
+    });
+
     await prisma.policy.delete({
       where: { id },
     });
+
+    if (existing?.orgId) {
+      invalidatePrecheckPolicy(existing.orgId).catch(() => undefined);
+    }
 
     return NextResponse.json({ message: 'Policy deleted successfully' });
   } catch (error) {

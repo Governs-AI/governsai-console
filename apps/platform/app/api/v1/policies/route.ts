@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
 import { cookies } from 'next/headers';
+import { invalidatePrecheckPolicy } from '@/lib/precheck-policy-sync';
 
 export async function GET(request: NextRequest) {
   try {
@@ -146,6 +147,10 @@ export async function POST(request: NextRequest) {
         isActive: true,
       },
     });
+
+    // ADR-005: tell precheck to drop its cached policy for this org so the
+    // next decision picks up the new row immediately. Fire-and-forget.
+    invalidatePrecheckPolicy(orgId).catch(() => undefined);
 
     return NextResponse.json({ policy }, { status: 201 });
   } catch (error) {
