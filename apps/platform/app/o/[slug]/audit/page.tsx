@@ -14,12 +14,14 @@ import {
   Activity,
   AlertCircle,
   CheckCircle,
+  Download,
   RefreshCw,
   XCircle,
   Zap,
 } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
 import { useOrgReady } from '@/lib/use-org-ready';
+import { buildAuditExportUrl } from '@/lib/audit-export-url';
 
 interface AuditEvent {
   id: string;
@@ -93,6 +95,8 @@ export default function AuditLogPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const fetchEvents = useCallback(
     async (f: Filters, pageOffset: number) => {
@@ -134,6 +138,48 @@ export default function AuditLogPage() {
     setOffset(0);
   };
 
+  const handleExport = useCallback(async () => {
+    setExportError(null);
+    if (appliedFilters.from && appliedFilters.to) {
+      const s = new Date(appliedFilters.from).getTime();
+      const e = new Date(appliedFilters.to).getTime();
+      if (Number.isFinite(s) && Number.isFinite(e) && s > e) {
+        setExportError('"From" must be before "To".');
+        return;
+      }
+    }
+
+    const url = buildAuditExportUrl(appliedFilters);
+    setExporting(true);
+    try {
+      // HEAD the endpoint first so we can surface auth/validation errors
+      // without having started a download. The GET that follows streams
+      // straight to disk via an <a download> click — no client-side buffering.
+      const probe = await fetch(url, { method: 'HEAD', credentials: 'include' });
+      if (!probe.ok) {
+        let msg = `Export failed (${probe.status}).`;
+        if (probe.headers.get('content-type')?.includes('application/json')) {
+          const body = await probe.json().catch(() => null);
+          if (body?.error) msg = body.error;
+        }
+        setExportError(msg);
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.rel = 'noopener';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      setExportError((err as Error).message || 'Export failed.');
+    } finally {
+      setExporting(false);
+    }
+  }, [appliedFilters]);
+
   const pagination = data?.pagination;
   const pageInfo = useMemo(() => {
     if (!pagination) return null;
@@ -171,15 +217,27 @@ export default function AuditLogPage() {
           title="Audit Log"
           subtitle={`Compliance-grade log of AI governance decisions for ${orgSlug}. Filter by decision, tool, user, or time range.`}
           actions={
-            <Button
-              onClick={() => fetchEvents(appliedFilters, offset)}
-              disabled={refreshing}
-              variant="outline"
-              size="sm"
-            >
-              {refreshing ? <LoadingSpinner size="sm" /> : <RefreshCw className="h-4 w-4" />}
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleExport}
+                disabled={exporting}
+                variant="outline"
+                size="sm"
+                data-testid="audit-export-csv"
+              >
+                {exporting ? <LoadingSpinner size="sm" /> : <Download className="h-4 w-4" />}
+                {exporting ? 'Exporting...' : 'Export CSV'}
+              </Button>
+              <Button
+                onClick={() => fetchEvents(appliedFilters, offset)}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+              >
+                {refreshing ? <LoadingSpinner size="sm" /> : <RefreshCw className="h-4 w-4" />}
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
           }
         />
 
@@ -259,6 +317,12 @@ export default function AuditLogPage() {
         {error && (
           <Card data-testid="audit-error">
             <CardContent className="p-4 text-sm text-destructive">{error}</CardContent>
+          </Card>
+        )}
+
+        {exportError && (
+          <Card data-testid="audit-export-error">
+            <CardContent className="p-4 text-sm text-destructive">{exportError}</CardContent>
           </Card>
         )}
 
