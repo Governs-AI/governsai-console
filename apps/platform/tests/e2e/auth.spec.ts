@@ -6,7 +6,9 @@ test.describe('Auth — login page', () => {
 
   test('renders login form', async ({ page }) => {
     await page.goto('/auth/login');
-    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+    // The page heading is rendered via shadcn `CardTitle` which is a <div>,
+    // not an <h*>. Use the text matcher rather than the heading role.
+    await expect(page.getByText('Welcome back')).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
