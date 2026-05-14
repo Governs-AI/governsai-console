@@ -33,13 +33,7 @@ test.describe('Audit log CSV export (GOV-587)', () => {
     await exportRequest;
   });
 
-  // fixme: this test mocks the export endpoint via `page.route` and expects to
-  // observe the button's disabled state mid-flight. The audit page's export
-  // button is an <a> doing a top-level navigation, which Playwright's
-  // request interception does NOT cover. To re-enable: change the export
-  // trigger to a fetch-based POST that returns the CSV body, then this
-  // assertion works as written. Tracked separately.
-  test.fixme('button is disabled while export is in flight', async ({ page }) => {
+  test('button is disabled while export is in flight', async ({ page }) => {
     await page.goto(orgPath('/audit'));
     await expect(page.getByTestId('audit-page')).toBeVisible();
 
