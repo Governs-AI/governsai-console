@@ -18,7 +18,9 @@ export async function loginViaUI(page: Page): Promise<void> {
   const response = await loginResponse;
   expect(response.status(), 'login API should return 2xx').toBeLessThan(300);
 
-  await page.waitForURL(/\/o\/[^/]+\/dashboard|\/onboarding/, { timeout: 15_000 });
+  // Next.js dev mode compiles dynamic routes on first hit; cold compiles for
+  // /o/[orgSlug]/dashboard regularly exceed 15s on a fresh sandbox. Use 60s.
+  await page.waitForURL(/\/o\/[^/]+\/dashboard|\/onboarding/, { timeout: 60_000 });
 }
 
 export function orgPath(path: string): string {

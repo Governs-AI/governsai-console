@@ -1,4 +1,4 @@
-# 🛡️ GovernsAI Console — The AI Governance OS
+# GovernsAI Console — The AI Governance Layer
 
 [![npm](https://img.shields.io/npm/v/%40governs-ai%2Fsdk?label=npm%20%40governs-ai%2Fsdk)](https://www.npmjs.com/package/@governs-ai/sdk)
 [![PyPI](https://img.shields.io/pypi/v/governs-ai-sdk?label=PyPI%20governs-ai-sdk)](https://pypi.org/project/governs-ai-sdk/)
@@ -6,13 +6,15 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 
-**🚀 Production-Ready** | Integrated with [REFRAG](https://github.com/Shaivpidadi/refrag) | Multi-Provider Support
+**GovernsAI is the AI governance layer where policy actually enforces.**
+
+Write a policy in the dashboard, and it takes effect on every prompt, tool call, and response — without a redeploy. Per org, per user, per agent. Built for teams where "we'll add governance later" is not an option.
 
 ---
 
-## 🎯 What is GovernsAI?
+## What is GovernsAI?
 
-The AI Governance OS — a unified control plane for AI interactions across your entire organization.
+GovernsAI is *not* an AI gateway. Routing LLM calls is a side-effect of where we sit, not the product. We are the **enforcement plane** for AI: per-org policy, PII redaction, approval flows, and an audit trail your compliance team can hand to a regulator. Use a gateway (Portkey, LiteLLM, Helicone) for routing. Use GovernsAI to enforce.
 
 **Stop rebuilding authentication, memory, and cost tracking for every AI project.** GovernsAI provides:
 

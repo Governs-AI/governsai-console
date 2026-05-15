@@ -166,8 +166,12 @@ export default function AuditLogPage() {
         return;
       }
 
+      // `download` attribute is critical — without it, the browser navigates to
+      // the URL instead of downloading. Server still controls the actual filename
+      // via Content-Disposition; the value here is the fallback if that's missing.
       const link = document.createElement('a');
       link.href = url;
+      link.download = `audit-export-${new Date().toISOString().slice(0, 10)}.csv`;
       link.rel = 'noopener';
       link.style.display = 'none';
       document.body.appendChild(link);

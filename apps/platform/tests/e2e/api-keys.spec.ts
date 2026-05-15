@@ -7,7 +7,9 @@ test.describe('API keys', () => {
   test('keys page renders header and table', async ({ page }) => {
     await page.goto(orgPath('/keys'));
     await expect(page.getByTestId('api-keys-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /api keys/i })).toBeVisible();
+    // "API Keys" appears in both an h1 and an h2; .first() avoids the
+    // strict-mode collision while still asserting the page rendered.
+    await expect(page.getByRole('heading', { name: /api keys/i }).first()).toBeVisible();
     await expect(page.getByTestId('create-key-button')).toBeVisible();
   });
 
