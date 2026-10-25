@@ -149,12 +149,16 @@ async function main() {
     },
   ];
 
+  // Seeded tools are shared catalog entries (orgId null). Prisma can't upsert
+  // on a compound unique with a null member, so look the entry up first.
   for (const toolData of tools) {
-    const tool = await prisma.toolConfig.upsert({
-      where: { toolName: toolData.toolName },
-      update: toolData,
-      create: toolData,
+    const existing = await prisma.toolConfig.findFirst({
+      where: { orgId: null, toolName: toolData.toolName },
+      select: { id: true },
     });
+    const tool = existing
+      ? await prisma.toolConfig.update({ where: { id: existing.id }, data: toolData })
+      : await prisma.toolConfig.create({ data: toolData });
     console.log('✅ Created/updated tool config:', { toolName: tool.toolName, category: tool.category });
   }
 
