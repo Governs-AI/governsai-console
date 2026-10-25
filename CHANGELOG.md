@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- `prisma migrate deploy` now builds the full schema. Migration
+  `20261025130000_catch_up_schema_drift` adds `User.external_id`/`external_source`,
+  `documents.external_source`/`external_user_id`, `webhook_idempotency_keys` and
+  the `vector` extension, which were only ever applied with `db push`. It is
+  idempotent. `packages/db/scripts/baseline-pushed-db.sh` adopts migrations on
+  `db push`-built databases.
+
 ### Security
 - The shared tool catalog is admin-managed. `POST /api/v1/tools`,
   `PUT|DELETE /api/v1/tools/:id` require a dashboard session of an org

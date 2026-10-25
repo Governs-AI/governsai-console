@@ -97,6 +97,9 @@ pnpm run migrate:dev
 # Reset database (development only)
 pnpm run migrate:reset
 
+# Adopt migrations on a database built with `db push` (deploy refuses it, P3005)
+DATABASE_URL=... scripts/baseline-pushed-db.sh
+
 # Seed database
 pnpm run seed
 
@@ -151,3 +154,24 @@ When updating the database schema:
 ## 📄 License
 
 MIT License - see root LICENSE file for details.
+
+## Migrations and `db push` databases
+
+`migrations/` builds the full schema: `migrate deploy` on an empty database
+followed by `prisma migrate diff --from-url $DATABASE_URL --to-schema-datamodel
+schema.prisma` reports no changes. The only exception is precheck's own tables
+(`api_keys`, `budgets`, …), which share the database but are not in this schema.
+`20261025130000_catch_up_schema_drift` added the objects that had only ever
+been applied with `db push`. It is idempotent, so databases that already have
+them upgrade cleanly.
+
+A database created with `db push` has no `_prisma_migrations` table, so
+`migrate deploy` refuses it. Run `scripts/baseline-pushed-db.sh` once. For each
+migration it checks a marker query:
+
+- If the migration's changes are already present, it marks the migration applied.
+- If not, it lets `migrate deploy` run it.
+
+A database that still holds plaintext API keys gets them hashed. When you add a
+migration, add its marker to the script; the script refuses to run if a
+migration has none.
