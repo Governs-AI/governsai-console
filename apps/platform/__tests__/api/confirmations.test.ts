@@ -180,11 +180,15 @@ describe('POST /confirmation/:id/consume', () => {
     });
   });
 
-  it('refuses a second consume', async () => {
+  it('refuses a second consume and says why', async () => {
     asKey();
     mockPrisma.pendingConfirmation.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.pendingConfirmation.findUnique
+      .mockResolvedValueOnce({ ...ROW, status: 'approved' })
+      .mockResolvedValueOnce({ status: 'consumed' });
     const res = await CONSUME(req({ 'x-governs-key': 'gai_x' }), params);
     expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'Approval was already used', status: 'consumed' });
   });
 
   it('requires an API key', async () => {

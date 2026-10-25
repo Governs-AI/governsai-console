@@ -29,8 +29,17 @@ export async function POST(
     data: { status: 'consumed', consumedAt: new Date() },
   });
   if (updated.count === 0) {
+    // Re-read: a concurrent consume may have won since the first read.
+    const current = await prisma.pendingConfirmation.findUnique({
+      where: { id: found.id },
+      select: { status: true },
+    });
+    const status = current?.status ?? found.status;
     return NextResponse.json(
-      { error: `Confirmation is ${found.status}, not approved`, status: found.status },
+      {
+        error: status === 'consumed' ? 'Approval was already used' : `Confirmation is ${status}, not approved`,
+        status,
+      },
       { status: 409 },
     );
   }
