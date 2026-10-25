@@ -3,6 +3,7 @@ import { verifySessionToken } from '@/lib/auth-server';
 import { cookies } from 'next/headers';
 import { prisma } from '@governs-ai/db';
 import { ensureToolCatalog } from '@/lib/tool-catalog';
+import { hashApiKey } from '@/lib/api-keys';
 
 // GET /api/v1/tools - List all available tools with metadata
 export async function GET(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {

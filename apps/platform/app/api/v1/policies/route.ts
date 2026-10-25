@@ -3,6 +3,7 @@ import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
 import { cookies } from 'next/headers';
 import { invalidatePrecheckPolicy } from '@/lib/precheck-policy-sync';
+import { hashApiKey } from '@/lib/api-keys';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {

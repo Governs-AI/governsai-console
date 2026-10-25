@@ -4,6 +4,7 @@ import { prisma } from '@governs-ai/db';
 import { documentProcessor } from '@/lib/services/document-processor';
 import { userResolverService } from '@/lib/services/user-resolver';
 import { queueDocumentProcessing } from '@/lib/workers/document-worker';
+import { hashApiKey } from '@/lib/api-keys';
 
 export const runtime = 'nodejs';
 
@@ -24,7 +25,7 @@ async function resolveAuth(request: NextRequest) {
     }
   } else if (apiKeyHeader) {
     const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
+      where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
       select: { userId: true, orgId: true },
     });
     if (apiKey) {

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
 import { cookies } from 'next/headers';
+import { generateApiKey, hashApiKey, PREVIEW_KEY_SCOPE } from '@/lib/api-keys';
 
 const PRECHECK_URL = process.env.PRECHECK_URL || 'http://localhost:8082';
 
@@ -24,30 +25,54 @@ const previewSchema = z.object({
   scope: z.string().optional(),
 });
 
+const PREVIEW_KEY_TTL_MS = 5 * 60_000;
+
+/**
+ * Keys are stored hashed, so a session caller has no org key to hand to
+ * precheck. Mint a short-lived one instead: precheck and the websocket service
+ * treat it like any other key, so the preview decision lands in the audit log
+ * exactly as a real request would. Preview keys are hidden from key lists and
+ * expired ones are cleaned up here.
+ */
+async function mintPreviewKey(orgId: string, userId: string): Promise<string> {
+  await prisma.aPIKey
+    .deleteMany({
+      where: { orgId, scopes: { has: PREVIEW_KEY_SCOPE }, expiresAt: { lt: new Date() } },
+    })
+    .catch(() => undefined);
+  const { rawKey, keyHash, keyPrefix } = generateApiKey('gai_prev_');
+  await prisma.aPIKey.create({
+    data: {
+      name: 'Policy preview (temporary)',
+      keyHash,
+      keyPrefix,
+      userId,
+      orgId,
+      scopes: [PREVIEW_KEY_SCOPE],
+      expiresAt: new Date(Date.now() + PREVIEW_KEY_TTL_MS),
+    },
+  });
+  return rawKey;
+}
+
 async function resolveOrgKey(request: NextRequest): Promise<{ orgId: string; apiKey: string } | null> {
-  // First try x-governs-key — caller already has an API key.
+  // First try x-governs-key — the caller already has an API key.
   const apiKeyHeader = request.headers.get('x-governs-key');
   if (apiKeyHeader) {
     const row = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
-      select: { orgId: true, key: true },
+      where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
+      select: { orgId: true },
     });
-    if (row) return { orgId: row.orgId, apiKey: row.key };
+    if (row) return { orgId: row.orgId, apiKey: apiKeyHeader };
   }
 
-  // Otherwise resolve via session, then pick any active key for the org.
+  // Otherwise resolve via session and mint a temporary key for the org.
   const sessionCookie = (await cookies()).get('session')?.value;
   if (!sessionCookie) return null;
   const session = verifySessionToken(sessionCookie);
   if (!session) return null;
 
-  const key = await prisma.aPIKey.findFirst({
-    where: { orgId: session.orgId, isActive: true },
-    select: { key: true },
-    orderBy: { createdAt: 'desc' },
-  });
-  if (!key) return null;
-  return { orgId: session.orgId, apiKey: key.key };
+  return { orgId: session.orgId, apiKey: await mintPreviewKey(session.orgId, session.sub) };
 }
 
 export async function POST(request: NextRequest) {
@@ -55,7 +80,7 @@ export async function POST(request: NextRequest) {
     const auth = await resolveOrgKey(request);
     if (!auth) {
       return NextResponse.json(
-        { error: 'Unauthorized — session or x-governs-key required, and the org must have at least one active API key' },
+        { error: 'Unauthorized — session or x-governs-key required' },
         { status: 401 },
       );
     }

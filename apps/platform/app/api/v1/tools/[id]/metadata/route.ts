@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { getRequestContext } from '@/lib/session';
 import { ensureToolCatalog, toToolMetadata } from '@/lib/tool-catalog';
+import { hashApiKey } from '@/lib/api-keys';
 
 /**
  * GET /api/v1/tools/:toolName/metadata → { metadata: ToolConfig }
@@ -16,7 +17,7 @@ export async function GET(
 ) {
   const apiKey = request.headers.get('x-governs-key');
   const authorized = apiKey
-    ? await prisma.aPIKey.findFirst({ where: { key: apiKey, isActive: true }, select: { id: true } })
+    ? await prisma.aPIKey.findFirst({ where: { keyHash: hashApiKey(apiKey), isActive: true }, select: { id: true } })
     : await getRequestContext(request);
   if (!authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

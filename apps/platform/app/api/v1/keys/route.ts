@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { randomBytes } from 'crypto';
 import { requireAuth } from '@/lib/session';
-import { syncKeyToPrecheck } from '@/lib/precheck-key-sync';
+import { generateApiKey, keyPreview, PREVIEW_KEY_SCOPE } from '@/lib/api-keys';
 
 export async function GET(request: NextRequest) {
   try {
     const { orgId } = await requireAuth(request);
 
     const keys = await prisma.aPIKey.findMany({
-      where: { orgId },
+      where: { orgId, NOT: { scopes: { has: PREVIEW_KEY_SCOPE } } },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Don't return the actual key values for security
+    // Only the hash is stored; the prefix identifies the key in the UI.
     const safeKeys = keys.map(key => ({
       id: key.id,
       name: key.name,
+      keyPreview: keyPreview(key.keyPrefix),
       scopes: key.scopes,
       issuedAt: key.createdAt,
       lastUsed: key.lastUsed,
@@ -45,29 +45,29 @@ export async function POST(request: NextRequest) {
 
     const { orgId, userId } = await requireAuth(request);
 
-    // Generate a secure API key
-    const keyValue = `gai_${randomBytes(32).toString('hex')}`;
+    // Only the hash and a display prefix are stored. The full key is in this
+    // response and nowhere else.
+    const { rawKey, keyHash, keyPrefix } = generateApiKey();
 
     const apiKey = await prisma.aPIKey.create({
       data: {
         name,
         scopes,
-        key: keyValue,
+        keyHash,
+        keyPrefix,
         userId,
         orgId,
         isActive: true,
       },
     });
 
-    syncKeyToPrecheck(keyValue, userId, orgId)
-      .catch(err => console.error('[api-keys] precheck sync failed (non-fatal):', err));
-
     // Return the key value only once for security
     return NextResponse.json({
       id: apiKey.id,
       name: apiKey.name,
       scopes: apiKey.scopes,
-      key: apiKey.key, // Only returned on creation
+      key: rawKey, // Only returned on creation
+      keyPreview: keyPreview(apiKey.keyPrefix),
       issuedAt: apiKey.createdAt,
       isActive: apiKey.isActive,
     });

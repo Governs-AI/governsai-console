@@ -5,6 +5,7 @@ import type {
   VerifiedRegistrationResponse,
 } from '@simplewebauthn/server';
 import { prisma } from '@governs-ai/db';
+import { hashApiKey } from '@/lib/api-keys';
 
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const ORIGIN = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Find API key and get user/org
     const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash: hashApiKey(apiKey) },
       include: {
         user: true,
         org: true,

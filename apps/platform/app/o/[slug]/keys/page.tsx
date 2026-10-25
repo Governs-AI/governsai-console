@@ -126,8 +126,10 @@ export default function KeysPage() {
         setCreatedUserId(data.key?.createdBy?.id ?? null);
         setShowIntegrationInfo(true); // Show integration info for new key
       }
-      // Add the masked/preview version into the table
-      setApiKeys(prev => [data.key, ...prev]);
+      // The table only ever holds the prefix; the full key lives in the
+      // one-time banner above until the page is left.
+      const { fullKey: _fullKey, ...listed } = data.key ?? {};
+      setApiKeys(prev => [listed, ...prev]);
       setShowCreateForm(false);
       setFormData({ 
         name: '', 
@@ -429,7 +431,12 @@ export default function KeysPage() {
                   <DataTableCell>
                     <div className="flex items-center gap-2">
                       <Key className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{key.name}</span>
+                      <div>
+                        <span className="font-medium">{key.name}</span>
+                        {key.keyPreview && (
+                          <code className="block text-xs text-muted-foreground">{key.keyPreview}</code>
+                        )}
+                      </div>
                     </div>
                   </DataTableCell>
                   <DataTableCell>

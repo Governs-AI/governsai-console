@@ -2,6 +2,7 @@ import 'server-only';
 import { NextRequest } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { getSessionFromRequest } from '@/lib/auth-utils';
+import { hashApiKey } from '@/lib/api-keys';
 
 /**
  * Who is acting on a confirmation.
@@ -23,7 +24,7 @@ export async function resolveConfirmationActor(
   const apiKey = request.headers.get('x-governs-key');
   if (apiKey) {
     const key = await prisma.aPIKey.findFirst({
-      where: { key: apiKey, isActive: true },
+      where: { keyHash: hashApiKey(apiKey), isActive: true },
       select: { id: true, userId: true, orgId: true },
     });
     return key ? { kind: 'apiKey', userId: key.userId, orgId: key.orgId, apiKeyId: key.id } : null;

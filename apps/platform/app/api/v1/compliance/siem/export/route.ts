@@ -6,6 +6,7 @@ import {
   type SiemConnectorType,
   type SiemExportOptions,
 } from '@/lib/services/compliance-siem-export';
+import { hashApiKey } from '@/lib/api-keys';
 
 export const runtime = 'nodejs';
 export const maxDuration = 180;
@@ -30,7 +31,7 @@ async function resolveAuth(request: NextRequest): Promise<AuthContext | null> {
 
   if (apiKeyHeader) {
     const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
+      where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
       select: { userId: true, orgId: true },
     });
 

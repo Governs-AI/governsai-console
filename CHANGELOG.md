@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Security
+- API keys are no longer stored in plaintext. `APIKey` keeps a SHA-256
+  `keyHash` and a 12-character `keyPrefix`; the full key is returned once, in
+  the create/rotate response. Migration `20261025120000_hash_api_keys` hashes
+  existing keys in place (they keep working) and drops the `key` column. Every
+  `X-Governs-Key` lookup (platform routes, websocket gateway) goes through
+  `lib/api-keys.ts`. Key lists show `keyPreview` (`gai_1234abcd…`).
+- Precheck now reads dashboard keys from `APIKey` by hash, so the HMAC copy
+  sync (`lib/precheck-key-sync.ts`) is removed and deactivating a key on
+  `/api/v1/keys/:id` (which never reached precheck before) applies at once.
+- The policy preview no longer reuses a stored key: for session callers it
+  mints a 5-minute, hidden `preview`-scoped key.
+
 ### Added
 - OpenRouter embedding provider (`EMBEDDING_PROVIDER=openrouter`, default
   `openai/text-embedding-3-small`, 1536 dims). It is the default when

@@ -174,8 +174,10 @@ model PendingConfirmation {
 
 model APIKey {
   id                   String                @id @default(cuid())
-  key                  String                @unique
-  keyHash              String?               @unique
+  /// SHA-256 of the full key. The key itself is never stored (shown once at creation).
+  keyHash              String                @unique
+  /// First 12 characters, for display only.
+  keyPrefix            String
   name                 String
   userId               String
   orgId                String                @map("org_id")
@@ -194,7 +196,6 @@ model APIKey {
   pendingConfirmations PendingConfirmation[]
   purchaseRecords      PurchaseRecord[]
 
-  @@index([key])
   @@index([keyHash])
   @@index([userId])
   @@index([orgId])

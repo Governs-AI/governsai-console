@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
 import { cookies } from 'next/headers';
+import { hashApiKey } from '@/lib/api-keys';
 
 // GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
@@ -26,7 +27,7 @@ export async function GET(
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {
@@ -86,7 +87,7 @@ export async function PUT(
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {
@@ -169,7 +170,7 @@ export async function DELETE(
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {

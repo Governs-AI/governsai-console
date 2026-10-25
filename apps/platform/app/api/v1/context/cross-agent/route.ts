@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { unifiedContext } from '@/lib/services/unified-context';
 import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
+import { hashApiKey } from '@/lib/api-keys';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {

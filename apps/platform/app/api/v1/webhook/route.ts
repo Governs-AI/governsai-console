@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { prisma } from '@governs-ai/db';
 const dbAny = prisma as any;
 import { unifiedContext } from '@/lib/services/unified-context';
+import { hashApiKey } from '@/lib/api-keys';
 
 if (!process.env.WEBHOOK_SECRET) {
   throw new Error('WEBHOOK_SECRET environment variable is required');
@@ -259,7 +260,7 @@ async function resolveApiKey(apiKey: string): Promise<{ userId: string; orgId: s
   // Find API key in database (model name is APIKey → client property aPIKey)
   const apiKeyRecord = await prisma.aPIKey.findFirst({
     where: {
-      key: apiKey,
+      keyHash: hashApiKey(apiKey),
       isActive: true,
     },
     select: {

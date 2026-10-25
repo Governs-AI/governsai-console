@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { hashApiKey } from '@/lib/api-keys';
 
 // Precheck API - forwards requests to external precheck module
 // Policy is fetched from database based on API key, not from client request
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     // Find API key and get user/org
     const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash: hashApiKey(apiKey) },
       include: {
         user: true,
         org: true,
