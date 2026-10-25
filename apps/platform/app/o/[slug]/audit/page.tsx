@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Badge,
@@ -14,6 +14,7 @@ import {
   Activity,
   AlertCircle,
   CheckCircle,
+  Clock,
   Download,
   RefreshCw,
   XCircle,
@@ -27,10 +28,15 @@ interface AuditEvent {
   id: string;
   orgId: string;
   direction: 'precheck' | 'postcheck';
-  decision: 'allow' | 'transform' | 'deny';
+  decision: 'allow' | 'transform' | 'deny' | 'confirm';
   tool?: string | null;
+  scope?: string | null;
   correlationId?: string | null;
   policyId?: string | null;
+  reasons?: string[] | null;
+  payloadOut?: { raw_text_out?: string } | null;
+  latencyMs?: number | null;
+  detectorSummary?: { rule?: string; piiDetected?: string[] } | null;
   ts: string;
 }
 
@@ -40,7 +46,7 @@ interface AuditResponse {
 }
 
 interface Filters {
-  decision: '' | 'allow' | 'transform' | 'deny';
+  decision: '' | 'allow' | 'transform' | 'deny' | 'confirm';
   tool: string;
   user: string;
   from: string;
@@ -64,7 +70,11 @@ function toQueryString(filters: Filters, offset: number): string {
 
 function decisionBadge(decision: AuditEvent['decision']) {
   const variant =
-    decision === 'allow' ? 'default' : decision === 'transform' ? 'secondary' : 'destructive';
+    decision === 'allow'
+      ? 'default'
+      : decision === 'transform' || decision === 'confirm'
+        ? 'secondary'
+        : 'destructive';
   const icon =
     decision === 'allow' ? (
       <CheckCircle className="h-4 w-4 text-green-500" />
@@ -72,6 +82,8 @@ function decisionBadge(decision: AuditEvent['decision']) {
       <Zap className="h-4 w-4 text-yellow-500" />
     ) : decision === 'deny' ? (
       <XCircle className="h-4 w-4 text-red-500" />
+    ) : decision === 'confirm' ? (
+      <Clock className="h-4 w-4 text-sky-500" />
     ) : (
       <AlertCircle className="h-4 w-4 text-gray-500" />
     );
@@ -97,6 +109,20 @@ export default function AuditLogPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [policyNames, setPolicyNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isReady || !org) return;
+    fetch('/api/v1/policies?includeInactive=true', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : { policies: [] }))
+      .then((body) =>
+        setPolicyNames(
+          Object.fromEntries((body.policies || []).map((p: { id: string; name: string }) => [p.id, p.name])),
+        ),
+      )
+      .catch(() => undefined);
+  }, [isReady, org?.id]);
 
   const fetchEvents = useCallback(
     async (f: Filters, pageOffset: number) => {
@@ -262,6 +288,7 @@ export default function AuditLogPage() {
                   <option value="allow">Allow</option>
                   <option value="transform">Transform</option>
                   <option value="deny">Deny</option>
+                  <option value="confirm">Confirm</option>
                 </select>
               </div>
               <div>
@@ -355,10 +382,11 @@ export default function AuditLogPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {events.map((event) => (
+                  <Fragment key={event.id}>
                   <tr
-                    key={event.id}
-                    className="hover:bg-muted/30"
+                    className="cursor-pointer hover:bg-muted/30"
                     data-testid={`audit-row-${event.id}`}
+                    onClick={() => setExpanded((cur) => (cur === event.id ? null : event.id))}
                   >
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {new Date(event.ts).toLocaleString()}
@@ -373,10 +401,50 @@ export default function AuditLogPage() {
                     <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
                       {event.correlationId ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
-                      {event.policyId ?? '—'}
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {event.policyId ? (
+                        policyNames[event.policyId] ? (
+                          <span className="font-medium text-foreground">{policyNames[event.policyId]}</span>
+                        ) : (
+                          <span className="font-mono">{event.policyId}</span>
+                        )
+                      ) : (
+                        '—'
+                      )}
                     </td>
                   </tr>
+                  {expanded === event.id && (
+                    <tr className="bg-muted/20" data-testid={`audit-detail-${event.id}`}>
+                      <td colSpan={6} className="px-4 py-3">
+                        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs md:grid-cols-[max-content_1fr]">
+                          <dt className="text-muted-foreground">Rule</dt>
+                          <dd className="font-mono">{event.detectorSummary?.rule ?? event.policyId ?? '—'}</dd>
+                          <dt className="text-muted-foreground">Reasons</dt>
+                          <dd className="font-mono">{event.reasons?.length ? event.reasons.join(', ') : '—'}</dd>
+                          {!!event.detectorSummary?.piiDetected?.length && (
+                            <>
+                              <dt className="text-muted-foreground">PII detected</dt>
+                              <dd className="font-mono">{event.detectorSummary.piiDetected.join(', ')}</dd>
+                            </>
+                          )}
+                          {event.payloadOut?.raw_text_out && (
+                            <>
+                              <dt className="text-muted-foreground">Sent on (redacted)</dt>
+                              <dd className="font-mono break-all">{event.payloadOut.raw_text_out}</dd>
+                            </>
+                          )}
+                          <dt className="text-muted-foreground">Scope · latency</dt>
+                          <dd className="font-mono">
+                            {event.scope ?? '—'} · {event.latencyMs != null ? `${event.latencyMs} ms` : '—'}
+                          </dd>
+                        </dl>
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          The original input is never stored — only its SHA-256 hash.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

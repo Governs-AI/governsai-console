@@ -41,7 +41,7 @@ interface PolicyFormProps {
   onCancel: () => void;
 }
 
-const ACTION_OPTIONS = ['allow', 'block', 'redact', 'confirm'];
+const ACTION_OPTIONS = ['allow', 'redact', 'tokenize', 'block', 'confirm'];
 const DIRECTION_OPTIONS = ['ingress', 'egress', 'both'];
 
 export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyFormProps) {
@@ -89,7 +89,7 @@ export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyF
   };
 
   const addToolAccess = () => {
-    if (!selectedToolForAccess) return;
+    if (!selectedToolForAccess || formData.toolAccess[selectedToolForAccess]) return;
     
     setFormData(prev => ({
       ...prev,
@@ -295,12 +295,21 @@ export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyF
             <h3 className="text-lg font-semibold">Tool Access Rules</h3>
             
             <div className="flex gap-2">
-              <select
+              {/* Free text with catalog suggestions: rules can target any tool name */}
+              <input
+                list="policy-tool-catalog"
                 value={selectedToolForAccess}
-                onChange={(e) => setSelectedToolForAccess(e.target.value)}
+                onChange={(e) => setSelectedToolForAccess(e.target.value.trim())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addToolAccess();
+                  }
+                }}
+                placeholder="Tool name, e.g. payment_process"
                 className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">Select a tool...</option>
+              />
+              <datalist id="policy-tool-catalog">
                 {availableTools
                   .filter(tool => !formData.toolAccess[tool.toolName])
                   .map(tool => (
@@ -308,7 +317,7 @@ export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyF
                       {tool.toolName} ({tool.category})
                     </option>
                   ))}
-              </select>
+              </datalist>
               <Button type="button" onClick={addToolAccess} disabled={!selectedToolForAccess}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Rule
@@ -402,6 +411,11 @@ export function PolicyForm({ policy, availableTools, onSave, onCancel }: PolicyF
           {/* Allowed Tools */}
           <div className="space-y-4 border-t pt-4">
             <h3 className="text-lg font-semibold">Explicitly Allowed Tools (Optional)</h3>
+            <p className="text-sm text-muted-foreground">
+              Listed tools skip a default <span className="font-mono">block</span> or{' '}
+              <span className="font-mono">confirm</span> (PII is still redacted), and may lift the
+              built-in code-execution block. Combine with a default of block for an allowlist.
+            </p>
             
             <div className="flex gap-2">
               <input

@@ -19,6 +19,7 @@ import {
   LoadingSpinner
 } from '@governs-ai/ui';
 import PlatformShell from '@/components/platform-shell';
+import { GetStarted } from '@/components/get-started';
 import { useRoleCheck } from '@/components/role-guard';
 import { useUser } from '@/lib/user-context';
 import { useOrgReady } from '@/lib/use-org-ready';
@@ -288,7 +289,7 @@ export default function DashboardPage() {
     <PlatformShell orgSlug={orgSlug}>
       <div className="space-y-6">
         <PageHeader
-          title={`${orgSlug} Dashboard`}
+          title={org?.name || 'Dashboard'}
           subtitle={`Welcome back, ${user?.name || user?.email}. Monitor your AI usage, track spending, and manage policies with complete visibility and control.`}
           actions={
             <div className="flex gap-2">
@@ -300,6 +301,10 @@ export default function DashboardPage() {
           }
         />
         
+        {org && (
+          <GetStarted orgSlug={orgSlug} orgId={org.id} canManage={canAccessAdmin()} />
+        )}
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <KpiCard 

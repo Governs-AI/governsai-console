@@ -24,7 +24,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   fresh install can write tool rules without running a seed. Existing rows are
   never overwritten.
 
+- A **Get started** checklist on the org dashboard walks through pick a policy
+  template → create a key (shown once, copyable) → send a request ("Try it
+  with a sample", or copy-paste curl / TypeScript SDK) → see it in the audit
+  log. It's driven by real data, polls for the first decision, and can be
+  dismissed.
+- Shared policy templates (`lib/policy-templates.ts`), including the new
+  recommended **AI agent guardrails** and **Fintech: block card & SSN**.
+- Audit log rows expand to show the rule, reasons, detected PII types,
+  redacted output, scope and latency. The Policy column shows the policy name,
+  and there's a `confirm` decision filter.
+
 ### Changed
+- The policy form takes any tool name for a rule (catalog names are offered as
+  suggestions), adds the `tokenize` action, and explains `allowTools`.
+- The dashboard title shows the org name instead of its slug.
 - `GET /api/v1/confirmation/:id` also accepts `X-Governs-Key` (same org), so
   SDKs and agents can poll status. Admin visibility now uses the real
   membership role (the old check compared against a lowercase `admin` that
