@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
-import { cookies } from 'next/headers';
-import { hashApiKey } from '@/lib/api-keys';
+import { requireCatalogAdmin, requireCatalogReader } from '@/lib/tool-catalog-auth';
 
 // GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
@@ -10,41 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Read: any signed-in user or API key.
+    const caller = await requireCatalogReader(request);
+    if (caller instanceof NextResponse) return caller;
 
     const tool = await prisma.toolConfig.findUnique({
       where: { id: (await params).id },
@@ -70,41 +36,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
+    const caller = await requireCatalogAdmin(request);
+    if (caller instanceof NextResponse) return caller;
 
     const body = await request.json();
     const {
@@ -153,41 +87,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
+    const caller = await requireCatalogAdmin(request);
+    if (caller instanceof NextResponse) return caller;
 
     await prisma.toolConfig.delete({
       where: { id: (await params).id },

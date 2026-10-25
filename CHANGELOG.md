@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Security
+- The shared tool catalog is admin-managed. `POST /api/v1/tools`,
+  `PUT|DELETE /api/v1/tools/:id` require a dashboard session of an org
+  OWNER/ADMIN (role checked in the database); API keys and members get 403.
+  Reads are unchanged. Shared check: `lib/tool-catalog-auth.ts`.
 - API keys are no longer stored in plaintext. `APIKey` keeps a SHA-256
   `keyHash` and a 12-character `keyPrefix`; the full key is returned once, in
   the create/rotate response. Migration `20261025120000_hash_api_keys` hashes

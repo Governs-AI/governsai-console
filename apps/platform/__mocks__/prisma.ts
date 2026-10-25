@@ -77,6 +77,9 @@ const prismaMock: any = {
     findUnique: jest.fn(),
     findMany: jest.fn(),
     createMany: jest.fn(),
+    upsert: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
   pendingConfirmation: {
     findUnique: jest.fn(),
