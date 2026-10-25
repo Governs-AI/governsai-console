@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logAuthToken } from '@/lib/dev-log';
 import { z } from 'zod';
 import { createEmailVerificationToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the request, but log the error
     }
 
-    console.log(`Email verification token for ${email}: ${verificationToken}`);
+    logAuthToken('Email verification', email, verificationToken);
 
     return NextResponse.json({
       success: true,

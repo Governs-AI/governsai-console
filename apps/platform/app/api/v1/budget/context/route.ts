@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { hashApiKey } from '@/lib/api-keys';
 
 export async function GET(req: NextRequest) {
   let orgId: string | undefined;
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     // Find API key and get user/org
     const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash: hashApiKey(apiKey) },
       include: {
         user: true,
         org: true,

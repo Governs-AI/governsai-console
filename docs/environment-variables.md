@@ -81,10 +81,18 @@ PRECHECK_URL="http://localhost:3001"
 
 The platform supports multiple embedding providers. Configure ONE of the following:
 
-#### Option 1: OpenAI (Default, Recommended for Production)
+#### Option 0: OpenRouter (default when its key is set)
 
 ```bash
-EMBEDDING_PROVIDER="openai"  # or omit this line
+EMBEDDING_PROVIDER="openrouter"  # or omit this line
+OPENROUTER_API_KEY="sk-or-..."   # OPEN_ROUTER_API_KEY is accepted too
+OPENROUTER_EMBEDDING_MODEL="openai/text-embedding-3-small"  # default, 1536 dims
+```
+
+#### Option 1: OpenAI
+
+```bash
+EMBEDDING_PROVIDER="openai"  # or omit this line when no OpenRouter key is set
 OPENAI_API_KEY="sk-..."
 ```
 

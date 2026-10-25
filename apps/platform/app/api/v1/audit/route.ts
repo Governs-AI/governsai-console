@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
 
-const ALLOWED_DECISIONS = ['allow', 'transform', 'deny'] as const;
+const ALLOWED_DECISIONS = ['allow', 'transform', 'deny', 'confirm'] as const;
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 50;
 

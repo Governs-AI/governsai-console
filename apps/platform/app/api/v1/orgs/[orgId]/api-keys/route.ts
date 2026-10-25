@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifySessionToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
-import { randomBytes } from 'crypto';
-import { syncKeyToPrecheck } from '@/lib/precheck-key-sync';
+import { generateApiKey, keyPreview, PREVIEW_KEY_SCOPE } from '@/lib/api-keys';
 
 const createKeySchema = z.object({
   name: z.string().min(1),
@@ -32,12 +31,6 @@ export async function GET(
 
      const { orgId: orgSlugOrId } = await params;
 
-    // Debug logging
-    console.log('API Keys Debug:', {
-      orgSlugOrId,
-      userId: session.sub,
-      sessionValid: !!session
-    });
 
     // First, find the organization by slug or ID
     const org = await prisma.org.findFirst({
@@ -88,12 +81,12 @@ export async function GET(
 
     // Get API keys for this organization
     const keys = await prisma.aPIKey.findMany({
-      where: { orgId: org.id },
+      where: { orgId: org.id, NOT: { scopes: { has: PREVIEW_KEY_SCOPE } } },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         name: true,
-        key: true, // In production, don't return the actual key
+        keyPrefix: true, // only the hash and this prefix are stored
         scopes: true,
         env: true,
         isActive: true,
@@ -132,7 +125,7 @@ export async function GET(
         return {
           id: key.id,
           name: key.name,
-          keyPreview: `${key.key.slice(0, 12)}...${key.key.slice(-4)}`, // Show preview only
+          keyPreview: keyPreview(key.keyPrefix),
           scopes: key.scopes,
           env: key.env,
           isActive: key.isActive,
@@ -222,13 +215,14 @@ export async function POST(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    // Generate API key
-    const keyValue = `gov_key_${randomBytes(32).toString('hex')}`;
+    // Only the hash and a display prefix are stored; the full key is returned
+    // once, in this response.
+    const { rawKey, keyHash, keyPrefix } = generateApiKey('gov_key_');
 
-    // Create the API key
     const apiKey = await prisma.aPIKey.create({
       data: {
-        key: keyValue,
+        keyHash,
+        keyPrefix,
         name,
         userId: session.sub,
         orgId: org.id, // Use the actual orgId from database
@@ -249,16 +243,12 @@ export async function POST(
       },
     });
 
-    // Sync key to precheck's api_keys table so precheck can validate it
-    syncKeyToPrecheck(keyValue, session.sub, org.id, expiresAt ? new Date(expiresAt) : null)
-      .catch(err => console.error('[api-keys] precheck sync failed (non-fatal):', err));
-
     return NextResponse.json({
       success: true,
       key: {
         id: apiKey.id,
         name: apiKey.name,
-        keyPreview: `${apiKey.key.slice(0, 12)}...${apiKey.key.slice(-4)}`, // Show preview only
+        keyPreview: keyPreview(apiKey.keyPrefix),
         scopes: apiKey.scopes,
         env: apiKey.env,
         isActive: apiKey.isActive,
@@ -277,7 +267,7 @@ export async function POST(
           totalUsage: 0,
         },
         // Include the full key only on creation for the user to copy
-        fullKey: apiKey.key,
+        fullKey: rawKey,
       },
       warning: 'Save this API key now. You will not be able to see it again.',
     });

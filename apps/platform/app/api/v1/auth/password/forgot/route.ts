@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logAuthToken } from '@/lib/dev-log';
 import { z } from 'zod';
 import { createPasswordResetToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the request, but log the error
     }
 
-    console.log(`Password reset token for ${email}: ${resetToken}`);
+    logAuthToken('Password reset', email, resetToken);
 
     return NextResponse.json({
       success: true,

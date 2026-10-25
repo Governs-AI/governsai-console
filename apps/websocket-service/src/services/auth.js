@@ -1,5 +1,15 @@
+import { createHash } from 'crypto';
 import { prisma } from '@governs-ai/db';
 import jwt from 'jsonwebtoken';
+
+/** Keys are stored as SHA-256 hashes (see apps/platform/lib/api-keys.ts). */
+export function hashApiKey(rawKey) {
+  return createHash('sha256').update(rawKey, 'utf8').digest('hex');
+}
+
+function isExpired(record) {
+  return Boolean(record.expiresAt && new Date(record.expiresAt) < new Date());
+}
 
 /**
  * Authentication Service for WebSocket connections
@@ -30,7 +40,7 @@ export class AuthService {
       // Find API key with organization
       const apiKeyRecord = await prisma.aPIKey.findFirst({
         where: {
-          key: apiKey,
+          keyHash: hashApiKey(apiKey),
           isActive: true
         },
         include: {
@@ -53,13 +63,13 @@ export class AuthService {
 
       console.log('🔍 API key lookup result:', {
         found: !!apiKeyRecord,
-        key: apiKeyRecord?.key?.slice(0, 10) + '...',
+        keyPrefix: apiKeyRecord?.keyPrefix,
         isActive: apiKeyRecord?.isActive,
         userId: apiKeyRecord?.userId,
         orgId: apiKeyRecord?.orgId
       });
 
-      if (!apiKeyRecord) {
+      if (!apiKeyRecord || isExpired(apiKeyRecord)) {
         console.log('❌ API key not found in database');
         return { success: false, error: 'Invalid API key' };
       }
@@ -78,7 +88,8 @@ export class AuthService {
         success: true,
         userId: apiKeyRecord.userId,
         orgId: apiKeyRecord.orgId,
-        apiKey: apiKeyRecord.key,
+        apiKey,
+        apiKeyId: apiKeyRecord.id,
         userEmail: apiKeyRecord.user.email,
         userName: apiKeyRecord.user.name,
         orgSlug: apiKeyRecord.org.slug,
@@ -107,7 +118,7 @@ export class AuthService {
       // Find API key
       const apiKeyRecord = await prisma.aPIKey.findFirst({
         where: {
-          key: apiKey,
+          keyHash: hashApiKey(apiKey),
           isActive: true
         },
         include: {
@@ -130,18 +141,14 @@ export class AuthService {
 
       console.log('🔍 API key lookup result:', {
         found: !!apiKeyRecord,
-        key: apiKeyRecord?.key?.slice(0, 10) + '...',
+        keyPrefix: apiKeyRecord?.keyPrefix,
         isActive: apiKeyRecord?.isActive,
         userId: apiKeyRecord?.userId,
         orgId: apiKeyRecord?.orgId
       });
 
-      if (!apiKeyRecord) {
+      if (!apiKeyRecord || isExpired(apiKeyRecord)) {
         console.log('❌ API key not found in database');
-        
-        // For testing purposes, create a mock response for demo API keys
-        // No mock API keys - all must be validated against database
-        
         return { success: false, error: 'Invalid API key' };
       }
 
@@ -155,7 +162,8 @@ export class AuthService {
         success: true,
         userId: apiKeyRecord.userId,
         orgId: apiKeyRecord.orgId,
-        apiKey: apiKeyRecord.key,
+        apiKey,
+        apiKeyId: apiKeyRecord.id,
         userEmail: apiKeyRecord.user.email,
         userName: apiKeyRecord.user.name,
         orgSlug: apiKeyRecord.org.slug,
@@ -289,11 +297,11 @@ export class AuthService {
   async verifyPermissions(apiKey, requiredScopes) {
     try {
       const apiKeyRecord = await prisma.aPIKey.findUnique({
-        where: { key: apiKey },
-        select: { scopes: true, isActive: true }
+        where: { keyHash: hashApiKey(apiKey) },
+        select: { scopes: true, isActive: true, expiresAt: true }
       });
 
-      if (!apiKeyRecord || !apiKeyRecord.isActive) {
+      if (!apiKeyRecord || !apiKeyRecord.isActive || isExpired(apiKeyRecord)) {
         return { success: false, error: 'Invalid API key' };
       }
 
@@ -334,8 +342,9 @@ export class AuthService {
     }
 
     // API key-level channels
-    if (authContext.apiKey) {
-      channels.push(`key:${authContext.apiKey}:usage`);
+    // Named by key id, so the key itself never appears in channel names or logs.
+    if (authContext.apiKeyId) {
+      channels.push(`key:${authContext.apiKeyId}:usage`);
     }
 
     return channels;

@@ -18,20 +18,26 @@ export interface EmbeddingProvider {
 }
 
 export interface EmbeddingConfig {
-  provider: 'openai' | 'ollama' | 'huggingface' | 'cohere';
+  provider: 'openai' | 'openrouter' | 'ollama' | 'huggingface' | 'cohere';
   model?: string;
   apiKey?: string;
   baseUrl?: string;
   dimensions?: number;
 }
 
+/** OPENROUTER_API_KEY, or OPEN_ROUTER_API_KEY as some shared .env files spell it. */
+export function openRouterApiKey(): string | undefined {
+  return process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER_API_KEY || undefined;
+}
+
 class OpenAIEmbeddingProvider implements EmbeddingProvider {
-  name = 'openai';
+  name: string;
   private client: any;
   private model: string;
 
-  constructor(config: { apiKey: string; model?: string }) {
-    this.client = new OpenAI({ apiKey: config.apiKey });
+  constructor(config: { apiKey: string; model?: string; baseUrl?: string; name?: string }) {
+    this.name = config.name || 'openai';
+    this.client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl });
     this.model = config.model || 'text-embedding-3-small';
   }
 
@@ -43,8 +49,8 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
       });
       return response.data[0].embedding;
     } catch (error) {
-      console.error('OpenAI embedding error:', error);
-      throw new Error('Failed to generate OpenAI embedding');
+      console.error(`${this.name} embedding error:`, error);
+      throw new Error(`Failed to generate ${this.name} embedding`);
     }
   }
 
@@ -209,6 +215,15 @@ export class UniversalEmbeddingService {
           model: config.model,
         });
         break;
+      case 'openrouter':
+        // OpenAI-compatible; openai/text-embedding-3-small keeps the 1536-dim column.
+        this.provider = new OpenAIEmbeddingProvider({
+          name: 'openrouter',
+          apiKey: config.apiKey || openRouterApiKey() || '',
+          baseUrl: config.baseUrl || process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+          model: config.model || process.env.OPENROUTER_EMBEDDING_MODEL || 'openai/text-embedding-3-small',
+        });
+        break;
       case 'ollama':
         this.provider = new OllamaEmbeddingProvider({
           baseUrl: config.baseUrl || process.env.OLLAMA_BASE_URL,
@@ -259,6 +274,10 @@ export const embeddingConfigs = {
   openai: {
     provider: 'openai' as const,
     model: 'text-embedding-3-small',
+  },
+  openrouter: {
+    provider: 'openrouter' as const,
+    model: 'openai/text-embedding-3-small',
   },
   ollama: {
     provider: 'ollama' as const,

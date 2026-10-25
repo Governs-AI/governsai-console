@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireRole } from '@/lib/session';
 
-const ALLOWED_DECISIONS = ['allow', 'transform', 'deny'] as const;
+const ALLOWED_DECISIONS = ['allow', 'transform', 'deny', 'confirm'] as const;
 const ALLOWED_FORMATS = ['csv'] as const;
 const CHUNK_SIZE = 500;
 const EXPORT_ROLE = 'ADMIN';

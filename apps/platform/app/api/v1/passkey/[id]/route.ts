@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { hashApiKey } from '@/lib/api-keys';
 
 // DELETE - Remove passkey
 export async function DELETE(
@@ -19,7 +20,7 @@ export async function DELETE(
 
     // Find API key and get user/org
     const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash: hashApiKey(apiKey) },
       include: {
         user: true,
         org: true,
@@ -105,7 +106,7 @@ export async function PATCH(
 
     // Find API key and get user/org
     const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash: hashApiKey(apiKey) },
       include: {
         user: true,
         org: true,

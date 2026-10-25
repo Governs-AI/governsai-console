@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifySessionToken } from '@/lib/auth';
 import { prisma } from '@governs-ai/db';
-import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
-import { syncKeyToPrecheck, deactivateKeyInPrecheck } from '@/lib/precheck-key-sync';
+import { generateApiKey, keyPreview } from '@/lib/api-keys';
 
 const updateKeySchema = z.object({
   name: z.string().min(1).optional(),
@@ -120,7 +119,7 @@ export async function GET(
       key: {
         id: apiKey.id,
         name: apiKey.name,
-        keyPreview: `${apiKey.key.slice(0, 12)}...${apiKey.key.slice(-4)}`,
+        keyPreview: keyPreview(apiKey.keyPrefix),
         scopes: apiKey.scopes,
         env: apiKey.env,
         isActive: apiKey.isActive,
@@ -258,7 +257,7 @@ export async function PATCH(
       key: {
         id: updatedKey.id,
         name: updatedKey.name,
-        keyPreview: `${updatedKey.key.slice(0, 12)}...${updatedKey.key.slice(-4)}`,
+        keyPreview: keyPreview(updatedKey.keyPrefix),
         scopes: updatedKey.scopes,
         env: updatedKey.env,
         isActive: updatedKey.isActive,
@@ -355,8 +354,6 @@ export async function DELETE(
       },
     });
 
-    deactivateKeyInPrecheck(existingKey.key)
-      .catch(err => console.error('[api-keys] precheck deactivate failed (non-fatal):', err));
 
     // If disconnect=true, close active WebSocket sessions
     if (disconnect) {
@@ -467,20 +464,15 @@ export async function POST(
       return NextResponse.json({ error: 'API key not found' }, { status: 404 });
     }
 
-    // Generate new API key
-    const newKeyValue = `gov_key_${randomBytes(32).toString('hex')}`;
+    // Replacing the hash invalidates the old key everywhere at once: precheck
+    // and the websocket service look keys up by hash in this table.
+    const { rawKey, keyHash, keyPrefix } = generateApiKey('gov_key_');
 
-    // Deactivate old key in precheck, register new one
-    deactivateKeyInPrecheck(existingKey.key)
-      .catch(err => console.error('[api-keys] precheck old-key deactivate failed (non-fatal):', err));
-    syncKeyToPrecheck(newKeyValue, session.sub, org.id, existingKey.expiresAt)
-      .catch(err => console.error('[api-keys] precheck new-key sync failed (non-fatal):', err));
-
-    // Update the key with new value
     const rotatedKey = await prisma.aPIKey.update({
       where: { id: keyId },
       data: {
-        key: newKeyValue,
+        keyHash,
+        keyPrefix,
         updatedAt: new Date(),
       },
       include: {
@@ -499,7 +491,8 @@ export async function POST(
       key: {
         id: rotatedKey.id,
         name: rotatedKey.name,
-        key: rotatedKey.key, // Return full new key
+        key: rawKey, // Returned once; only the hash is stored
+        keyPreview: keyPreview(rotatedKey.keyPrefix),
         scopes: rotatedKey.scopes,
         env: rotatedKey.env,
         isActive: rotatedKey.isActive,

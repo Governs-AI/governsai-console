@@ -109,7 +109,8 @@ describe('POST /api/v1/keys', () => {
       id: 'new-id',
       name: 'SDK Key',
       scopes: ['decisions'],
-      key: 'gai_abc123def456',
+      keyHash: 'h'.repeat(64),
+      keyPrefix: 'gai_abc123de',
       createdAt: new Date(),
       isActive: true,
     });
@@ -127,7 +128,7 @@ describe('POST /api/v1/keys', () => {
   it('accepts label as a fallback for name', async () => {
     mockAuth.mockResolvedValue(AUTH_CTX);
     mockPrisma.aPIKey.create.mockResolvedValue({
-      id: 'id2', name: 'Labelled', scopes: ['usage'], key: 'gai_xyz', createdAt: new Date(), isActive: true,
+      id: 'id2', name: 'Labelled', scopes: ['usage'], keyHash: 'h'.repeat(64), keyPrefix: 'gai_xyz', createdAt: new Date(), isActive: true,
     });
 
     const res = await POST(makeReq('http://localhost/api/v1/keys', 'POST', { label: 'Labelled', scopes: ['usage'] }));

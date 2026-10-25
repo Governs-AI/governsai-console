@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { userResolverService } from '@/lib/services/user-resolver';
+import { hashApiKey } from '@/lib/api-keys';
 
 /**
  * POST /api/v1/users/resolve
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     // Verify API key and get org context
     const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
+      where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
       select: { userId: true, orgId: true },
     });
 
@@ -135,7 +136,7 @@ export async function GET(req: NextRequest) {
 
     // Verify API key
     const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
+      where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
       select: { userId: true, orgId: true },
     });
 

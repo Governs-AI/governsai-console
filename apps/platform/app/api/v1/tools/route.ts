@@ -1,46 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth-server';
-import { cookies } from 'next/headers';
 import { prisma } from '@governs-ai/db';
+import { ensureToolCatalog, mergeCatalog, visibleTo } from '@/lib/tool-catalog';
+import { requireCatalogAdmin, requireCatalogReader } from '@/lib/tool-catalog-auth';
 
 // GET /api/v1/tools - List all available tools with metadata
 export async function GET(request: NextRequest) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Read: any signed-in user or API key.
+    const caller = await requireCatalogReader(request);
+    if (caller instanceof NextResponse) return caller;
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
@@ -48,22 +16,27 @@ export async function GET(request: NextRequest) {
     const scope = searchParams.get('scope');
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
-    const whereClause: any = {
-      isActive: includeInactive ? undefined : true,
-    };
+    await ensureToolCatalog();
 
-    if (category) whereClause.category = category;
-    if (riskLevel) whereClause.riskLevel = riskLevel;
-    if (scope) whereClause.scope = scope;
-
-    const tools = await prisma.toolConfig.findMany({
-      where: whereClause,
+    const rows = await prisma.toolConfig.findMany({
+      where: visibleTo(caller.orgId),
       orderBy: [
         { category: 'asc' },
         { riskLevel: 'asc' },
         { toolName: 'asc' },
       ],
     });
+
+    // Global entries plus this org's own; an org entry overrides a global one.
+    // Filters apply after the merge, so an org can switch a global tool off by
+    // overriding it with isActive=false.
+    const tools = mergeCatalog(rows, caller.orgId).filter(
+      (tool) =>
+        (includeInactive || tool.isActive) &&
+        (!category || tool.category === category) &&
+        (!riskLevel || tool.riskLevel === riskLevel) &&
+        (!scope || tool.scope === scope),
+    );
 
     return NextResponse.json({ tools });
   } catch (error) {
@@ -75,44 +48,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/v1/tools - Create or update tool configuration
+// POST /api/v1/tools - Create or update one of the caller org's catalog entries.
+// Using the name of a global entry creates an org override; the global entry
+// itself is never modified.
 export async function POST(request: NextRequest) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
+    const caller = await requireCatalogAdmin(request);
+    if (caller instanceof NextResponse) return caller;
 
     const body = await request.json();
     const {
@@ -125,6 +68,7 @@ export async function POST(request: NextRequest) {
       direction = 'both',
       metadata = {},
       requiresApproval = false,
+      isActive = true,
     } = body;
 
     if (!toolName || !category || !riskLevel || !scope) {
@@ -135,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tool = await prisma.toolConfig.upsert({
-      where: { toolName },
+      where: { orgId_toolName: { orgId: caller.orgId, toolName } },
       update: {
         displayName,
         description,
@@ -145,9 +89,11 @@ export async function POST(request: NextRequest) {
         direction,
         metadata,
         requiresApproval,
+        isActive,
         updatedAt: new Date(),
       },
       create: {
+        orgId: caller.orgId,
         toolName,
         displayName,
         description,
@@ -157,7 +103,7 @@ export async function POST(request: NextRequest) {
         direction,
         metadata,
         requiresApproval,
-        isActive: true,
+        isActive,
       },
     });
 

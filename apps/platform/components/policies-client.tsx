@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { PolicyForm } from './policy-form';
 import { useRoleCheck } from './role-guard';
+import { POLICY_TEMPLATES, findTemplate } from '@/lib/policy-templates';
 import { useOrgReady } from '@/lib/use-org-ready';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -458,80 +459,9 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   };
 
   const buildTemplatePolicy = (templateId: string): Policy => {
-    const highRiskTools = tools
-      .filter((tool) => tool.riskLevel === 'high' || tool.riskLevel === 'critical')
-      .map((tool) => tool.toolName);
-    const lowRiskTools = tools
-      .filter((tool) => tool.riskLevel === 'low' || tool.riskLevel === 'medium')
-      .map((tool) => tool.toolName);
-    const toolAccess: Record<string, any> = {};
-
-    const basePolicy: Policy = {
-      id: '',
-      name: '',
-      description: '',
-      version: 'v1',
-      defaults: {
-        ingress: { action: 'redact' },
-        egress: { action: 'redact' },
-      },
-      toolAccess: {},
-      denyTools: [],
-      allowTools: [],
-      networkScopes: ['net.'],
-      networkTools: ['web.', 'email.', 'calendar.'],
-      onError: 'block',
-      priority: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    switch (templateId) {
-      case 'allowlist': {
-        return {
-          ...basePolicy,
-          name: 'Allowlist Only',
-          description: 'Only allow vetted tools and block anything else by default.',
-          defaults: {
-            ingress: { action: 'block' },
-            egress: { action: 'block' },
-          },
-          allowTools: lowRiskTools.slice(0, 8),
-          priority: 20,
-        };
-      }
-      case 'review': {
-        highRiskTools.forEach((toolName) => {
-          toolAccess[toolName] = {
-            direction: 'both',
-            action: 'confirm',
-            allow_pii: {},
-          };
-        });
-        return {
-          ...basePolicy,
-          name: 'High-Risk Review',
-          description: 'Require confirmation for high-risk tools while allowing standard traffic.',
-          defaults: {
-            ingress: { action: 'allow' },
-            egress: { action: 'allow' },
-          },
-          toolAccess,
-          priority: 10,
-        };
-      }
-      case 'data-guard':
-      default: {
-        return {
-          ...basePolicy,
-          name: 'Sensitive Data Guard',
-          description: 'Redact sensitive content and block high-risk tools by default.',
-          denyTools: highRiskTools,
-          priority: 15,
-        };
-      }
-    }
+    const template = findTemplate(templateId) ?? POLICY_TEMPLATES[0];
+    const now = new Date().toISOString();
+    return { id: '', createdAt: now, updatedAt: now, ...template.build(tools) } as Policy;
   };
 
   const handleUseTemplate = (templateId: string) => {
@@ -558,26 +488,7 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
   }
 
   const stats = getPolicyStats();
-  const policyTemplates = [
-    {
-      id: 'data-guard',
-      title: 'Sensitive Data Guard',
-      description: 'Redact sensitive content and block high-risk tools by default.',
-      tags: ['Redact by default', 'Block high-risk tools'],
-    },
-    {
-      id: 'review',
-      title: 'High-Risk Review',
-      description: 'Require human confirmation for high-risk tools.',
-      tags: ['Confirm high-risk tools', 'Allow baseline traffic'],
-    },
-    {
-      id: 'allowlist',
-      title: 'Allowlist Only',
-      description: 'Only allow explicit tools and block anything else.',
-      tags: ['Block by default', 'Allowlist tools'],
-    },
-  ];
+  const policyTemplates = POLICY_TEMPLATES;
 
   const headerActions =
     activeView === 'define'
@@ -778,14 +689,17 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                 <CardDescription>Start with best-practice guardrails and customize to your org.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   {policyTemplates.map((template) => (
                     <div
                       key={template.id}
                       className="rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-3"
                     >
                       <div>
-                        <div className="text-sm font-semibold">{template.title}</div>
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                          {template.title}
+                          {template.recommended && <Badge className="text-[10px]">Recommended</Badge>}
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -801,11 +715,6 @@ export function PoliciesClient({ orgSlug }: PoliciesClientProps) {
                     </div>
                   ))}
                 </div>
-                {tools.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-3">
-                    Add tools to your catalog to auto-populate allowlists and high-risk review templates.
-                  </p>
-                )}
               </CardContent>
             </Card>
           )}

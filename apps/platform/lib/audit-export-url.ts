@@ -5,7 +5,7 @@
 // format=csv and the same filter keys as the 2.2a list endpoint.
 
 export interface AuditExportFilters {
-  decision: '' | 'allow' | 'transform' | 'deny';
+  decision: '' | 'allow' | 'transform' | 'deny' | 'confirm';
   tool: string;
   user: string;
   from: string; // datetime-local string, will be normalized to ISO

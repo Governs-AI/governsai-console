@@ -20,6 +20,7 @@ model Org {
   budgetEnabled        Boolean               @default(true)
   budgetOnError        String                @default("block") // "block" | "pass"
   apiKeys              APIKey[]
+  toolConfigs          ToolConfig[]
   networkRules         NetworkAccessRule[]
   memberships          OrgMembership[]
   channels             WebSocketChannel[]
@@ -174,8 +175,10 @@ model PendingConfirmation {
 
 model APIKey {
   id                   String                @id @default(cuid())
-  key                  String                @unique
-  keyHash              String?               @unique
+  /// SHA-256 of the full key. The key itself is never stored (shown once at creation).
+  keyHash              String                @unique
+  /// First 12 characters, for display only.
+  keyPrefix            String
   name                 String
   userId               String
   orgId                String                @map("org_id")
@@ -194,7 +197,6 @@ model APIKey {
   pendingConfirmations PendingConfirmation[]
   purchaseRecords      PurchaseRecord[]
 
-  @@index([key])
   @@index([keyHash])
   @@index([userId])
   @@index([orgId])
@@ -436,9 +438,16 @@ model Policy {
   @@index([priority])
 }
 
+/// Tool catalog. `orgId` null = global entry (built-ins and entries that
+/// predate per-org catalogs): readable by every org, editable by none. An org
+/// entry belongs to that org and overrides a global entry of the same name for
+/// it. Unique per (orgId, toolName), with NULLs not distinct (see migration
+/// 20261025140000_tool_catalog_per_org), so global names stay unique too.
 model ToolConfig {
   id               String   @id @default(cuid())
-  toolName         String   @unique @map("tool_name")
+  orgId            String?  @map("org_id")
+  org              Org?     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  toolName         String   @map("tool_name")
   displayName      String?  @map("display_name")
   description      String?
   category         String
@@ -451,6 +460,8 @@ model ToolConfig {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  @@unique([orgId, toolName])
+  @@index([orgId])
   @@index([category])
   @@index([riskLevel])
   @@index([scope])

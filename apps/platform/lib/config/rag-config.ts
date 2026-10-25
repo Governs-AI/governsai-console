@@ -7,12 +7,20 @@
 export const RAG_CONFIG = {
   // === Embedding Configuration ===
   EMBEDDING: {
-    // Default provider (openai, ollama, huggingface, cohere)
-    DEFAULT_PROVIDER: (process.env.EMBEDDING_PROVIDER || 'openai') as 'openai' | 'ollama' | 'huggingface' | 'cohere',
+    // Default provider (openai, openrouter, ollama, huggingface, cohere).
+    // Unset: OpenRouter when its key is configured, otherwise OpenAI.
+    DEFAULT_PROVIDER: (process.env.EMBEDDING_PROVIDER ||
+      (process.env.OPENROUTER_API_KEY || process.env.OPEN_ROUTER_API_KEY ? 'openrouter' : 'openai')) as
+      | 'openai'
+      | 'openrouter'
+      | 'ollama'
+      | 'huggingface'
+      | 'cohere',
 
     // Dimension mapping for each provider
     DIMENSIONS: {
       openai: 1536,
+      openrouter: 1536,
       ollama: 768,
       huggingface: 384,
       cohere: 1024,

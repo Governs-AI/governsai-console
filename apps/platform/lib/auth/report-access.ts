@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
+import { hashApiKey } from '@/lib/api-keys';
 
 export interface ReportAuthContext {
   userId: string;
@@ -31,7 +32,7 @@ export async function resolveReportAuth(
 
   if (apiKeyHeader) {
     const apiKey = await prisma.aPIKey.findFirst({
-      where: { key: apiKeyHeader, isActive: true },
+      where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
       select: { userId: true, orgId: true },
     });
 

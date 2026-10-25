@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
+import { mergeCatalog, visibleTo } from '@/lib/tool-catalog';
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,15 +59,13 @@ export async function GET(request: NextRequest) {
     });
 
     // Get tool metadata for categories
-    const toolMetadata = await prisma.toolConfig.findMany({
-      where: {
-        isActive: true,
-      },
-      select: {
-        toolName: true,
-        category: true,
-      },
-    });
+    const toolMetadata = mergeCatalog(
+      await prisma.toolConfig.findMany({
+        where: { ...visibleTo(orgId), isActive: true },
+        select: { toolName: true, category: true, orgId: true },
+      }),
+      orgId,
+    );
 
     const toolCategoryMap = toolMetadata.reduce((acc, tool) => {
       acc[tool.toolName] = tool.category || 'General';

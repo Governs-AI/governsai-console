@@ -48,6 +48,16 @@ interface ToolConfig {
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  /** null: shared catalog entry (read-only); otherwise owned by this org. */
+  orgId?: string | null;
+  /** True for this org's own entries. Saving a shared one creates an override. */
+  editable?: boolean;
+}
+
+/** The fields an org override copies from a shared entry. */
+function overrideOf(tool: ToolConfig, changes: ToolFormPayload = {}): ToolFormPayload {
+  const { toolName, displayName, description, category, riskLevel, scope, direction, requiresApproval, isActive, metadata } = tool;
+  return { toolName, displayName, description, category, riskLevel, scope, direction, requiresApproval, isActive, metadata, ...changes };
 }
 
 interface ToolsClientProps {
@@ -161,8 +171,16 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
   const handleSaveTool = async (toolData: ToolFormPayload) => {
     try {
       let response;
-      if (editingTool) {
-        // Update existing tool
+      if (editingTool && editingTool.editable === false) {
+        // Shared entry: save it as this org's override
+        response = await fetch('/api/v1/tools', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(overrideOf(editingTool, toolData)),
+        });
+      } else if (editingTool) {
+        // Update this org's own entry
         response = await fetch(`/api/v1/tools/${editingTool.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -206,14 +224,24 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
     setSelectedToolId(tool.id);
   };
 
-  const toggleToolStatus = async (toolId: string, currentStatus: boolean) => {
+  const toggleToolStatus = async (tool: ToolConfig) => {
+    const currentStatus = tool.isActive;
     try {
-      const response = await fetch(`/api/v1/tools/${toolId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ isActive: !currentStatus }),
-      });
+      // A shared entry is switched off for this org with an override.
+      const response =
+        tool.editable === false
+          ? await fetch('/api/v1/tools', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(overrideOf(tool, { isActive: !currentStatus })),
+            })
+          : await fetch(`/api/v1/tools/${tool.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ isActive: !currentStatus }),
+            });
 
       if (response.ok) {
         await fetchTools();
@@ -610,7 +638,14 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
                         className={`cursor-pointer hover:bg-muted/20 ${selectedToolId === tool.id ? 'bg-muted/40' : ''}`}
                       >
                         <td className="px-3 py-2">
-                          <div className="font-medium font-mono">{tool.toolName}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium font-mono">{tool.toolName}</span>
+                            {tool.editable === false ? (
+                              <Badge variant="outline" title="Shared catalog entry, read-only. Editing creates an override for your org.">Shared</Badge>
+                            ) : tool.orgId ? (
+                              <Badge variant="secondary">Your org</Badge>
+                            ) : null}
+                          </div>
                           {tool.displayName && (
                             <div className="text-xs text-muted-foreground">{tool.displayName}</div>
                           )}
@@ -645,7 +680,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
                                 event.stopPropagation();
                                 handleEditTool(tool);
                               }}
-                              title="Edit tool"
+                              title={tool.editable === false ? 'Override for your org' : 'Edit tool'}
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
@@ -654,7 +689,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
                               size="sm"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                toggleToolStatus(tool.id, tool.isActive);
+                                toggleToolStatus(tool);
                               }}
                               title={tool.isActive ? 'Deactivate' : 'Activate'}
                             >
@@ -754,7 +789,7 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => toggleToolStatus(selectedTool.id, selectedTool.isActive)}
+                    onClick={() => toggleToolStatus(selectedTool)}
                   >
                     {selectedTool.isActive ? (
                       <>
@@ -768,14 +803,16 @@ export function ToolsClient({ orgSlug }: ToolsClientProps) {
                       </>
                     )}
                   </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => deleteTool(selectedTool.id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
+                  {selectedTool.editable !== false && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => deleteTool(selectedTool.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {selectedTool.orgId ? 'Delete override' : 'Delete'}
+                    </Button>
+                  )}
                 </div>
               </div>
             ) : (

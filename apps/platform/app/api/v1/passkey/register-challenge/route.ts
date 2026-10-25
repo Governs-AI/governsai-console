@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateRegistrationOptions } from '@simplewebauthn/server';
 import { prisma } from '@governs-ai/db';
+import { hashApiKey } from '@/lib/api-keys';
 
 const RP_NAME = 'GovernsAI';
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Find API key and get user/org
     const keyRecord = await prisma.aPIKey.findUnique({
-      where: { key: apiKey },
+      where: { keyHash: hashApiKey(apiKey) },
       include: {
         user: true,
         org: true,

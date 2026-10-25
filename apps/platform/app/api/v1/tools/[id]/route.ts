@@ -1,7 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySessionToken } from '@/lib/auth-server';
 import { prisma } from '@governs-ai/db';
-import { cookies } from 'next/headers';
+import { requireCatalogAdmin, requireCatalogReader } from '@/lib/tool-catalog-auth';
+import { visibleTo } from '@/lib/tool-catalog';
+
+/**
+ * Admins edit only their own org's entries. A global entry (built-in or
+ * pre-dating per-org catalogs) is read-only: POST /api/v1/tools with its
+ * toolName creates an org override instead. Another org's entry is a 404.
+ */
+async function ownEntryOr403(orgId: string, id: string): Promise<NextResponse | null> {
+  const tool = await prisma.toolConfig.findUnique({ where: { id }, select: { orgId: true } });
+  if (!tool || (tool.orgId !== null && tool.orgId !== orgId)) {
+    return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
+  }
+  if (tool.orgId === null) {
+    return NextResponse.json(
+      {
+        error:
+          'Shared catalog entries are read-only. Create an entry with the same toolName for your org to override it.',
+      },
+      { status: 403 },
+    );
+  }
+  return null;
+}
 
 // GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
@@ -9,44 +31,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
+    // Read: any signed-in user or API key.
+    const caller = await requireCatalogReader(request);
+    if (caller instanceof NextResponse) return caller;
 
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const tool = await prisma.toolConfig.findUnique({
-      where: { id: (await params).id },
+    // Global entries and the caller org's own; another org's entry is a 404.
+    const tool = await prisma.toolConfig.findFirst({
+      where: { AND: [visibleTo(caller.orgId), { id: (await params).id }] },
     });
 
     if (!tool) {
@@ -69,41 +60,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
+    const caller = await requireCatalogAdmin(request);
+    if (caller instanceof NextResponse) return caller;
+    const denied = await ownEntryOr403(caller.orgId, (await params).id);
+    if (denied) return denied;
 
     const body = await request.json();
     const {
@@ -152,41 +113,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth: Bearer JWT or X-Governs-Key
-    let userId: string | undefined;
-    let orgId: string | undefined;
-
-    const authHeader = request.headers.get('authorization');
-    const apiKeyHeader = request.headers.get('x-governs-key');
-    const sessionCookie = (await cookies()).get('session')?.value;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice('Bearer '.length).trim();
-      const session = verifySessionToken(token);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    } else if (apiKeyHeader) {
-      const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
-        select: { userId: true, orgId: true },
-      });
-      if (apiKey) {
-        userId = apiKey.userId;
-        orgId = apiKey.orgId;
-      }
-    } else if (sessionCookie) {
-      const session = verifySessionToken(sessionCookie);
-      if (session) {
-        userId = session.sub;
-        orgId = session.orgId;
-      }
-    }
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
+    const caller = await requireCatalogAdmin(request);
+    if (caller instanceof NextResponse) return caller;
+    const denied = await ownEntryOr403(caller.orgId, (await params).id);
+    if (denied) return denied;
 
     await prisma.toolConfig.delete({
       where: { id: (await params).id },

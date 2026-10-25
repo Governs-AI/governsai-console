@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { verifySessionToken } from '@/lib/auth-server';
+import { hashApiKey } from '@/lib/api-keys';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
       }
     } else if (apiKeyHeader) {
       const apiKey = await prisma.aPIKey.findFirst({
-        where: { key: apiKeyHeader, isActive: true },
+        where: { keyHash: hashApiKey(apiKeyHeader), isActive: true },
         select: { userId: true, orgId: true },
       });
       if (apiKey) {

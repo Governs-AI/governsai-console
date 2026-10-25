@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { getSessionFromRequest } from '@/lib/auth-utils';
+import {
+  canDecide,
+  canView,
+  expireIfStale,
+  resolveConfirmationActor,
+  serializeConfirmation,
+} from '@/lib/confirmations';
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3002')
   .split(',')
@@ -11,7 +17,7 @@ function corsHeaders(origin: string | null) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Governs-Key',
     'Vary': 'Origin',
   };
 }
@@ -23,8 +29,9 @@ export async function GET(
   const origin = request.headers.get('origin');
 
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
+    // Session (dashboard) or X-Governs-Key (the integration polling its own request)
+    const actor = await resolveConfirmationActor(request);
+    if (!actor) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders(origin) });
     }
 
@@ -33,7 +40,7 @@ export async function GET(
       return NextResponse.json({ error: 'correlationId is required' }, { status: 400, headers: corsHeaders(origin) });
     }
 
-    const confirmation = await prisma.pendingConfirmation.findUnique({
+    const found = await prisma.pendingConfirmation.findUnique({
       where: { correlationId },
       include: {
         user: { select: { id: true, email: true, name: true } },
@@ -41,42 +48,19 @@ export async function GET(
       },
     });
 
-    if (!confirmation) {
+    if (!found) {
       return NextResponse.json({ error: 'Confirmation not found' }, { status: 404, headers: corsHeaders(origin) });
     }
 
-    // Users can only see their own confirmations; org admins can see their org's
-    const isOwner = confirmation.userId === session.sub;
-    const isOrgAdmin = confirmation.orgId === session.orgId && session.roles?.includes('admin');
-    if (!isOwner && !isOrgAdmin) {
+    if (!(await canView(actor, found))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: corsHeaders(origin) });
     }
 
-    const isExpired = new Date() > confirmation.expiresAt;
-    if (isExpired && confirmation.status === 'pending') {
-      await prisma.pendingConfirmation.update({
-        where: { id: confirmation.id },
-        data: { status: 'expired' },
-      });
-    }
-
+    const confirmation = await expireIfStale(found);
     return NextResponse.json({
       confirmation: {
-        id: confirmation.id,
-        correlationId: confirmation.correlationId,
-        userId: confirmation.userId,
-        orgId: confirmation.orgId,
-        requestType: confirmation.requestType,
-        requestDesc: confirmation.requestDesc,
-        requestPayload: confirmation.requestPayload,
-        decision: confirmation.decision,
-        reasons: confirmation.reasons,
-        status: isExpired && confirmation.status === 'pending' ? 'expired' : confirmation.status,
-        expiresAt: confirmation.expiresAt.toISOString(),
-        createdAt: confirmation.createdAt.toISOString(),
-        approvedAt: confirmation.approvedAt?.toISOString() || null,
-        user: confirmation.user,
-        org: confirmation.org,
+        ...serializeConfirmation(confirmation),
+        canDecide: await canDecide(actor, confirmation),
       },
     }, { headers: corsHeaders(origin) });
 
