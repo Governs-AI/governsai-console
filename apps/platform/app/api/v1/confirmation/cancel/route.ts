@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { canCancel, resolveConfirmationActor } from '@/lib/confirmations';
 
 export async function POST(request: NextRequest) {
   try {
+    const actor = await resolveConfirmationActor(request);
+    if (!actor) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { correlationId } = body;
 
@@ -25,6 +31,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!(await canCancel(actor, confirmation))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Check if already processed
     if (confirmation.status !== 'pending') {
       return NextResponse.json(
@@ -44,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        userId: confirmation.userId,
+        userId: actor.userId,
         orgId: confirmation.orgId,
         action: 'confirmation.cancel',
         resource: 'PendingConfirmation',

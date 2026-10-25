@@ -94,21 +94,28 @@ export default function ConfirmationPage() {
         body: JSON.stringify({ correlationId }),
       });
 
-      if (!challengeResponse.ok) {
-        const errorData = await challengeResponse.json();
-        console.error('Auth challenge error:', errorData);
-        throw new Error(errorData.error || 'Failed to get authentication challenge');
+      const challengeData = await challengeResponse.json().catch(() => ({}));
+
+      // No passkey registered: approve with the signed-in session instead.
+      // Passkeys remain the stronger step-up when the user has one.
+      if (String(challengeData.error || '').includes('No passkeys registered')) {
+        const sessionResponse = await fetch(`/api/v1/confirmation/${correlationId}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        if (!sessionResponse.ok) {
+          const errorData = await sessionResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to approve confirmation');
+        }
+        setSuccess('Approved. The requesting agent will continue automatically.');
+        await fetchConfirmation();
+        return;
       }
 
-      const challengeData = await challengeResponse.json();
-
-      // Check if user needs to register a passkey first
-      if (challengeData.error && challengeData.error.includes('No passkeys registered')) {
-        const currentOrgSlug = confirmation.org.slug;
-        throw new Error(
-          `You need to register a passkey first. ` +
-          `Please visit: /o/${currentOrgSlug}/settings/passkeys to register one, then try again.`
-        );
+      if (!challengeResponse.ok) {
+        console.error('Auth challenge error:', challengeData);
+        throw new Error(challengeData.error || 'Failed to get authentication challenge');
       }
 
       const { options } = challengeData;
@@ -163,17 +170,17 @@ export default function ConfirmationPage() {
     setIsProcessing(true);
 
     try {
-      const response = await fetch('/api/v1/confirmation/cancel', {
+      const response = await fetch(`/api/v1/confirmation/${correlationId}/deny`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ correlationId }),
+        body: '{}',
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to cancel confirmation');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to deny confirmation');
       }
 
       setSuccess('Confirmation denied successfully! You can close this window.');
