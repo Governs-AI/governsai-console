@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logAuthToken } from '@/lib/dev-log';
 import { z } from 'zod';
 import { createEmailVerificationToken } from '@/lib/auth';
 import { requireRole } from '@/lib/session';
@@ -105,7 +106,7 @@ export async function POST(
     }
 
     console.log("10")
-    console.log(`Invitation token for ${email} to org ${orgId}: ${inviteToken}`);
+    logAuthToken(`Invitation (org ${orgId})`, email, inviteToken);
 
     return NextResponse.json({
       success: true,

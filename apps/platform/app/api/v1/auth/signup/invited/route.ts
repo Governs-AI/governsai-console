@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logAuthToken } from '@/lib/dev-log';
 import { z } from 'zod';
 import {
     createUser,
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
             console.error('Failed to send verification email:', emailResult.error);
         }
 
-        console.log(`Email verification token for ${email}: ${emailVerifyToken}`);
+        logAuthToken('Email verification', email, emailVerifyToken);
 
         // Sync user to Keycloak with organization context (non-blocking)
         if (org) {

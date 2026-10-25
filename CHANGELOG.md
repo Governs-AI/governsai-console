@@ -49,5 +49,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   was a fixed 5m; max 24h) and returns `confirmationUrl` and `approvalsUrl`.
 
 ### Security
+- Email-verification, password-reset and invite tokens were `console.log`ged
+  in every environment. They are now logged only under `next dev` or with
+  `LOG_AUTH_TOKENS=true` (`lib/dev-log.ts`). Removed a debug log of session
+  details in the org API-keys route.
 - `POST /api/v1/confirmation/cancel` was unauthenticated. It now requires a
   same-org key or an authorised session.

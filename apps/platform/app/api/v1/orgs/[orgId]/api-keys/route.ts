@@ -32,12 +32,6 @@ export async function GET(
 
      const { orgId: orgSlugOrId } = await params;
 
-    // Debug logging
-    console.log('API Keys Debug:', {
-      orgSlugOrId,
-      userId: session.sub,
-      sessionValid: !!session
-    });
 
     // First, find the organization by slug or ID
     const org = await prisma.org.findFirst({
