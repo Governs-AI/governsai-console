@@ -131,7 +131,7 @@ export class DecisionService {
       console.log("🔍 Validating decision data...");
       // Validate decision data (ensure orgId is in data object for validation)
       const dataForValidation = { ...data, orgId };
-      console.log("📊 Decision data:", JSON.stringify(dataForValidation, null, 2));
+      // Never log the payload itself: it can carry prompt content.
       this.validateDecisionData(dataForValidation);
       console.log("✅ Decision validation passed");
       // Create decision record
@@ -183,7 +183,7 @@ export class DecisionService {
         stack: error.stack,
         orgId: decisionData?.orgId,
         userId: decisionData?.userId,
-        decisionData: decisionData
+        correlationId: decisionData?.correlationId
       });
       throw new Error(`Failed to process decision: ${error.message}`);
     }
@@ -273,7 +273,7 @@ export class DecisionService {
     
     if (missing.length > 0) {
       console.error('❌ Missing required fields:', missing);
-      console.error('❌ Full data object:', JSON.stringify(data, null, 2));
+      console.error('❌ Present fields:', Object.keys(data));
       throw new Error(`Missing required fields: ${missing.join(', ')}`);
     }
 

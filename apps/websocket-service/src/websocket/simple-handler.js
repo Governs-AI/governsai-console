@@ -313,7 +313,8 @@ export class SimpleWebSocketHandler {
         message: error.message,
         stack: error.stack,
         connectionId: connection.id,
-        messageData: message
+        schema: message?.schema,
+        idempotencyKey: message?.idempotencyKey
       });
       this.sendError(connection.ws, 'INGEST_ERROR', error.message);
     }
