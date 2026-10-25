@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/auth-server';
 import { cookies } from 'next/headers';
 import { prisma } from '@governs-ai/db';
+import { ensureToolCatalog } from '@/lib/tool-catalog';
 
 // GET /api/v1/tools - List all available tools with metadata
 export async function GET(request: NextRequest) {
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest) {
     if (category) whereClause.category = category;
     if (riskLevel) whereClause.riskLevel = riskLevel;
     if (scope) whereClause.scope = scope;
+
+    await ensureToolCatalog();
 
     const tools = await prisma.toolConfig.findMany({
       where: whereClause,

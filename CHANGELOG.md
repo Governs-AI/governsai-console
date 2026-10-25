@@ -15,6 +15,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `POST /api/v1/confirmation/:id/consume`: the integration marks an approval
   used right before acting. One approval authorises one execution.
 - `GET /api/v1/confirmations?status=`: the inbox list, with `pendingCount`.
+- `GET /api/v1/tools/:toolName/metadata` returns the `tool_config` shape the
+  SDKs use to enrich precheck calls. They called this path, but it didn't exist.
+- `GET /api/v1/context/conversation/:conversationId`: the path form the SDKs
+  call, alongside the existing query-string form.
+- Built-in tool catalog (`lib/tool-catalog.ts`): the model, the chat-demo
+  tools, payments, email and the exec tools are inserted on first use, so a
+  fresh install can write tool rules without running a seed. Existing rows are
+  never overwritten.
 
 ### Changed
 - `GET /api/v1/confirmation/:id` also accepts `X-Governs-Key` (same org), so
