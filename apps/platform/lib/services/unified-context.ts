@@ -2,7 +2,12 @@ import { prisma } from '@governs-ai/db';
 // Temporary typing bridge until Prisma client resolution is stable across the workspace
 const dbAny = prisma as any;
 import { contextPrecheck } from '@/lib/services/context-precheck';
-import { UniversalEmbeddingService, createEmbeddingService, embeddingConfigs } from './embedding-service';
+import {
+  UniversalEmbeddingService,
+  createEmbeddingService,
+  embeddingConfigs,
+  openRouterApiKey,
+} from './embedding-service';
 import { queueChunking } from '../workers/chunk-worker';
 import { RAG_CONFIG, getDatabaseVectorDimension } from '../config/rag-config';
 import { normalizeEmbeddingDimensions, toVectorString } from './embedding-utils';
@@ -71,7 +76,14 @@ export class UnifiedContextService {
    * Get default embedding configuration based on environment
    */
   private getDefaultEmbeddingConfig() {
-    // Check for Ollama first (local development)
+    const explicit = process.env.EMBEDDING_PROVIDER;
+
+    // OpenRouter when chosen, or when its key is set and nothing else is chosen
+    if (explicit === 'openrouter' || (!explicit && openRouterApiKey())) {
+      return embeddingConfigs.openrouter;
+    }
+
+    // Check for Ollama (local development)
     if (process.env.OLLAMA_BASE_URL || process.env.EMBEDDING_PROVIDER === 'ollama') {
       return {
         ...embeddingConfigs.ollama,

@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- OpenRouter embedding provider (`EMBEDDING_PROVIDER=openrouter`, default
+  `openai/text-embedding-3-small`, 1536 dims). It is the default when
+  `OPENROUTER_API_KEY` (or `OPEN_ROUTER_API_KEY`) is set and
+  `EMBEDDING_PROVIDER` is not.
 - Approvals inbox at `/o/:slug/approvals` (nav: Approvals). It lists confirm
   decisions held for review and refreshes every 5s.
 - `POST /api/v1/confirmation/:id/approve|deny`: session approval by the
