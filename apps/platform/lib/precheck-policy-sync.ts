@@ -13,10 +13,16 @@ import { createHmac } from 'crypto';
  * The 60s TTL on the precheck side is the backstop if this call is dropped.
  */
 export async function invalidatePrecheckPolicy(orgId: string): Promise<void> {
-  const url = process.env.PRECHECK_INVALIDATE_URL;
+  // Defaults to PRECHECK_URL's invalidate route, so an edit applies at once
+  // wherever the dashboard can already reach precheck.
+  const url =
+    process.env.PRECHECK_INVALIDATE_URL ||
+    (process.env.PRECHECK_URL
+      ? `${process.env.PRECHECK_URL.replace(/\/+$/, '')}/api/v1/internal/policy/invalidate`
+      : undefined);
   const secret = process.env.KEY_HMAC_SECRET;
   if (!url || !secret) {
-    // Silent in local dev (env not wired); intentional.
+    // No precheck configured: the 60s TTL applies.
     return;
   }
   try {
