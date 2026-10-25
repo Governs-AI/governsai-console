@@ -29,6 +29,7 @@ MARKERS=(
   "20260424180000_compliance_report_hardening|$(col compliance_reports error_code)"
   "20261025120000_hash_api_keys|NOT $(col APIKey key)"
   "20261025130000_catch_up_schema_drift|false"
+  "20261025140000_tool_catalog_per_org|$(col ToolConfig org_id)"
 )
 
 # Read-only boolean query through the generated Prisma client (no psql needed).

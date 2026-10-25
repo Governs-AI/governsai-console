@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- The tool catalog is scoped per org (`ToolConfig.orgId`, migration
+  `20261025140000_tool_catalog_per_org`). Existing entries and the built-ins
+  become shared entries (`orgId` null): readable by all, editable by none. Org
+  admins create, edit and delete their own org's entries. An org entry named
+  like a shared one overrides it for that org only. Reads return the merged
+  view with `editable`; another org's entries return 404. Uniqueness is
+  `(org_id, tool_name) NULLS NOT DISTINCT`. The Tools page marks shared entries,
+  and editing or deactivating one saves an org override.
+
 ### Fixed
 - `prisma migrate deploy` now builds the full schema. Migration
   `20261025130000_catch_up_schema_drift` adds `User.external_id`/`external_source`,

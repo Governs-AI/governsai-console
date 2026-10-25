@@ -74,6 +74,7 @@ const prismaMock: any = {
     findMany: jest.fn(),
   },
   toolConfig: {
+    findFirst: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
     createMany: jest.fn(),

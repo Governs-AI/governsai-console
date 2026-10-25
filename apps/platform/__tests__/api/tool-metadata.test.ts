@@ -27,7 +27,13 @@ const PAYMENT = {
   requiresApproval: true,
   metadata: { vendor: 'stripe' },
   isActive: true,
+  orgId: null,
 };
+
+/** findMany: the seeding query gets `seeded`, the catalog lookup gets `lookup`. */
+function catalog(mock: any, lookup: unknown[], seeded: unknown[] = []) {
+  mock.toolConfig.findMany.mockImplementation(async ({ where }: any) => (where.AND ? lookup : seeded));
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -42,8 +48,8 @@ it('requires a key or session', async () => {
 });
 
 it('returns the tool_config shape precheck expects', async () => {
-  mockPrisma.aPIKey.findFirst.mockResolvedValue({ id: 'k' });
-  mockPrisma.toolConfig.findUnique.mockResolvedValueOnce(PAYMENT);
+  mockPrisma.aPIKey.findFirst.mockResolvedValue({ orgId: 'org-1' });
+  catalog(mockPrisma, [PAYMENT]);
   const res = await GET(req({ 'x-governs-key': 'gai_x' }), params('payment_process'));
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({
@@ -62,8 +68,8 @@ it('returns the tool_config shape precheck expects', async () => {
 });
 
 it('404s unknown tools', async () => {
-  mockPrisma.aPIKey.findFirst.mockResolvedValue({ id: 'k' });
-  mockPrisma.toolConfig.findUnique.mockResolvedValue(null);
+  mockPrisma.aPIKey.findFirst.mockResolvedValue({ orgId: 'org-1' });
+  catalog(mockPrisma, []);
   const res = await GET(req({ 'x-governs-key': 'gai_x' }), params('nope'));
   expect(res.status).toBe(404);
 });
@@ -72,10 +78,9 @@ it('seeds missing built-in tools once, without overwriting existing rows', async
   jest.resetModules();
   const { GET: freshGET } = require('@/app/api/v1/tools/[id]/metadata/route');
   const { prisma: freshPrisma } = require('@governs-ai/db');
-  freshPrisma.aPIKey.findFirst.mockResolvedValue({ id: 'k' });
-  freshPrisma.toolConfig.findMany.mockResolvedValue([{ toolName: 'payment_process' }]);
+  freshPrisma.aPIKey.findFirst.mockResolvedValue({ orgId: 'org-1' });
+  catalog(freshPrisma, [PAYMENT], [{ toolName: 'payment_process' }]);
   freshPrisma.toolConfig.createMany.mockResolvedValue({ count: 1 });
-  freshPrisma.toolConfig.findUnique.mockResolvedValue(PAYMENT);
 
   await freshGET(req({ 'x-governs-key': 'gai_x' }), params('payment_process'));
   await freshGET(req({ 'x-governs-key': 'gai_x' }), params('payment_process'));
@@ -87,4 +92,13 @@ it('seeds missing built-in tools once, without overwriting existing rows', async
   expect(names).not.toContain('payment_process'); // already present
   expect(names).toEqual(expect.arrayContaining(['model.chat', 'email_send', 'bash.exec']));
   expect(names).toHaveLength(BUILT_IN_TOOLS.length - 1);
+  // Built-ins are global entries.
+  expect(freshPrisma.toolConfig.findMany.mock.calls[0][0].where.orgId).toBeNull();
+});
+
+it("prefers the caller org's override to the global entry", async () => {
+  mockPrisma.aPIKey.findFirst.mockResolvedValue({ orgId: 'org-1' });
+  catalog(mockPrisma, [PAYMENT, { ...PAYMENT, id: 't9', orgId: 'org-1', riskLevel: 'high' }]);
+  const res = await GET(req({ 'x-governs-key': 'gai_x' }), params('payment_process'));
+  expect((await res.json()).metadata.metadata.risk_level).toBe('high');
 });

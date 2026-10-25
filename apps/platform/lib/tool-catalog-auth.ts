@@ -6,14 +6,14 @@ import { verifySessionToken } from '@/lib/auth-server';
 import { hashApiKey } from '@/lib/api-keys';
 
 /**
- * Access to the shared tool catalog (`ToolConfig`).
+ * Access to the tool catalog (`ToolConfig`).
  *
- * The catalog is global: every org's policies target tools by name, and the
- * risk/scope recorded here is what the dashboard shows everyone. So:
+ * Entries are global (orgId null: built-ins and pre-V2.17 entries, read-only)
+ * or owned by an org. See lib/tool-catalog.ts for how the two merge.
  *
- * - read:  any signed-in user or any active API key
- * - write: a signed-in OWNER or ADMIN of their active org. API keys are
- *          always read-only, so an integration can't relabel a tool.
+ * - read:  any signed-in user or any active API key; sees global + own org
+ * - write: a signed-in OWNER or ADMIN, and only their active org's entries.
+ *          API keys are always read-only, so an integration can't relabel a tool.
  */
 export type CatalogCaller = {
   userId: string;

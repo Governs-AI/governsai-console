@@ -1,8 +1,11 @@
 /**
- * V2.13 — the shared tool catalog is admin-managed.
+ * V2.13 / V2.17 — the tool catalog is admin-managed and scoped per org.
  *
- * Any signed-in user or API key can read it; only a signed-in OWNER/ADMIN can
- * create, edit or delete entries. API keys are read-only.
+ * - Reads: any signed-in user or API key; global entries plus the caller's
+ *   org entries, the org's entry winning over a global one of the same name.
+ * - Writes: a signed-in OWNER/ADMIN, only on their own org's entries. Global
+ *   entries (orgId null) are read-only; another org's entries are invisible.
+ * - API keys are read-only.
  */
 
 import { createHash } from 'crypto';
@@ -19,9 +22,15 @@ import { DELETE, GET as GET_ONE, PUT } from '@/app/api/v1/tools/[id]/route';
 
 const mockPrisma = prisma as any;
 const KEY = 'gai_integration_key';
-const TOOL = { id: 't1', toolName: 'payment_process', category: 'financial', riskLevel: 'critical', scope: 'net.external' };
-const NEW_TOOL = { toolName: 'crm_lookup', category: 'data', riskLevel: 'low', scope: 'net.external' };
-const params = { params: Promise.resolve({ id: 't1' }) };
+
+const GLOBAL = { id: 'g1', orgId: null, toolName: 'payment_process', category: 'financial', riskLevel: 'critical', scope: 'net.external', isActive: true };
+const OWN = { id: 'a1', orgId: 'org-A', toolName: 'crm_lookup', category: 'data', riskLevel: 'low', scope: 'net.external', isActive: true };
+const OTHER = { id: 'b1', orgId: 'org-B', toolName: 'erp_sync', category: 'data', riskLevel: 'low', scope: 'net.external', isActive: true };
+const OVERRIDE = { ...GLOBAL, id: 'a2', orgId: 'org-A', riskLevel: 'high' };
+const ROWS = [GLOBAL, OWN, OTHER, OVERRIDE];
+const NEW_TOOL = { toolName: 'ticket_create', category: 'data', riskLevel: 'low', scope: 'net.external' };
+
+const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 function req(method: string, body?: unknown, headers: Record<string, string> = {}) {
   return new NextRequest('http://localhost/api/v1/tools', {
@@ -31,92 +40,132 @@ function req(method: string, body?: unknown, headers: Record<string, string> = {
   });
 }
 
-/** Caller is an API key holder. */
-function asApiKey() {
+/** Rows visible under a `{ OR: [{orgId: null}, {orgId}] }`-style where clause. */
+function visible(where: any): typeof ROWS {
+  const scope = where?.AND ? where.AND[0] : where;
+  const orgs = (scope?.OR ?? []).map((c: any) => c.orgId);
+  let rows = ROWS.filter((r) => orgs.includes(r.orgId));
+  const idClause = where?.AND?.[1];
+  if (idClause?.id) rows = rows.filter((r) => r.id === idClause.id);
+  return rows;
+}
+
+function asApiKey(orgId = 'org-A') {
   (cookies as jest.Mock).mockResolvedValue({ get: () => undefined });
   mockPrisma.aPIKey.findFirst.mockImplementation(async ({ where }: any) =>
     where.keyHash === createHash('sha256').update(KEY).digest('hex')
-      ? { userId: 'u-key', orgId: 'org-1', expiresAt: null }
+      ? { userId: 'u-key', orgId, expiresAt: null }
       : null,
   );
   return { 'x-governs-key': KEY };
 }
 
-/** Caller is signed in to the dashboard with `role` in their org (null: not a member). */
-function asSession(role: 'OWNER' | 'ADMIN' | 'MEMBER' | null) {
+function asSession(role: 'OWNER' | 'ADMIN' | 'MEMBER', orgId = 'org-A') {
   (cookies as jest.Mock).mockResolvedValue({ get: () => ({ value: 'session-cookie' }) });
-  (verifySessionToken as jest.Mock).mockReturnValue({ sub: 'u-1', orgId: 'org-1', roles: [] });
+  (verifySessionToken as jest.Mock).mockReturnValue({ sub: 'u-1', orgId, roles: [] });
   mockPrisma.orgMembership.findFirst.mockImplementation(async ({ where }: any) =>
-    role && where.role.in.includes(role) ? { id: 'm1' } : null,
+    where.role.in.includes(role) ? { id: 'm1' } : null,
   );
   return {};
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockPrisma.toolConfig.findMany.mockResolvedValue([TOOL]);
-  mockPrisma.toolConfig.findUnique.mockResolvedValue(TOOL);
+  mockPrisma.toolConfig.findMany.mockImplementation(async ({ where }: any) =>
+    where.orgId === null ? [GLOBAL] : visible(where), // seeding query vs catalog read
+  );
+  mockPrisma.toolConfig.findFirst.mockImplementation(async ({ where }: any) => visible(where)[0] ?? null);
+  mockPrisma.toolConfig.findUnique.mockImplementation(async ({ where }: any) => ROWS.find((r) => r.id === where.id) ?? null);
   mockPrisma.toolConfig.createMany.mockResolvedValue({ count: 0 });
-  mockPrisma.toolConfig.upsert.mockResolvedValue({ ...NEW_TOOL, id: 't2' });
-  mockPrisma.toolConfig.update.mockResolvedValue({ ...TOOL, riskLevel: 'high' });
-  mockPrisma.toolConfig.delete.mockResolvedValue(TOOL);
+  mockPrisma.toolConfig.upsert.mockImplementation(async ({ create }: any) => ({ id: 'new', ...create }));
+  mockPrisma.toolConfig.update.mockResolvedValue({ ...OWN, riskLevel: 'high' });
+  mockPrisma.toolConfig.delete.mockResolvedValue(OWN);
+});
+
+describe('reads', () => {
+  it('list global + own org entries, own override winning, never another org', async () => {
+    const res = await GET(req('GET', undefined, asApiKey()));
+    expect(res.status).toBe(200);
+    const { tools } = await res.json();
+    const byName = Object.fromEntries(tools.map((t: any) => [t.toolName, t]));
+    expect(Object.keys(byName).sort()).toEqual(['crm_lookup', 'payment_process']);
+    expect(byName.payment_process).toMatchObject({ id: 'a2', riskLevel: 'high', editable: true });
+    expect(byName.crm_lookup.editable).toBe(true);
+  });
+
+  it('another org sees the global entry, not org A\'s override', async () => {
+    const { tools } = await (await GET(req('GET', undefined, asApiKey('org-B')))).json();
+    const pay = tools.find((t: any) => t.toolName === 'payment_process');
+    expect(pay).toMatchObject({ id: 'g1', riskLevel: 'critical', editable: false });
+    expect(tools.find((t: any) => t.toolName === 'crm_lookup')).toBeUndefined();
+  });
+
+  it('a single entry from another org is a 404', async () => {
+    const headers = asApiKey();
+    expect((await GET_ONE(req('GET', undefined, headers), params('g1'))).status).toBe(200);
+    expect((await GET_ONE(req('GET', undefined, headers), params('b1'))).status).toBe(404);
+  });
 });
 
 describe('API key holders: read-only', () => {
-  it('can list and read tools', async () => {
+  it('cannot create, edit or delete', async () => {
     const headers = asApiKey();
-    expect((await GET(req('GET', undefined, headers))).status).toBe(200);
-    expect((await GET_ONE(req('GET', undefined, headers), params)).status).toBe(200);
-  });
-
-  it('cannot create a tool', async () => {
-    const res = await POST(req('POST', NEW_TOOL, asApiKey()));
-    expect(res.status).toBe(403);
-    expect((await res.json()).error).toMatch(/read-only for API keys/);
+    expect((await POST(req('POST', NEW_TOOL, headers))).status).toBe(403);
+    expect((await PUT(req('PUT', { riskLevel: 'low' }, headers), params('a1'))).status).toBe(403);
+    expect((await DELETE(req('DELETE', undefined, headers), params('a1'))).status).toBe(403);
     expect(mockPrisma.toolConfig.upsert).not.toHaveBeenCalled();
-  });
-
-  it('cannot edit or delete a tool', async () => {
-    const headers = asApiKey();
-    expect((await PUT(req('PUT', { riskLevel: 'low' }, headers), params)).status).toBe(403);
-    expect((await DELETE(req('DELETE', undefined, headers), params)).status).toBe(403);
     expect(mockPrisma.toolConfig.update).not.toHaveBeenCalled();
     expect(mockPrisma.toolConfig.delete).not.toHaveBeenCalled();
   });
 });
 
-describe('dashboard users', () => {
-  it('members can read but not write', async () => {
+describe('org admins', () => {
+  it('members cannot write at all', async () => {
     const headers = asSession('MEMBER');
-    expect((await GET(req('GET', undefined, headers))).status).toBe(200);
     expect((await POST(req('POST', NEW_TOOL, headers))).status).toBe(403);
-    expect((await PUT(req('PUT', { riskLevel: 'low' }, headers), params)).status).toBe(403);
-    expect(mockPrisma.toolConfig.upsert).not.toHaveBeenCalled();
+    expect((await PUT(req('PUT', { riskLevel: 'low' }, headers), params('a1'))).status).toBe(403);
+  });
+
+  it.each(['OWNER', 'ADMIN'] as const)('%s creates entries in their own org', async (role) => {
+    const res = await POST(req('POST', NEW_TOOL, asSession(role)));
+    expect(res.status).toBe(201);
+    const call = mockPrisma.toolConfig.upsert.mock.calls[0][0];
+    expect(call.where).toEqual({ orgId_toolName: { orgId: 'org-A', toolName: 'ticket_create' } });
+    expect(call.create.orgId).toBe('org-A');
+  });
+
+  it("an entry named like a global one becomes this org's override", async () => {
+    await POST(req('POST', { ...NEW_TOOL, toolName: 'payment_process' }, asSession('ADMIN')));
+    const call = mockPrisma.toolConfig.upsert.mock.calls[0][0];
+    expect(call.where.orgId_toolName).toEqual({ orgId: 'org-A', toolName: 'payment_process' });
+  });
+
+  it('edit and delete their own entries', async () => {
+    const headers = asSession('ADMIN');
+    expect((await PUT(req('PUT', { riskLevel: 'high' }, headers), params('a1'))).status).toBe(200);
+    expect((await DELETE(req('DELETE', undefined, headers), params('a1'))).status).toBe(200);
+  });
+
+  it('cannot edit or delete a global entry', async () => {
+    const headers = asSession('OWNER');
+    const res = await PUT(req('PUT', { riskLevel: 'low' }, headers), params('g1'));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/read-only/);
+    expect((await DELETE(req('DELETE', undefined, headers), params('g1'))).status).toBe(403);
     expect(mockPrisma.toolConfig.update).not.toHaveBeenCalled();
+    expect(mockPrisma.toolConfig.delete).not.toHaveBeenCalled();
   });
 
-  it.each(['OWNER', 'ADMIN'] as const)('%s can create, edit and delete', async (role) => {
-    const headers = asSession(role);
-    expect((await POST(req('POST', NEW_TOOL, headers))).status).toBe(201);
-    expect((await PUT(req('PUT', { riskLevel: 'high' }, headers), params)).status).toBe(200);
-    expect((await DELETE(req('DELETE', undefined, headers), params)).status).toBe(200);
-    expect(mockPrisma.toolConfig.upsert).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.toolConfig.update).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.toolConfig.delete).toHaveBeenCalledTimes(1);
-  });
-
-  it('the role is checked in the database for the active org', async () => {
-    asSession('ADMIN');
-    await POST(req('POST', NEW_TOOL));
-    expect(mockPrisma.orgMembership.findFirst.mock.calls[0][0].where).toEqual({
-      userId: 'u-1',
-      orgId: 'org-1',
-      role: { in: ['OWNER', 'ADMIN'] },
-    });
+  it("cannot see, edit or delete another org's entry", async () => {
+    const headers = asSession('OWNER');
+    expect((await PUT(req('PUT', { riskLevel: 'low' }, headers), params('b1'))).status).toBe(404);
+    expect((await DELETE(req('DELETE', undefined, headers), params('b1'))).status).toBe(404);
+    expect(mockPrisma.toolConfig.update).not.toHaveBeenCalled();
+    expect(mockPrisma.toolConfig.delete).not.toHaveBeenCalled();
   });
 });
 
-it('anonymous callers get 401 for reads and writes', async () => {
+it('anonymous callers get 401', async () => {
   (cookies as jest.Mock).mockResolvedValue({ get: () => undefined });
   expect((await GET(req('GET'))).status).toBe(401);
   expect((await POST(req('POST', NEW_TOOL))).status).toBe(401);

@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireCatalogAdmin, requireCatalogReader } from '@/lib/tool-catalog-auth';
+import { visibleTo } from '@/lib/tool-catalog';
+
+/**
+ * Admins edit only their own org's entries. A global entry (built-in or
+ * pre-dating per-org catalogs) is read-only: POST /api/v1/tools with its
+ * toolName creates an org override instead. Another org's entry is a 404.
+ */
+async function ownEntryOr403(orgId: string, id: string): Promise<NextResponse | null> {
+  const tool = await prisma.toolConfig.findUnique({ where: { id }, select: { orgId: true } });
+  if (!tool || (tool.orgId !== null && tool.orgId !== orgId)) {
+    return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
+  }
+  if (tool.orgId === null) {
+    return NextResponse.json(
+      {
+        error:
+          'Shared catalog entries are read-only. Create an entry with the same toolName for your org to override it.',
+      },
+      { status: 403 },
+    );
+  }
+  return null;
+}
 
 // GET /api/v1/tools/[id] - Get specific tool configuration
 export async function GET(
@@ -12,8 +35,9 @@ export async function GET(
     const caller = await requireCatalogReader(request);
     if (caller instanceof NextResponse) return caller;
 
-    const tool = await prisma.toolConfig.findUnique({
-      where: { id: (await params).id },
+    // Global entries and the caller org's own; another org's entry is a 404.
+    const tool = await prisma.toolConfig.findFirst({
+      where: { AND: [visibleTo(caller.orgId), { id: (await params).id }] },
     });
 
     if (!tool) {
@@ -39,6 +63,8 @@ export async function PUT(
     // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
     const caller = await requireCatalogAdmin(request);
     if (caller instanceof NextResponse) return caller;
+    const denied = await ownEntryOr403(caller.orgId, (await params).id);
+    if (denied) return denied;
 
     const body = await request.json();
     const {
@@ -90,6 +116,8 @@ export async function DELETE(
     // Write: org OWNER/ADMIN in the dashboard only; API keys are read-only.
     const caller = await requireCatalogAdmin(request);
     if (caller instanceof NextResponse) return caller;
+    const denied = await ownEntryOr403(caller.orgId, (await params).id);
+    if (denied) return denied;
 
     await prisma.toolConfig.delete({
       where: { id: (await params).id },

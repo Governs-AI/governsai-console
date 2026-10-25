@@ -45,7 +45,7 @@ let ensured = false;
 export async function ensureToolCatalog(): Promise<void> {
   if (ensured) return;
   const existing = await prisma.toolConfig.findMany({
-    where: { toolName: { in: BUILT_IN_TOOLS.map((t) => t.toolName) } },
+    where: { orgId: null, toolName: { in: BUILT_IN_TOOLS.map((t) => t.toolName) } },
     select: { toolName: true },
   });
   const have = new Set(existing.map((t: { toolName: string }) => t.toolName));
@@ -67,6 +67,38 @@ export async function ensureToolCatalog(): Promise<void> {
     });
   }
   ensured = true;
+}
+
+/**
+ * Catalog rows an org can see: global entries (orgId null — built-ins and
+ * entries that predate per-org catalogs) plus the org's own.
+ */
+export function visibleTo(orgId: string) {
+  return { OR: [{ orgId: null }, { orgId }] };
+}
+
+/**
+ * One row per tool name, the org's own entry winning over a global one.
+ * Each row gets `editable`: true only for the org's own entries.
+ */
+export function mergeCatalog<T extends { toolName: string; orgId: string | null }>(
+  rows: T[],
+  orgId: string,
+): Array<T & { editable: boolean }> {
+  const byName = new Map<string, T>();
+  for (const row of rows) {
+    const seen = byName.get(row.toolName);
+    if (!seen || (seen.orgId === null && row.orgId === orgId)) byName.set(row.toolName, row);
+  }
+  return Array.from(byName.values()).map((row) => ({ ...row, editable: row.orgId === orgId }));
+}
+
+/** The tool `orgId` would get for `nameOrId`: its own entry, else the global one. */
+export async function findCatalogTool(orgId: string, nameOrId: string) {
+  const rows = await prisma.toolConfig.findMany({
+    where: { AND: [visibleTo(orgId), { OR: [{ toolName: nameOrId }, { id: nameOrId }] }] },
+  });
+  return mergeCatalog(rows, orgId)[0] ?? null;
 }
 
 /** The tool_config shape precheck and the SDKs use. */
