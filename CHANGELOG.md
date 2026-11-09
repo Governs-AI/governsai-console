@@ -17,6 +17,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   and editing or deactivating one saves an org override.
 
 ### Fixed
+- Approval requests (`PendingConfirmation`) follow one written-down lifecycle,
+  `apps/platform/lib/confirmation-lifecycle.ts`: pending → approved | denied |
+  cancelled | expired, then approved → consumed. Every status write goes
+  through `transitionConfirmation`, which is conditional on the from-state.
+  The wire status strings and HTTP codes are unchanged. This fixes:
+  - `POST /confirmation/verify` and `/confirmation/auth-challenge` rewrote any
+    row past `expiresAt` to `expired`, including approved and consumed ones.
+    Only pending rows expire now. A decided row answers 409, not 410.
+  - Passkey approval, cancel and expiry were unconditional writes, so a deny
+    or cancel landing during the passkey prompt could be overwritten (and vice
+    versa). The loser now gets 409 `Confirmation was decided concurrently`.
+  - Cancelling a pending request that had already expired recorded it as
+    `cancelled`; it now reports `expired`.
+  - Passkey-registration challenges (stored in the same table) showed up in
+    the approvals inbox as pending requests with Approve/Deny buttons. They
+    are excluded from the inbox and cannot be approved or denied.
+  - The confirm page showed a red "already been approved" next to the green
+    success message after approving, and a 401 as "Confirmation Not Found".
+    It now shows one status with plain-language copy, and a sign-in prompt.
+  - The approvals inbox labels every status (`consumed` reads "Approved ·
+    used") and hides Approve/Deny once a request expires between refreshes.
 - `prisma migrate deploy` now builds the full schema. Migration
   `20261025130000_catch_up_schema_drift` adds `User.external_id`/`external_source`,
   `documents.external_source`/`external_user_id`, `webhook_idempotency_keys` and

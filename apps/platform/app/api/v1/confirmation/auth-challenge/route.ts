@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
 import { prisma } from '@governs-ai/db';
+import { expireIfStale } from '@/lib/confirmations';
 
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 
@@ -16,8 +17,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the pending confirmation
-    const confirmation = await prisma.pendingConfirmation.findUnique({
+    const found = await prisma.pendingConfirmation.findUnique({
       where: { correlationId },
       include: {
         user: true,
@@ -25,26 +25,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!confirmation) {
+    if (!found) {
       return NextResponse.json(
         { error: 'Confirmation not found' },
         { status: 404 }
       );
     }
 
-    // Check if expired
-    if (new Date() > confirmation.expiresAt) {
-      await prisma.pendingConfirmation.update({
-        where: { id: confirmation.id },
-        data: { status: 'expired' },
-      });
+    // Only a pending row can expire; an approved/denied/consumed outcome stays put.
+    const confirmation = await expireIfStale(found);
+    if (confirmation.status === 'expired') {
       return NextResponse.json(
         { error: 'Confirmation has expired' },
         { status: 410 }
       );
     }
 
-    // Check if already processed
     if (confirmation.status !== 'pending') {
       return NextResponse.json(
         { error: `Confirmation already ${confirmation.status}` },

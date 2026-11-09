@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { resolveConfirmationActor, serializeConfirmation } from '@/lib/confirmations';
+import {
+  resolveConfirmationActor,
+  serializeConfirmation,
+  transitionConfirmation,
+} from '@/lib/confirmations';
 
 /**
  * POST /api/v1/confirmation/:correlationId/consume
@@ -24,11 +28,7 @@ export async function POST(
     return NextResponse.json({ error: 'Confirmation not found' }, { status: 404 });
   }
 
-  const updated = await prisma.pendingConfirmation.updateMany({
-    where: { id: found.id, status: 'approved' },
-    data: { status: 'consumed', consumedAt: new Date() },
-  });
-  if (updated.count === 0) {
+  if (!(await transitionConfirmation(found.id, 'consume', { consumedAt: new Date() }))) {
     // Re-read: a concurrent consume may have won since the first read.
     const current = await prisma.pendingConfirmation.findUnique({
       where: { id: found.id },

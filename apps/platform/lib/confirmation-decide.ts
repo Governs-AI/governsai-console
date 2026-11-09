@@ -1,11 +1,13 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import { PASSKEY_REGISTRATION_REQUEST_TYPE } from './confirmation-lifecycle';
 import {
   canDecide,
   expireIfStale,
   resolveConfirmationActor,
   serializeConfirmation,
+  transitionConfirmation,
 } from './confirmations';
 
 /**
@@ -29,7 +31,7 @@ export async function decideConfirmation(
   }
 
   const found = await prisma.pendingConfirmation.findUnique({ where: { correlationId } });
-  if (!found) {
+  if (!found || found.requestType === PASSKEY_REGISTRATION_REQUEST_TYPE) {
     return NextResponse.json({ error: 'Confirmation not found' }, { status: 404 });
   }
   if (!(await canDecide(actor, found))) {
@@ -50,15 +52,12 @@ export async function decideConfirmation(
   const body = await request.json().catch(() => ({}));
   const note = typeof body?.note === 'string' ? body.note.slice(0, 500) : undefined;
 
-  // Conditional update so two reviewers clicking at once can't both win.
-  const updated = await prisma.pendingConfirmation.updateMany({
-    where: { id: confirmation.id, status: 'pending' },
-    data: {
-      status: outcome,
-      ...(outcome === 'approved' ? { approvedAt: new Date() } : {}),
-    },
-  });
-  if (updated.count === 0) {
+  // Conditional transition so two reviewers clicking at once can't both win.
+  const won =
+    outcome === 'approved'
+      ? await transitionConfirmation(confirmation.id, 'approve', { approvedAt: new Date() })
+      : await transitionConfirmation(confirmation.id, 'deny');
+  if (!won) {
     return NextResponse.json({ error: 'Confirmation was decided concurrently' }, { status: 409 });
   }
 

@@ -1,6 +1,11 @@
 import 'server-only';
 import { NextRequest } from 'next/server';
 import { prisma } from '@governs-ai/db';
+import {
+  CONFIRMATION_TRANSITIONS,
+  effectiveStatus,
+  type ConfirmationEvent,
+} from '@/lib/confirmation-lifecycle';
 import { getSessionFromRequest } from '@/lib/auth-utils';
 import { hashApiKey } from '@/lib/api-keys';
 
@@ -70,18 +75,55 @@ export function canCancel(
   return canDecide(actor, confirmation);
 }
 
-/** Pending rows past their expiry read (and are stored) as expired. */
+/**
+ * Apply one lifecycle event (see `lib/confirmation-lifecycle.ts`).
+ *
+ * The write is conditional on the row still being in the event's `from`
+ * state, so two callers racing (approve vs deny, cancel vs approve, a double
+ * consume) cannot both win and no terminal outcome is ever overwritten.
+ * Returns false when the row was no longer in that state.
+ */
+/** Fields a transition may stamp alongside the new status. */
+type TransitionData = {
+  approvedAt?: Date;
+  consumedAt?: Date;
+  passkeyId?: string;
+  confirmationToken?: string;
+};
+
+export async function transitionConfirmation(
+  id: string,
+  event: ConfirmationEvent,
+  data: TransitionData = {},
+): Promise<boolean> {
+  const { from, to } = CONFIRMATION_TRANSITIONS[event];
+  const updated = await prisma.pendingConfirmation.updateMany({
+    where: { id, status: from },
+    data: { ...data, status: to },
+  });
+  return updated.count > 0;
+}
+
+/**
+ * Pending rows past their expiry read (and are stored) as expired. Rows in any
+ * other state are returned untouched: an approval or denial outlives the
+ * request's expiry.
+ */
 export async function expireIfStale<T extends { id: string; status: string; expiresAt: Date }>(
   confirmation: T,
 ): Promise<T> {
-  if (confirmation.status === 'pending' && new Date() > confirmation.expiresAt) {
-    await prisma.pendingConfirmation.update({
-      where: { id: confirmation.id },
-      data: { status: 'expired' },
-    });
+  if (effectiveStatus(confirmation) !== 'expired' || confirmation.status === 'expired') {
+    return confirmation;
+  }
+  if (await transitionConfirmation(confirmation.id, 'expire')) {
     return { ...confirmation, status: 'expired' };
   }
-  return confirmation;
+  // Someone else moved it first; report what actually happened.
+  const current = await prisma.pendingConfirmation.findUnique({
+    where: { id: confirmation.id },
+    select: { status: true },
+  });
+  return { ...confirmation, status: current?.status ?? 'expired' };
 }
 
 export function serializeConfirmation(c: {
