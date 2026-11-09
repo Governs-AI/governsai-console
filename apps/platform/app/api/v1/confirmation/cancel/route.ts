@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
-import { canCancel, resolveConfirmationActor } from '@/lib/confirmations';
+import {
+  canCancel,
+  expireIfStale,
+  resolveConfirmationActor,
+  transitionConfirmation,
+} from '@/lib/confirmations';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,23 +24,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the pending confirmation
-    const confirmation = await prisma.pendingConfirmation.findUnique({
+    const found = await prisma.pendingConfirmation.findUnique({
       where: { correlationId },
     });
 
-    if (!confirmation) {
+    if (!found) {
       return NextResponse.json(
         { error: 'Confirmation not found' },
         { status: 404 }
       );
     }
 
-    if (!(await canCancel(actor, confirmation))) {
+    if (!(await canCancel(actor, found))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check if already processed
+    const confirmation = await expireIfStale(found);
     if (confirmation.status !== 'pending') {
       return NextResponse.json(
         { error: `Confirmation already ${confirmation.status}` },
@@ -43,13 +47,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark as cancelled
-    await prisma.pendingConfirmation.update({
-      where: { id: confirmation.id },
-      data: {
-        status: 'cancelled',
-      },
-    });
+    // Conditional: a reviewer approving at the same moment must not be overwritten.
+    if (!(await transitionConfirmation(confirmation.id, 'cancel'))) {
+      return NextResponse.json(
+        { error: 'Confirmation was decided concurrently' },
+        { status: 409 }
+      );
+    }
 
     // Create audit log
     await prisma.auditLog.create({

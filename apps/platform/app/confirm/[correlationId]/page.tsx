@@ -6,6 +6,18 @@ import { Button } from '@governs-ai/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@governs-ai/ui';
 import { startAuthentication } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
+import {
+  confirmationStatusCopy,
+  effectiveStatus,
+  isAwaitingDecision,
+} from '@/lib/confirmation-lifecycle';
+
+const STATUS_PILL = {
+  warning: 'bg-yellow-100 text-yellow-800',
+  success: 'bg-green-100 text-green-800',
+  destructive: 'bg-red-100 text-red-800',
+  secondary: 'bg-gray-200 text-gray-800',
+} as const;
 
 interface ConfirmationDetails {
   id: string;
@@ -33,56 +45,63 @@ interface ConfirmationDetails {
   };
 }
 
+/** Loading the request: exactly one of these at a time. */
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'failed'; httpStatus: number | null; message: string }
+  | { kind: 'ready'; confirmation: ConfirmationDetails };
+
+/** What the reviewer's click is doing right now. */
+type ActionState = 'idle' | 'approving' | 'denying';
+
+/** Result of the last click. The request's own state is shown separately. */
+type Notice = { tone: 'success' | 'error'; message: string } | null;
+
 export default function ConfirmationPage() {
-  const [confirmation, setConfirmation] = useState<ConfirmationDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [load, setLoad] = useState<LoadState>({ kind: 'loading' });
+  const [action, setAction] = useState<ActionState>('idle');
+  const [notice, setNotice] = useState<Notice>(null);
 
   const params = useParams();
   const correlationId = params.correlationId as string;
+  const isReady = load.kind === 'ready';
 
   useEffect(() => {
     fetchConfirmation();
   }, [correlationId]);
 
+  // Refreshes after an action keep the page on screen; only the first load blanks it.
   const fetchConfirmation = async () => {
     try {
-      setLoading(true);
       const response = await fetch(`/api/v1/confirmation/${correlationId}`);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch confirmation');
+        const errorData = await response.json().catch(() => ({}));
+        setLoad({
+          kind: 'failed',
+          httpStatus: response.status,
+          message: errorData.error || 'Failed to fetch confirmation',
+        });
+        return;
       }
 
       const data = await response.json();
-      setConfirmation(data.confirmation);
-
-      // Check if already processed
-      if (data.confirmation.status !== 'pending') {
-        setError(`This confirmation has already been ${data.confirmation.status}`);
-      }
-
-      // Check if expired
-      if (new Date(data.confirmation.expiresAt) < new Date()) {
-        setError('This confirmation has expired');
-      }
+      setLoad({ kind: 'ready', confirmation: data.confirmation });
     } catch (err) {
       console.error('Error fetching confirmation:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load confirmation');
-    } finally {
-      setLoading(false);
+      setLoad({
+        kind: 'failed',
+        httpStatus: null,
+        message: err instanceof Error ? err.message : 'Failed to load confirmation',
+      });
     }
   };
 
   const handleApprove = async () => {
-    if (!confirmation) return;
+    if (!isReady) return;
 
-    setError('');
-    setSuccess('');
-    setIsProcessing(true);
+    setNotice(null);
+    setAction('approving');
 
     try {
       // Step 1: Get authentication challenge
@@ -108,7 +127,7 @@ export default function ConfirmationPage() {
           const errorData = await sessionResponse.json().catch(() => ({}));
           throw new Error(errorData.error || 'Failed to approve confirmation');
         }
-        setSuccess('Approved. The requesting agent will continue automatically.');
+        setNotice({ tone: 'success', message: 'Approved. The requesting agent will continue automatically.' });
         await fetchConfirmation();
         return;
       }
@@ -141,33 +160,32 @@ export default function ConfirmationPage() {
       }
 
       await verifyResponse.json();
-      setSuccess('Confirmation approved successfully! You can close this window.');
+      setNotice({ tone: 'success', message: 'Approved. You can close this window.' });
 
-      // Refresh confirmation details
       await fetchConfirmation();
 
     } catch (err) {
       console.error('Error approving confirmation:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to approve confirmation. Please try again.');
-      }
+      setNotice({
+        tone: 'error',
+        message: err instanceof Error ? err.message : 'Failed to approve confirmation. Please try again.',
+      });
+      // The request may have moved on (denied, expired) while we were busy.
+      await fetchConfirmation();
     } finally {
-      setIsProcessing(false);
+      setAction('idle');
     }
   };
 
   const handleDeny = async () => {
-    if (!confirmation) return;
+    if (!isReady) return;
 
     if (!confirm('Are you sure you want to deny this request?')) {
       return;
     }
 
-    setError('');
-    setSuccess('');
-    setIsProcessing(true);
+    setNotice(null);
+    setAction('denying');
 
     try {
       const response = await fetch(`/api/v1/confirmation/${correlationId}/deny`, {
@@ -183,20 +201,19 @@ export default function ConfirmationPage() {
         throw new Error(errorData.error || 'Failed to deny confirmation');
       }
 
-      setSuccess('Confirmation denied successfully! You can close this window.');
+      setNotice({ tone: 'success', message: 'Denied. You can close this window.' });
 
-      // Refresh confirmation details
       await fetchConfirmation();
 
     } catch (err) {
       console.error('Error denying confirmation:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to deny confirmation');
-      }
+      setNotice({
+        tone: 'error',
+        message: err instanceof Error ? err.message : 'Failed to deny confirmation',
+      });
+      await fetchConfirmation();
     } finally {
-      setIsProcessing(false);
+      setAction('idle');
     }
   };
 
@@ -225,7 +242,7 @@ export default function ConfirmationPage() {
     return `${minutes}m ${seconds}s`;
   };
 
-  if (loading) {
+  if (load.kind === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -235,24 +252,49 @@ export default function ConfirmationPage() {
     );
   }
 
-  if (!confirmation) {
+  if (load.kind === 'failed') {
+    const signedOut = load.httpStatus === 401;
+    const title =
+      signedOut ? 'Sign in to review this request'
+      : load.httpStatus === 403 ? 'You cannot view this request'
+      : load.httpStatus === 404 ? 'Confirmation Not Found'
+      : 'Could not load this request';
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md w-full">
           <CardHeader>
-            <CardTitle className="text-red-600">Confirmation Not Found</CardTitle>
+            <CardTitle className="text-red-600">{title}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <p className="text-gray-600">
-              The confirmation you're looking for could not be found.
+              {load.httpStatus === 404
+                ? "The confirmation you're looking for could not be found."
+                : load.message}
             </p>
+            {signedOut && (
+              <p className="text-sm text-gray-600">
+                <a
+                  href="/auth/login"
+                  target="_blank"
+                  rel="noopener"
+                  className="font-medium text-blue-700 hover:text-blue-900"
+                >
+                  Sign in
+                </a>
+                , then reload this page.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const canProcess = confirmation.status === 'pending' && new Date(confirmation.expiresAt) > new Date();
+  const confirmation = load.confirmation;
+  const status = effectiveStatus(confirmation);
+  const statusCopy = confirmationStatusCopy(status);
+  const canProcess = isAwaitingDecision(confirmation);
+  const isProcessing = action !== 'idle';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -282,31 +324,29 @@ export default function ConfirmationPage() {
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {error && (
-              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200">
-                {success}
+            {notice && (
+              <div
+                role={notice.tone === 'error' ? 'alert' : 'status'}
+                className={
+                  notice.tone === 'error'
+                    ? 'text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-200'
+                    : 'text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200'
+                }
+              >
+                {notice.message}
               </div>
             )}
 
             {/* Status Banner */}
-            {confirmation.status !== 'pending' && (
-              <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
+            {!canProcess && (
+              <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 space-y-1">
                 <div className="flex items-center space-x-2">
                   <span className="font-medium text-gray-900">Status:</span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    confirmation.status === 'approved' ? 'bg-green-100 text-green-800' :
-                    confirmation.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {confirmation.status.toUpperCase()}
+                  <span className={`px-2 py-1 text-xs rounded-full ${STATUS_PILL[statusCopy.tone]}`}>
+                    {statusCopy.label.toUpperCase()}
                   </span>
                 </div>
+                <p className="text-sm text-gray-700">{statusCopy.summary}</p>
               </div>
             )}
 
@@ -375,7 +415,7 @@ export default function ConfirmationPage() {
                   disabled={isProcessing}
                   className="flex-1"
                 >
-                  {isProcessing ? 'Processing...' : 'Approve with Passkey'}
+                  {action === 'approving' ? 'Approving…' : 'Approve with Passkey'}
                 </Button>
                 <Button
                   variant="destructive"
@@ -383,7 +423,7 @@ export default function ConfirmationPage() {
                   disabled={isProcessing}
                   className="flex-1"
                 >
-                  Deny
+                  {action === 'denying' ? 'Denying…' : 'Deny'}
                 </Button>
               </div>
             ) : (
