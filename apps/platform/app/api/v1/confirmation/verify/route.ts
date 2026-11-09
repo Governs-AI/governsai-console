@@ -19,6 +19,7 @@ import type {
 
 import { prisma } from '@governs-ai/db';
 import jwt from 'jsonwebtoken';
+import { expireIfStale, transitionConfirmation } from '@/lib/confirmations';
 
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
 const ORIGIN = process.env.NEXT_PUBLIC_PLATFORM_URL || 'http://localhost:3002';
@@ -43,8 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the pending confirmation
-    const confirmation = await prisma.pendingConfirmation.findUnique({
+    const found = await prisma.pendingConfirmation.findUnique({
       where: { correlationId },
       include: {
         user: true,
@@ -52,26 +52,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!confirmation) {
+    if (!found) {
       return NextResponse.json(
         { error: 'Confirmation not found' },
         { status: 404 }
       );
     }
 
-    // Check if expired
-    if (new Date() > confirmation.expiresAt) {
-      await prisma.pendingConfirmation.update({
-        where: { id: confirmation.id },
-        data: { status: 'expired' },
-      });
+    // Only a pending row can expire; an approved/denied/consumed outcome stays put.
+    const confirmation = await expireIfStale(found);
+    if (confirmation.status === 'expired') {
       return NextResponse.json(
         { error: 'Confirmation has expired' },
         { status: 410 }
       );
     }
 
-    // Check if already processed
     if (confirmation.status !== 'pending') {
       return NextResponse.json(
         { error: `Confirmation already ${confirmation.status}` },
@@ -170,16 +166,18 @@ export async function POST(request: NextRequest) {
       { expiresIn: '10m' }
     );
 
-    // Mark confirmation as approved
-    await prisma.pendingConfirmation.update({
-      where: { id: confirmation.id },
-      data: {
-        status: 'approved',
-        approvedAt: new Date(),
-        passkeyId: passkey.id,
-        confirmationToken,
-      },
+    // Conditional: a deny or cancel that landed during the passkey ceremony wins.
+    const approved = await transitionConfirmation(confirmation.id, 'approve', {
+      approvedAt: new Date(),
+      passkeyId: passkey.id,
+      confirmationToken,
     });
+    if (!approved) {
+      return NextResponse.json(
+        { error: 'Confirmation was decided concurrently' },
+        { status: 409 }
+      );
+    }
 
     // Create audit log
     await prisma.auditLog.create({

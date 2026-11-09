@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@governs-ai/db';
 import { requireAuth } from '@/lib/session';
 import { serializeConfirmation } from '@/lib/confirmations';
-
-const STATUSES = ['pending', 'approved', 'denied', 'expired', 'cancelled', 'consumed'];
+import {
+  CONFIRMATION_TRANSITIONS,
+  PASSKEY_REGISTRATION_REQUEST_TYPE,
+  isConfirmationStatus,
+} from '@/lib/confirmation-lifecycle';
 
 /**
  * GET /api/v1/confirmations?status=pending&limit=50
@@ -20,15 +23,19 @@ export async function GET(request: NextRequest) {
     const isApprover = roles.some((r) => r === 'OWNER' || r === 'ADMIN');
 
     // Pending rows past their expiry are reported as expired.
+    const { from, to } = CONFIRMATION_TRANSITIONS.expire;
     await prisma.pendingConfirmation.updateMany({
-      where: { orgId, status: 'pending', expiresAt: { lt: new Date() } },
-      data: { status: 'expired' },
+      where: { orgId, status: from, expiresAt: { lt: new Date() } },
+      data: { status: to },
     });
 
+    // Passkey-registration challenges share the table but are not approval requests.
+    const approvalRequests = { requestType: { not: PASSKEY_REGISTRATION_REQUEST_TYPE } };
     const where = {
       orgId,
+      ...approvalRequests,
       ...(isApprover ? {} : { userId }),
-      ...(status && STATUSES.includes(status) ? { status } : {}),
+      ...(isConfirmationStatus(status) ? { status } : {}),
     };
 
     const [rows, pendingCount] = await Promise.all([
@@ -42,7 +49,12 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.pendingConfirmation.count({
-        where: { orgId, status: 'pending', ...(isApprover ? {} : { userId }) },
+        where: {
+          orgId,
+          ...approvalRequests,
+          status: 'pending',
+          ...(isApprover ? {} : { userId }),
+        },
       }),
     ]);
 

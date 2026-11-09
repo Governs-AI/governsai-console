@@ -15,6 +15,11 @@ import {
 import { CheckCircle, Clock, RefreshCw, ShieldQuestion, XCircle } from 'lucide-react';
 import PlatformShell from '@/components/platform-shell';
 import { useOrgReady } from '@/lib/use-org-ready';
+import {
+  confirmationStatusCopy,
+  effectiveStatus,
+  isAwaitingDecision,
+} from '@/lib/confirmation-lifecycle';
 
 interface Confirmation {
   correlationId: string;
@@ -35,11 +40,14 @@ const TABS = [
   { key: '', label: 'All' },
 ] as const;
 
-const STATUS_VARIANT: Record<string, 'warning' | 'success' | 'destructive' | 'secondary'> = {
-  pending: 'warning',
-  approved: 'success',
-  denied: 'destructive',
-};
+function StatusBadge({ confirmation }: { confirmation: Confirmation }) {
+  const copy = confirmationStatusCopy(effectiveStatus(confirmation));
+  return (
+    <Badge variant={copy.tone} title={copy.summary}>
+      {copy.label}
+    </Badge>
+  );
+}
 
 function timeLeft(expiresAt: string) {
   const ms = new Date(expiresAt).getTime() - Date.now();
@@ -169,7 +177,7 @@ export default function ApprovalsPage() {
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{c.requestDesc}</span>
-                        <Badge variant={STATUS_VARIANT[c.status] || 'secondary'}>{c.status}</Badge>
+                        <StatusBadge confirmation={c} />
                         <Badge variant="outline">{c.requestType}</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -193,7 +201,7 @@ export default function ApprovalsPage() {
                         </pre>
                       </details>
                     </div>
-                    {c.status === 'pending' && c.canDecide && (
+                    {isAwaitingDecision(c) && c.canDecide && (
                       <div className="flex shrink-0 gap-2">
                         <Button
                           size="sm"
